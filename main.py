@@ -300,7 +300,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == '/help':
                     reply(instructions)
                 elif text in ['/start','START']:
-                    reply("HI " + name + "! Are you a driver or a passenger?", kb=[['Driver', 'Passenger'],['Abort']])
+                    reply("Hi " + name + "! Are you a driver or a passenger?", kb=[['Driver', 'Passenger'],['Abort']])
                     setState(p,0)
                 elif text == '/users':
                     reply(getUsers(), hideKb=False)
