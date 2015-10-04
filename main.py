@@ -1,13 +1,9 @@
-import StringIO
 import json
 import logging
-import random
 import urllib
 import urllib2
 import datetime
-import time
 # import requests
-import dateconvert
 
 import key
 
@@ -27,9 +23,6 @@ import webapp2
 # TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
-
-FEDE_CHAT_ID = 130870321
-Local = dateconvert.LocalTimezone()
 
 STATES = {
     -1: 'Initial',
@@ -281,7 +274,7 @@ class WebhookHandler(webapp2.RequestHandler):
         p = ndb.Key(Person, str(chat_id)).get()
         if p is None:
             # new user
-            tell(FEDE_CHAT_ID, msg = "New user: " + name)
+            tell(key.MASTER_CHAT_ID, msg = "New user: " + name)
             p = addPerson(chat_id, name)
             if text == '/help':
                 reply(instructions)
