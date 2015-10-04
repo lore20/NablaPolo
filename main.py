@@ -269,7 +269,7 @@ class WebhookHandler(webapp2.RequestHandler):
         def reply(msg=None, kb=None, hideKb=True):
             tell(chat_id, msg, kb, hideKb)
 
-        instructions = ('I\'m your Trento <-> Povo travelling assistant.\n' \
+        instructions = ('I\'m your Trento <---> Povo travelling assistant.\n' \
                         'You can write /start to get or offer a ride\n' \
                         'You can write /help to see this message again'.encode('utf-8'))
 
