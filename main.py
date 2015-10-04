@@ -40,6 +40,7 @@ STATES = {
 class Person(ndb.Model):
     name = ndb.StringProperty()
     last_mod = ndb.DateTimeProperty(auto_now=True)
+    last_seen = ndb.DateTimeProperty()
     chat_id = ndb.IntegerProperty()
     state = ndb.IntegerProperty()
     last_type = ndb.StringProperty()
@@ -102,6 +103,7 @@ def putPassengerOnHold(passenger):
     setState(passenger, 21)
 
 def check_available_drivers(passenger):
+    passenger.last_seen = datetime.datetime.now()
     qry = Person.query(Person.location == passenger.location, Person.state.IN([31,32]))
     for d in qry:
         if (d.state==31):
@@ -112,6 +114,7 @@ def check_available_drivers(passenger):
     return qry.get() is not None
 
 def check_available_passenger(driver):
+    driver.last_seen = datetime.datetime.now()
     qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
     for p in qry:
         if (p.state==21):
@@ -127,7 +130,7 @@ def listDrivers(passenger):
     else:
         text = ""
         for d in qry:
-            text = text + d.name + " " + get_time_string(d.last_mod) + "\n"
+            text = text + d.name + " " + get_time_string(d.last_seen) + "\n"
         return text
 
 def listAllDrivers():
@@ -137,7 +140,7 @@ def listAllDrivers():
     else:
         text = ""
         for d in qry:
-            text = text + d.name + " " + d.location + " (" + str(d.state) + ") " + get_time_string(d.last_mod) + "\n"
+            text = text + d.name + " " + d.location + " (" + str(d.state) + ") " + get_time_string(d.last_seen) + "\n"
         return text
 
 
@@ -148,7 +151,7 @@ def listPassengers(driver):
     else:
         text = ""
         for p in qry:
-            text = text + p.name + " " + get_time_string(p.last_mod) + "\n"
+            text = text + p.name + " " + get_time_string(p.last_seen) + "\n"
         return text
 
 def listAllPassengers():
@@ -158,7 +161,7 @@ def listAllPassengers():
     else:
         text = ""
         for p in qry:
-            text = text + p.name + " " + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_mod) + "\n"
+            text = text + p.name + " " + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + "\n"
         return text
 
 def removePassenger(p):
