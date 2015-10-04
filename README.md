@@ -94,6 +94,7 @@ To customize the bot, edit the `main.py` starting from the `CUSTOMIZE FROM HERE`
 
 New Procedure from PickMeUp version:
 ============
-add a new file key.py manually (in gitignore) with a single line containining the bot tokne as follows:
+add a new file key.py manually (in gitignore) with containining the bot tokens and the MASTER chat_id as follows:
 TOKEN = '1294...'
+MASTER_CHAT_ID = 13...
 
