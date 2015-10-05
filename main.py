@@ -89,6 +89,17 @@ def get_time_string(date):
     newdate = date + datetime.timedelta(hours=2)
     return str(newdate).split(" ")[1].split(".")[0]
 
+def restartAllUsers():
+    qry = Person.query(Person.state>-1)
+    for p in qry:
+        tell(p.chat_id, "Your ride has been aborted by the system manager")
+        restart(p)
+
+def broadcast(msg):
+    qry = Person.query()
+    for p in qry:
+        tell(p.chat_id, "Listen listen... " + msg, hideKb=False)
+
 
 def restart(person):
     tell(person.chat_id, "Press START if you want to restart.", kb=[['START']])
@@ -103,6 +114,7 @@ def putPassengerOnHold(passenger):
     setState(passenger, 21)
 
 def check_available_drivers(passenger):
+    # a passenger is at a certain location and we want to check if there is a driver bored or engaged
     passenger.last_seen = datetime.datetime.now()
     qry = Person.query(Person.location == passenger.location, Person.state.IN([31,32]))
     for d in qry:
@@ -114,6 +126,7 @@ def check_available_drivers(passenger):
     return qry.get() is not None
 
 def check_available_passenger(driver):
+    # a driver is availbale for a location and we want to check if there are passengers bored or engaged
     driver.last_seen = datetime.datetime.now()
     qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
     for p in qry:
@@ -269,7 +282,7 @@ class WebhookHandler(webapp2.RequestHandler):
         def reply(msg=None, kb=None, hideKb=True):
             tell(chat_id, msg, kb, hideKb)
 
-        instructions = ('I\'m your Trento <---> Povo travelling assistant.\n' \
+        instructions = ('I\'m your Trento <-> Povo travelling assistant.\n' \
                         'You can write /start to get or offer a ride\n' \
                         'You can write /help to see this message again'.encode('utf-8'))
 
@@ -304,8 +317,17 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listAllDrivers(), hideKb=False)
                 elif text == '/allpassengers':
                     reply(listAllPassengers(), hideKb=False)
+                elif chat_id==key.MASTER_CHAT_ID:
+                    if text == '/resetall':
+                        restartAllUsers()
+                    elif text.startswith('/broadcast ') and len(text)>11:
+                        msg = text[11:]
+                        broadcast(msg)
+                    else:
+                        reply('What command? I only understnad /help /start '
+                              '/users /alldrivers /alldrivers /resetall /broadcast.')
                 else:
-                    reply('What command? I only understnad /help or /start.\n')
+                    reply('What command? I only understnad /help or /start.')
             elif p.state == 0:
                 # AFTER TYPING START
                 if text == 'Passenger':
