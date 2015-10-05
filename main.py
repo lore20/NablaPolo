@@ -6,6 +6,7 @@ import datetime
 # import requests
 
 import key
+import emoij
 
 # for sending images
 #from PIL import Image
@@ -69,6 +70,11 @@ def setLocation(p, loc):
     p.location = loc
     p.put()
 
+def start(p):
+    tell(p.chat_id, "Hi " + p.name + "! Are you a driver or a passenger?",
+    kb=[[emoij.CAR + ' Driver', emoij.FOOTPRINTS + ' Passenger'],[emoij.NOENTRY + ' Abort']])
+    setState(p,0)
+
 def getUsers():
     query = Person.query().order(-Person.last_mod)
     if query.get() is None:
@@ -106,11 +112,11 @@ def restart(person):
     setState(person, -1)
 
 def putDriverOnHold(driver):
-    tell(driver.chat_id, "No passanger needs a ride for the moment. Waiting...", kb=[['Abort']])
+    tell(driver.chat_id, "No passanger needs a ride for the moment. Waiting...", kb=[[emoij.NOENTRY + ' Abort']])
     setState(driver, 31)
 
 def putPassengerOnHold(passenger):
-    tell(passenger.chat_id, "Waiting for a driver!", kb=[['Abort']])
+    tell(passenger.chat_id, "Waiting for a driver!", kb=[[emoij.NOENTRY + ' Abort']])
     setState(passenger, 21)
 
 def check_available_drivers(passenger):
@@ -122,7 +128,7 @@ def check_available_drivers(passenger):
             setState(d, 32)
             tell(d.chat_id,
                  "There is now somebody waiting for you there!", # + get_time_string(passenger.last_mod) + ")",
-                kb=[['List Passengers', 'Gave the Ride!'],['Abort']], hideKb=False)
+                kb=[['List Passengers', 'Gave the Ride!'],[emoij.NOENTRY + ' Abort']], hideKb=False)
     return qry.get() is not None
 
 def check_available_passenger(driver):
@@ -133,7 +139,7 @@ def check_available_passenger(driver):
         if (p.state==21):
             setState(p, 22)
         tell(p.chat_id, "A driver coming: " + driver.name + " (" + get_time_string(driver.last_mod) + ")",
-            kb=[['List Drivers', 'Got the Ride!'],['Abort']])
+            kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + ' Abort']])
     return qry.get() is not None
 
 def listDrivers(passenger):
@@ -294,9 +300,9 @@ class WebhookHandler(webapp2.RequestHandler):
             p = addPerson(chat_id, name)
             if text == '/help':
                 reply(instructions)
-            if text == '/start':
-                reply("Hi " + name + "! Are you a driver or a passenger?", kb=[['Driver', 'Passenger'],['Abort']])
-                setState(p,0)
+            elif text in ['/start','START']:
+                start(p)
+                # state = 0
             else:
                 reply("Hi " + name + ", welcome!")
                 reply(instructions)
@@ -309,8 +315,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == '/help':
                     reply(instructions)
                 elif text in ['/start','START']:
-                    reply("Hi " + name + "! Are you a driver or a passenger?", kb=[['Driver', 'Passenger'],['Abort']])
-                    setState(p,0)
+                    start(p)
+                    # state = 0
                 elif text == '/users':
                     reply(getUsers(), hideKb=False)
                 elif text == '/alldrivers':
@@ -330,15 +336,17 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply('What command? I only understnad /help or /start.')
             elif p.state == 0:
                 # AFTER TYPING START
-                if text == 'Passenger':
+                if text.endswith('Passenger'):
                     setState(p, 20)
                     setType(p, text)
-                    reply("Hi! I can try to help you to get a ride. Where are you?", kb=[['Povo', 'Trento'],['Abort']])
-                elif text == 'Driver':
+                    reply("Hi! I can try to help you to get a ride. Where are you?", 
+                          kb=[['Povo', 'Trento'],[emoij.NOENTRY + ' Abort']])
+                elif text.endswith('Driver'):
                     setState(p, 30)
                     setType(p, text)
-                    reply("Hi! Glad you can give a ride. Where are you?", kb=[['Povo', 'Trento'],['Abort']])
-                elif text == 'Abort':
+                    reply("Hi! Glad you can give a ride. Where are you?", 
+                          kb=[['Povo', 'Trento'],[emoij.NOENTRY + ' Abort']])
+                elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
@@ -348,24 +356,25 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text in ['Povo','Trento']:
                     setLocation(p, text)
                     if check_available_drivers(p):
-                        reply("There is a driver coming!", kb=[['List Drivers', 'Got the Ride!'],['Abort']])
+                        reply("There is a driver coming!", 
+                              kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + ' Abort']])
                         setState(p, 22)
                     else:
                         putPassengerOnHold(p)
                         # state = 21
-                elif text == 'Abort':
+                elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
                 else: reply("Eh? I don't understand you. Trento or Povo?", hideKb=False)
             elif p.state == 21:
                 # PASSENGERS WAITING FOR DRIVERS
-                if text == 'Abort':
+                if text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
                 else:
-                    reply("Eh? If you want to Abort press the button!", kb=[['Abort']])
+                    reply("Eh? If you want to Abort press the button!", kb=[[emoij.NOENTRY + ' Abort']])
             elif p.state == 22:
                 # PASSENGERS NOTIFIED THERE IS A DRIVER
                 if text == 'Got the Ride!':
@@ -374,7 +383,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = -1
                 elif text == 'List Drivers':
                     reply(listDrivers(p), hideKb=False)
-                elif text == 'Abort':
+                elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     removePassenger(p)
                     # state = -1
@@ -386,19 +395,19 @@ class WebhookHandler(webapp2.RequestHandler):
                     setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
                     if check_available_passenger(p):
-                        reply("There is someone waiting for you there!", kb=[['List Passengers', 'Gave the Ride!'],['Abort']])
+                        reply("There is someone waiting for you there!", kb=[['List Passengers', 'Gave the Ride!'],[emoij.NOENTRY + ' Abort']])
                         setState(p, 32)
                     else:
                         putDriverOnHold(p);
                         # state = 31
-                elif text == 'Abort':
+                elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
                 else: reply("Eh? Trento or Povo?", hideKb=False)
             elif p.state == 31:
                 # DRIVERS WAITING FOR NEW PASSENGERS
-                if text == 'Abort':
+                if text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
@@ -412,7 +421,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     # set state -1
                 elif text == 'List Passengers':
                     reply(listPassengers(p), hideKb=False)
-                elif text == 'Abort':
+                elif text.endswith('Abort'):
                     reply("Passage aborted..")
                     removeDriver(p)
                     # state = -1
