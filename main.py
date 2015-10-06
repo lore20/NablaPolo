@@ -31,9 +31,11 @@ STATES = {
     20: 'PassengerAskedForLoc',
     21: 'PassengerBored',
     22: 'PassengerEngaged',
+    23: 'PassengerConfirmedRide',
     30: 'DriverAskedForLoc',
-    31: 'DriverBored',
+    31: 'DriverOnHold',
     32: 'DriverEngaged',
+    33: 'DriverTookSomeone',
 };
 
 # ================================
@@ -55,6 +57,7 @@ def addPerson(chat_id, name):
     p.name = name
     p.chat_id = chat_id
     p.state = -1
+    p.location = '-'
     p.put()
     return p
 
@@ -67,6 +70,11 @@ def setState(p, state):
     p.put()
 
 def setLocation(p, loc):
+    p.location = loc
+    p.put()
+
+def setStateLocation(p, state, loc):
+    p.state = state
     p.location = loc
     p.put()
 
@@ -96,9 +104,10 @@ def get_time_string(date):
     return str(newdate).split(" ")[1].split(".")[0]
 
 def restartAllUsers():
-    qry = Person.query(Person.state>-1)
+    qry = Person.query()
     for p in qry:
-        tell(p.chat_id, "Your ride has been aborted by the system manager")
+        if (p.state>-1):
+            tell(p.chat_id, "Your ride has been aborted by the system manager")
         restart(p)
 
 def broadcast(msg):
@@ -109,7 +118,8 @@ def broadcast(msg):
 
 def restart(person):
     tell(person.chat_id, "Press START if you want to restart.", kb=[['START']])
-    setState(person, -1)
+    setStateLocation(person, -1, '-')
+
 
 def putDriverOnHold(driver):
     tell(driver.chat_id, "No passanger needs a ride for the moment. Waiting...", kb=[[emoij.NOENTRY + ' Abort']])
@@ -122,14 +132,16 @@ def putPassengerOnHold(passenger):
 def check_available_drivers(passenger):
     # a passenger is at a certain location and we want to check if there is a driver bored or engaged
     passenger.last_seen = datetime.datetime.now()
-    qry = Person.query(Person.location == passenger.location, Person.state.IN([31,32]))
+    qry = Person.query(Person.location == passenger.location, Person.state.IN([31,32,33]))
     for d in qry:
         if (d.state==31):
-            setState(d, 32)
-            tell(d.chat_id,
-                 "There is now somebody waiting for you there!", # + get_time_string(passenger.last_mod) + ")",
-                kb=[['List Passengers', 'Gave the Ride!'],[emoij.NOENTRY + ' Abort']], hideKb=False)
+            engageDeriver(d)
     return qry.get() is not None
+
+def engageDeriver(d):
+    tell(d.chat_id, "There is someone waiting for you there!",
+          kb=[['List Passengers'],[emoij.NOENTRY + ' Abort']])
+    setState(d, 32)
 
 def check_available_passenger(driver):
     # a driver is availbale for a location and we want to check if there are passengers bored or engaged
@@ -143,20 +155,21 @@ def check_available_passenger(driver):
     return qry.get() is not None
 
 def listDrivers(passenger):
-    qry = Person.query(Person.location == passenger.location, Person.state==32) #.order(-Person.last_mod)
+    qry = Person.query(Person.location == passenger.location, Person.state.IN([32,33])) #.order(-Person.last_mod)
     if qry.get() is None:
         return "No drivers found in your location"
     else:
         text = ""
         for d in qry:
-            text = text + d.name + " " + get_time_string(d.last_seen) + "\n"
+            text = text + d.name + " (" + str(d.state) + ") " + get_time_string(d.last_seen) + "\n"
         return text
 
 def listAllDrivers():
-    qry = Person.query().filter(Person.state.IN([31, 32])).order(-Person.last_mod)
+    qry = Person.query().filter(Person.state.IN([31, 32, 33]))
     if qry.get() is None:
         return "No drivers found"
     else:
+        #qry = qry.order(-Person.last_mod)
         text = ""
         for d in qry:
             text = text + d.name + " " + d.location + " (" + str(d.state) + ") " + get_time_string(d.last_seen) + "\n"
@@ -164,51 +177,71 @@ def listAllDrivers():
 
 
 def listPassengers(driver):
-    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22])) #.order(-Person.last_mod)
+    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22, 23])) #.order(-Person.last_mod)
     if qry.get() is None:
-        return "No passengers found in your location"
+        return "No passengers needing a ride found in your location"
     else:
         text = ""
         for p in qry:
-            text = text + p.name + " " + get_time_string(p.last_seen) + "\n"
+            text = text + p.name + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + "\n"
         return text
 
 def listAllPassengers():
-    qry = Person.query().filter(Person.state.IN([21, 22])).order(-Person.last_mod)
+    qry = Person.query().filter(Person.state.IN([21, 22, 23]))
     if qry.get() is None:
         return "No passangers found"
     else:
+        #qry = qry.order(-Person.last_mod)
         text = ""
         for p in qry:
             text = text + p.name + " " + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + "\n"
         return text
 
-def removePassenger(p):
+def removePassenger(p, driver=None):
+    loc = p.location
     restart(p)
-    qry = Person.query().filter(Person.state.IN([21, 22]), Person.location==p.location)
+    qry = Person.query().filter(Person.state.IN([21, 22]), Person.location==loc)
     if qry.get() is None:
         # there are no more passengers in that location
-        qry = Person.query().filter(Person.state == 32, Person.location==p.location)
+        qry = Person.query().filter(Person.state == 32, Person.location==loc)
         for d in qry:
-            tell(d.chat_id, "Oops... all gone!")
-            putDriverOnHold(d)
+            if d!=driver:
+                tell(d.chat_id, "Oops... all gone!")
+                putDriverOnHold(d)
 
 def removeDriver(d):
+    loc = d.location
     restart(d)
-    qry = Person.query().filter(Person.state==32, Person.location==d.location)
+    qry = Person.query().filter(Person.state.IN([32,33]), Person.location==loc)
     if qry.get() is None:
         # there are no more drivers in that location
-        qry = Person.query().filter(Person.state == 22, Person.location==d.location)
+        qry = Person.query().filter(Person.state == 22, Person.location==loc)
         for p in qry:
             tell(p.chat_id, "Oops... all gone!")
             putPassengerOnHold(p)
 
+def askToSelectDriverByName(p):
+    qry = Person.query().filter(Person.state.IN([32,33]), Person.location==p.location)
+    if qry.get() is None:
+        tell(p.chat_id, "Thanks you, have a good ride! (cannot ask you which driver cause they are all gone)")
+        removePassenger()
+    else:
+        buttons = []
+        for d in qry:
+            buttons.append([d.name])
+        buttons.append(['Other'])
+        tell(p.chat_id, "Great, which driver gave you a ride?", kb=buttons)
+        setState(p, 23)
+
+def getDriverByLocAndName(loc, name_text):
+    qry = Person.query().filter(Person.location==loc, Person.state.IN([32,33]), Person.name==name_text)
+    return qry.get()
 
 def tell(chat_id, msg, kb=None, hideKb=True):
     if kb:
         resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
             'chat_id': chat_id,
-            'text': msg.encode('utf-8'),
+            'text': msg, #.encode('utf-8'),
             'disable_web_page_preview': 'true',
             #'reply_to_message_id': str(message_id),
             'reply_markup': json.dumps({
@@ -221,7 +254,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
         if hideKb:
             resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                 'chat_id': str(chat_id),
-                'text': msg.encode('utf-8'),
+                'text': msg, #.encode('utf-8'),
                 #'disable_web_page_preview': 'true',
                 #'reply_to_message_id': str(message_id),
                 'reply_markup': json.dumps({'hide_keyboard': True}),
@@ -229,7 +262,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
         else:
             resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                 'chat_id': str(chat_id),
-                'text': msg.encode('utf-8'),
+                'text': msg #.encode('utf-8'),
                 #'disable_web_page_preview': 'true',
                 #'reply_to_message_id': str(message_id),
                 #'reply_markup': json.dumps({'hide_keyboard': True}),
@@ -368,7 +401,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = -1
                 else: reply("Eh? I don't understand you. Trento or Povo?", hideKb=False)
             elif p.state == 21:
-                # PASSENGERS WAITING FOR DRIVERS
+                # PASSENGERS IN A LOCATION WITH NO DRIVERS
                 if text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
@@ -378,9 +411,7 @@ class WebhookHandler(webapp2.RequestHandler):
             elif p.state == 22:
                 # PASSENGERS NOTIFIED THERE IS A DRIVER
                 if text == 'Got the Ride!':
-                    reply("Great! Have a good ride!")
-                    removePassenger(p)
-                    # state = -1
+                    askToSelectDriverByName(p)
                 elif text == 'List Drivers':
                     reply(listDrivers(p), hideKb=False)
                 elif text.endswith('Abort'):
@@ -389,14 +420,35 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = -1
                 else:
                     reply("Eh? I don't understand you. A driver is supposed to come, be patient!", hideKb=False)
+            elif p.state == 23:
+                # PASSENGERS WHO JUST CONFIRMED A RIDE
+                if text == 'Other':
+                    reply("Thanks, have a good ride!")
+                    removePassenger(p)
+                elif text.endswith('Abort'):
+                    reply("Passage aborted.")
+                    removePassenger(p)
+                    # state = -1
+                else:
+                    d = getDriverByLocAndName(p.location, text)
+                    if d is not None:
+                        reply("Great! Many thanks to " + d.name + "! ")
+                        tell(d.chat_id, p.name + " confirmed you gave him/her a ride!",
+                             kb=[['List Passengers', 'Reached Destination!'],[emoij.NOENTRY + ' Abort']])
+                        if (d.state==32):
+                            setState(d, 33)
+                        removePassenger(p, driver=d)
+                        # passenger state = -1
+                    else:
+                        reply("Name of driver not correct, try again.", hideKb=False)
             elif p.state == 30:
                 # DRIVERS, ASKED FOR LOCATION
                 if text in ['Povo','Trento']:
                     setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
                     if check_available_passenger(p):
-                        reply("There is someone waiting for you there!", kb=[['List Passengers', 'Gave the Ride!'],[emoij.NOENTRY + ' Abort']])
-                        setState(p, 32)
+                        engageDeriver(p)
+                        # state = -1
                     else:
                         putDriverOnHold(p);
                         # state = 31
@@ -415,12 +467,22 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply("Eh? I don't understand you.", hideKb=False)
             elif p.state == 32:
                 # DRIVERS NOTIFIED THERE ARE PASSENGERS WAITING
-                if text == 'Gave the Ride!':
-                    reply("Great! Have a good ride!")
+                if text == 'List Passengers':
+                    reply(listPassengers(p), hideKb=False)
+                elif text.endswith('Abort'):
+                    reply("Passage aborted..")
+                    removeDriver(p)
+                    # state = -1
+                else:
+                    reply("Eh? I don't understand you. (" + text + ")", hideKb=False)
+            elif p.state == 33:
+                # DRIVER WHO HAS JUST BORDED AT LEAST A PASSANGER
+                if text == 'List Passengers':
+                    reply(listPassengers(p), hideKb=False)
+                elif text == 'Reached Destination!':
+                    reply("Great, thanks! " + emoij.CLAPPING_HANDS)
                     removeDriver(p)
                     # set state -1
-                elif text == 'List Passengers':
-                    reply(listPassengers(p), hideKb=False)
                 elif text.endswith('Abort'):
                     reply("Passage aborted..")
                     removeDriver(p)
