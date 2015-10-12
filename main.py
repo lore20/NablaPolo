@@ -265,6 +265,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
                 #'one_time_keyboard': True,
                 'resize_keyboard': True,
                 'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                'reply_markup': json.dumps({'hide_keyboard': True})
             }),
         })).read()
     else:
@@ -274,15 +275,25 @@ def tell(chat_id, msg, kb=None, hideKb=True):
                 'text': msg, #.encode('utf-8'),
                 #'disable_web_page_preview': 'true',
                 #'reply_to_message_id': str(message_id),
-                'reply_markup': json.dumps({'hide_keyboard': True}),
+                'reply_markup': json.dumps({
+                    #'one_time_keyboard': True,
+                    'resize_keyboard': True,
+                    #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                    'reply_markup': json.dumps({'hide_keyboard': True})
+            }),
             })).read()
         else:
             resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                 'chat_id': str(chat_id),
-                'text': msg #.encode('utf-8'),
+                'text': msg, #.encode('utf-8'),
                 #'disable_web_page_preview': 'true',
                 #'reply_to_message_id': str(message_id),
-                #'reply_markup': json.dumps({'hide_keyboard': True}),
+                'reply_markup': json.dumps({
+                    #'one_time_keyboard': True,
+                    'resize_keyboard': True,
+                    #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                    'reply_markup': json.dumps({'hide_keyboard': False})
+            }),
             })).read()
 
     logging.info('send response: ')
@@ -359,7 +370,7 @@ class WebhookHandler(webapp2.RequestHandler):
         else:
             # known user
             if text=='/state':
-              reply("You are in state " + str(p.state) + ": " + STATES[p.state], hideKb=False);
+              reply("You are in state " + str(p.state) + ": " + STATES[p.state]);
             elif p.state == -1:
                 # INITIAL STATE
                 if text == '/help':
@@ -368,11 +379,11 @@ class WebhookHandler(webapp2.RequestHandler):
                     start(p)
                     # state = 0
                 elif text == '/users':
-                    reply(getUsers(), hideKb=False)
+                    reply(getUsers())
                 elif text == '/alldrivers':
-                    reply(listAllDrivers(), hideKb=False)
+                    reply(listAllDrivers())
                 elif text == '/allpassengers':
-                    reply(listAllPassengers(), hideKb=False)
+                    reply(listAllPassengers())
                 elif chat_id==key.MASTER_CHAT_ID:
                     if text == '/resetall':
                         restartAllUsers()
@@ -400,7 +411,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
-                else: reply("Eh? I don't understand you. Are you a Driver or a Passenger?", hideKb=False)
+                else: reply("Eh? I don't understand you. Are you a Driver or a Passenger?")
             elif p.state == 20:
                 # PASSANGERS, ASKED FOR LOCATION
                 if text in ['Povo Sommarive','Trento Porta Aquila']:
@@ -416,7 +427,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
-                else: reply("Eh? I don't understand you. Trento or Povo?", hideKb=False)
+                else: reply("Eh? I don't understand you. Trento or Povo?")
             elif p.state == 21:
                 # PASSENGERS IN A LOCATION WITH NO DRIVERS
                 if text.endswith('Abort'):
@@ -430,13 +441,13 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == 'Got the Ride!':
                     askToSelectDriverByName(p)
                 elif text == 'List Drivers':
-                    reply(listDrivers(p), hideKb=False)
+                    reply(listDrivers(p))
                 elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     removePassenger(p)
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you. A driver is supposed to come, be patient!", hideKb=False)
+                    reply("Eh? I don't understand you. A driver is supposed to come, be patient!")
             elif p.state == 23:
                 # PASSENGERS WHO JUST CONFIRMED A RIDE
                 if text == 'Other':
@@ -457,7 +468,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         removePassenger(p, driver=d)
                         # passenger state = -1
                     else:
-                        reply("Name of driver not correct, try again.", hideKb=False)
+                        reply("Name of driver not correct, try again.")
             elif p.state == 30:
                 # DRIVERS, ASKED FOR LOCATION
                 if text in ['Povo Sommarive','Trento Porta Aquila']:
@@ -476,7 +487,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
-                else: reply("Eh? Trento or Povo?", hideKb=False)
+                else: reply("Eh? Trento or Povo?")
             elif p.state == 305:
                 # DRIVERS ASEKED FOR TIME
                 if text in ['1','5','10']:
@@ -486,7 +497,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     restart(p);
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you.", hideKb=False)
+                    reply("Eh? I don't understand you.")
             elif p.state == 31:
                 # DRIVERS WAITING FOR NEW PASSENGERS
                 if text.endswith('Abort'):
@@ -494,21 +505,21 @@ class WebhookHandler(webapp2.RequestHandler):
                     restart(p);
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you.", hideKb=False)
+                    reply("Eh? I don't understand you.")
             elif p.state == 32:
                 # DRIVERS NOTIFIED THERE ARE PASSENGERS WAITING
                 if text == 'List Passengers':
-                    reply(listPassengers(p), hideKb=False)
+                    reply(listPassengers(p))
                 elif text.endswith('Abort'):
                     reply("Passage aborted..")
                     removeDriver(p)
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you. (" + text + ")", hideKb=False)
+                    reply("Eh? I don't understand you. (" + text + ")")
             elif p.state == 33:
                 # DRIVER WHO HAS JUST BORDED AT LEAST A PASSANGER
                 if text == 'List Passengers':
-                    reply(listPassengers(p), hideKb=False)
+                    reply(listPassengers(p))
                 elif text == 'Reached Destination!':
                     reply("Great, thanks! " + emoij.CLAPPING_HANDS)
                     removeDriver(p)
@@ -518,7 +529,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     removeDriver(p)
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you. (" + text + ")", hideKb=False)
+                    reply("Eh? I don't understand you. (" + text + ")")
             else:
                 reply("Something is wrong with your state (" + str(p.state) + "). Contact the admin!")
 
