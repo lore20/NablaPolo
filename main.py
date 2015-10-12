@@ -153,7 +153,7 @@ def engageDriver(d, min):
     setState(d, 32)
 
 def askDriverTime(d):
-    tell(d.chat_id, "There is someone waiting for you there! In how many minutes will you be there?",
+    tell(d.chat_id, "There is someone waiting for you! In how many minutes will you be there?",
           kb=[['1','5','10'],[emoij.NOENTRY + ' Abort']])
     setState(d, 305)
 
@@ -401,12 +401,12 @@ class WebhookHandler(webapp2.RequestHandler):
                     setState(p, 20)
                     setType(p, text)
                     reply("Hi! I can try to help you to get a ride. Where are you?", 
-                          kb=[['Povo Sommarive', 'Trento Porta Aquila'],[emoij.NOENTRY + ' Abort']])
+                          kb=[['Trento Porta Aquila', 'Povo Sommarive'],[emoij.NOENTRY + ' Abort']])
                 elif text.endswith('Driver'):
                     setState(p, 30)
                     setType(p, text)
                     reply("Hi! Glad you can give a ride. Where are you?", 
-                          kb=[['Povo Sommarive', 'Trento Porta Aquila'],[emoij.NOENTRY + ' Abort']])
+                          kb=[['Trento Porta Aquila', 'Povo Sommarive'],[emoij.NOENTRY + ' Abort']])
                 elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
