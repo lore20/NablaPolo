@@ -27,15 +27,16 @@ BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 
 STATES = {
     -1: 'Initial',
-    0: 'Started',
-    20: 'PassengerAskedForLoc',
-    21: 'PassengerBored',
-    22: 'PassengerEngaged',
-    23: 'PassengerConfirmedRide',
-    30: 'DriverAskedForLoc',
-    31: 'DriverOnHold',
-    32: 'DriverEngaged',
-    33: 'DriverTookSomeone',
+    0:   'Started',
+    20:  'PassengerAskedForLoc',
+    21:  'PassengerBored',
+    22:  'PassengerEngaged',
+    23:  'PassengerConfirmedRide',
+    30:  'DriverAskedForLoc',
+    305: 'DriverAskedForTime',
+    31:  'DriverOnHold',
+    32:  'DriverEngaged',
+    33:  'DriverTookSomeone',
 };
 
 # ================================
@@ -121,37 +122,50 @@ def restart(person):
     setStateLocation(person, -1, '-')
 
 
-def putDriverOnHold(driver):
-    tell(driver.chat_id, "No passanger needs a ride for the moment. Waiting...", kb=[[emoij.NOENTRY + ' Abort']])
-    setState(driver, 31)
+#def putDriverOnHold(driver):
+#    tell(driver.chat_id, "No passanger needs a ride for the moment. Waiting...", kb=[[emoij.NOENTRY + ' Abort']])
+#    setState(driver, 31)
 
 def putPassengerOnHold(passenger):
+    passenger.last_seen = datetime.datetime.now()
     tell(passenger.chat_id, "Waiting for a driver!", kb=[[emoij.NOENTRY + ' Abort']])
     setState(passenger, 21)
 
 def check_available_drivers(passenger):
     # a passenger is at a certain location and we want to check if there is a driver bored or engaged
-    passenger.last_seen = datetime.datetime.now()
-    qry = Person.query(Person.location == passenger.location, Person.state.IN([31,32,33]))
-    for d in qry:
-        if (d.state==31):
-            engageDeriver(d)
+    #passenger.last_seen = datetime.datetime.now()
+    qry = Person.query(Person.location == passenger.location, Person.state.IN([32,33])) #31
+    #for d in qry:
+    #    if (d.state==31):
+    #        engageDriver(d)
     return qry.get() is not None
 
-def engageDeriver(d):
-    tell(d.chat_id, "There is someone waiting for you there!",
+def engageDriver(d, min):
+    d.last_seen = datetime.datetime.now() + datetime.timedelta(minutes=min)
+    tell(d.chat_id, "You can go pick up the passenger(s)!",
           kb=[['List Passengers'],[emoij.NOENTRY + ' Abort']])
-    setState(d, 32)
-
-def check_available_passenger(driver):
-    # a driver is availbale for a location and we want to check if there are passengers bored or engaged
-    driver.last_seen = datetime.datetime.now()
-    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
+    qry = Person.query(Person.location == d.location, Person.state.IN([21, 22]))
     for p in qry:
         if (p.state==21):
             setState(p, 22)
-        tell(p.chat_id, "A driver coming: " + driver.name + " (" + get_time_string(driver.last_mod) + ")",
+        tell(p.chat_id, "A driver coming: " + d.name + " expected at " + get_time_string(d.last_seen),
             kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + ' Abort']])
+    setState(d, 32)
+
+def askDriverTime(d):
+    tell(d.chat_id, "There is someone waiting for you there! In how many minutes will you be there?",
+          kb=[['1','5','10'],[emoij.NOENTRY + ' Abort']])
+    setState(d, 305)
+
+def check_available_passenger(driver):
+    # a driver is availbale for a location and we want to check if there are passengers bored or engaged
+    #driver.last_seen = datetime.datetime.now()
+    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
+    #for p in qry:
+    #    if (p.state==21):
+    #        setState(p, 22)
+    #    tell(p.chat_id, "A driver coming: " + driver.name + " (" + get_time_string(driver.last_mod) + ")",
+    #        kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + ' Abort']])
     return qry.get() is not None
 
 def listDrivers(passenger):
@@ -161,11 +175,12 @@ def listDrivers(passenger):
     else:
         text = ""
         for d in qry:
-            text = text + d.name + " (" + str(d.state) + ") " + get_time_string(d.last_seen) + "\n"
+            text = text + d.name + ' expected at: ' + get_time_string(d.last_seen) + "\n"
+            #" (" + str(d.state) + ") " +
         return text
 
 def listAllDrivers():
-    qry = Person.query().filter(Person.state.IN([31, 32, 33]))
+    qry = Person.query().filter(Person.state.IN([30, 305, 32, 33])) #31
     if qry.get() is None:
         return "No drivers found"
     else:
@@ -183,7 +198,8 @@ def listPassengers(driver):
     else:
         text = ""
         for p in qry:
-            text = text + p.name + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + "\n"
+            text = text + p.name + ' waiting since ' + get_time_string(p.last_seen) + "\n"
+            #" (" + str(p.state) + ") "
         return text
 
 def listAllPassengers():
@@ -207,7 +223,8 @@ def removePassenger(p, driver=None):
         for d in qry:
             if d!=driver:
                 tell(d.chat_id, "Oops... all gone!")
-                putDriverOnHold(d)
+                #putDriverOnHold(d)
+                restart(d)
 
 def removeDriver(d):
     loc = d.location
@@ -447,16 +464,29 @@ class WebhookHandler(webapp2.RequestHandler):
                     setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
                     if check_available_passenger(p):
-                        engageDeriver(p)
-                        # state = -1
+                        askDriverTime(p)
+                        # state = 305
                     else:
-                        putDriverOnHold(p);
+                        reply("Nobody needs a ride in your location. Thanks anyway! You can also try in a bit :)")
+                        restart(p);
+                        # state = -1
+                        #putDriverOnHold(p);
                         # state = 31
                 elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
                     # state = -1
                 else: reply("Eh? Trento or Povo?", hideKb=False)
+            elif p.state == 305:
+                # DRIVERS ASEKED FOR TIME
+                if text in ['1','5','10']:
+                    engageDriver(p, int(text));
+                elif text.endswith('Abort'):
+                    reply("Passage aborted.")
+                    restart(p);
+                    # state = -1
+                else:
+                    reply("Eh? I don't understand you.", hideKb=False)
             elif p.state == 31:
                 # DRIVERS WAITING FOR NEW PASSENGERS
                 if text.endswith('Abort'):
