@@ -34,7 +34,7 @@ STATES = {
     23:  'PassengerConfirmedRide',
     30:  'DriverAskedForLoc',
     305: 'DriverAskedForTime',
-    31:  'DriverOnHold',
+#    31:  'DriverOnHold',
     32:  'DriverEngaged',
     33:  'DriverTookSomeone',
 };
@@ -219,7 +219,7 @@ def removePassenger(p, driver=None):
     qry = Person.query().filter(Person.state.IN([21, 22]), Person.location==loc)
     if qry.get() is None:
         # there are no more passengers in that location
-        qry = Person.query().filter(Person.state == 32, Person.location==loc)
+        qry = Person.query().filter(Person.state.IN([305,32]), Person.location==loc)
         for d in qry:
             if d!=driver:
                 tell(d.chat_id, "Oops... all gone!")
@@ -432,7 +432,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 # PASSENGERS IN A LOCATION WITH NO DRIVERS
                 if text.endswith('Abort'):
                     reply("Passage aborted.")
-                    restart(p);
+                    removePassenger(p)
+                    #restart(p);
                     # state = -1
                 else:
                     reply("Eh? If you want to Abort press the button!", kb=[[emoij.NOENTRY + ' Abort']])
