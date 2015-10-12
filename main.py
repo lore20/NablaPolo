@@ -373,12 +373,12 @@ class WebhookHandler(webapp2.RequestHandler):
                     setState(p, 20)
                     setType(p, text)
                     reply("Hi! I can try to help you to get a ride. Where are you?", 
-                          kb=[['Povo', 'Trento'],[emoij.NOENTRY + ' Abort']])
+                          kb=[['Povo Sommarive', 'Trento Porta Aquila'],[emoij.NOENTRY + ' Abort']])
                 elif text.endswith('Driver'):
                     setState(p, 30)
                     setType(p, text)
                     reply("Hi! Glad you can give a ride. Where are you?", 
-                          kb=[['Povo', 'Trento'],[emoij.NOENTRY + ' Abort']])
+                          kb=[['Povo Sommarive', 'Trento Porta Aquila'],[emoij.NOENTRY + ' Abort']])
                 elif text.endswith('Abort'):
                     reply("Passage aborted.")
                     restart(p);
@@ -386,7 +386,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 else: reply("Eh? I don't understand you. Are you a Driver or a Passenger?", hideKb=False)
             elif p.state == 20:
                 # PASSANGERS, ASKED FOR LOCATION
-                if text in ['Povo','Trento']:
+                if text in ['Povo Sommarive','Trento Porta Aquila']:
                     setLocation(p, text)
                     if check_available_drivers(p):
                         reply("There is a driver coming!", 
@@ -443,7 +443,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply("Name of driver not correct, try again.", hideKb=False)
             elif p.state == 30:
                 # DRIVERS, ASKED FOR LOCATION
-                if text in ['Povo','Trento']:
+                if text in ['Povo Sommarive','Trento Porta Aquila']:
                     setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
                     if check_available_passenger(p):
