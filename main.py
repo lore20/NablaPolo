@@ -116,6 +116,9 @@ def broadcast(msg):
     for p in qry:
         tell(p.chat_id, "Listen listen... " + msg, hideKb=False)
 
+def tellmyself(p, msg):
+    tell(p.chat_id, "Listen listen... " + msg, hideKb=False)
+
 
 def restart(person):
     tell(person.chat_id, "Press START if you want to restart.", kb=[['START']])
@@ -388,11 +391,14 @@ class WebhookHandler(webapp2.RequestHandler):
                     if text == '/resetall':
                         restartAllUsers()
                     elif text.startswith('/broadcast ') and len(text)>11:
-                        msg = text[11:]
+                        msg = text[11:].encode('utf-8')
                         broadcast(msg)
+                    elif text.startswith('/self ') and len(text)>6:
+                        msg = text[6:].encode('utf-8')
+                        tellmyself(p,msg)
                     else:
                         reply('What command? I only understnad /help /start '
-                              '/users /alldrivers /alldrivers /resetall /broadcast.')
+                              '/self /users /alldrivers /alldrivers /resetall /broadcast.')
                 else:
                     reply('What command? I only understnad /help or /start.')
             elif p.state == 0:
@@ -479,7 +485,8 @@ class WebhookHandler(webapp2.RequestHandler):
                         askDriverTime(p)
                         # state = 305
                     else:
-                        reply("Nobody needs a ride in your location. Thanks anyway! You can also try in a bit :)")
+                        reply("Nobody needs a ride in your location. "
+                              "You can try in a bit or go the bus stop and see if there is someone there " + emoij.SMILING_FACE)
                         restart(p);
                         # state = -1
                         #putDriverOnHold(p);
