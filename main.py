@@ -109,7 +109,7 @@ def restartAllUsers():
     for p in qry:
         if (p.state>-1):
             tell(p.chat_id, "Your ride has been aborted by the system manager")
-        restart(p)
+            restart(p)
 
 def broadcast(msg):
     qry = Person.query()
@@ -505,7 +505,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     restart(p);
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you.")
+                    reply("Eh? I don't understand you.")# (" + text + ")")
             elif p.state == 31:
                 # DRIVERS WAITING FOR NEW PASSENGERS
                 if text.endswith('Abort'):
@@ -513,7 +513,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     restart(p);
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you.")
+                    reply("Eh? I don't understand you.")# (" + text + ")")
             elif p.state == 32:
                 # DRIVERS NOTIFIED THERE ARE PASSENGERS WAITING
                 if text == 'List Passengers':
@@ -523,7 +523,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     removeDriver(p)
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you. (" + text + ")")
+                    reply("Eh? I don't understand you.")# (" + text + ")")
             elif p.state == 33:
                 # DRIVER WHO HAS JUST BORDED AT LEAST A PASSANGER
                 if text == 'List Passengers':
@@ -537,7 +537,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     removeDriver(p)
                     # state = -1
                 else:
-                    reply("Eh? I don't understand you. (" + text + ")")
+                    reply("Eh? I don't understand you.")# (" + text + ")")
             else:
                 reply("Something is wrong with your state (" + str(p.state) + "). Contact the admin!")
 
