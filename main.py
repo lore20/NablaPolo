@@ -121,6 +121,7 @@ def tellmyself(p, msg):
 
 
 def restart(person):
+    #tell(person.chat_id, "Press START if you want to restart.", kb=[['START', 'HELP'],['SETTINGS']])
     tell(person.chat_id, "Press START if you want to restart.", kb=[['START', 'HELP']])
     setStateLocation(person, -1, '-')
 
