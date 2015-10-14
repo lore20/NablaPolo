@@ -121,7 +121,7 @@ def tellmyself(p, msg):
 
 
 def restart(person):
-    tell(person.chat_id, "Press START if you want to restart.", kb=[['START']])
+    tell(person.chat_id, "Press START if you want to restart.", kb=[['START', 'HELP']])
     setStateLocation(person, -1, '-')
 
 
@@ -352,9 +352,12 @@ class WebhookHandler(webapp2.RequestHandler):
         def reply(msg=None, kb=None, hideKb=True):
             tell(chat_id, msg, kb, hideKb)
 
-        instructions = ('I\'m your Trento <-> Povo travelling assistant.\n' \
-                        'You can write /start to get or offer a ride\n' \
-                        'You can write /help to see this message again'.encode('utf-8'))
+        instructions = ('I\'m your Trento <-> Povo travelling assistant.\n\n' \
+                        'You can press START to get or offer a ride\n' \
+                        'You can press HELP to see this message again\n\n' \
+                        'If you want to join the discussion about this initiative ' \
+                        'come to the tiramisu group by pressing this link:\n' \
+                        'https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g'.encode('utf-8'))
 
 
         p = ndb.Key(Person, str(chat_id)).get()
@@ -376,7 +379,7 @@ class WebhookHandler(webapp2.RequestHandler):
               reply("You are in state " + str(p.state) + ": " + STATES[p.state]);
             elif p.state == -1:
                 # INITIAL STATE
-                if text == '/help':
+                if text in ['/help','HELP']:
                     reply(instructions)
                 elif text in ['/start','START']:
                     start(p)
