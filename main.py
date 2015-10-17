@@ -80,8 +80,10 @@ class Person(ndb.Model):
     last_seen = ndb.DateTimeProperty()
     chat_id = ndb.IntegerProperty()
     state = ndb.IntegerProperty()
-    last_type = ndb.StringProperty()
-    location = ndb.StringProperty()
+    last_type = ndb.StringProperty(default='-1')
+    location = ndb.StringProperty(default='-')
+    language = ndb.StringProperty(default='IT')
+    enabled = ndb.BooleanProperty(default=True)
 
 # ================================
 
@@ -90,8 +92,9 @@ def addPerson(chat_id, name):
     p = Person.get_or_insert(str(chat_id))
     p.name = name
     p.chat_id = chat_id
-    p.state = -1
-    p.location = '-'
+    #p.state = -1
+    #p.location = '-'
+    #p.language = 'IT'
     p.put()
     return p
 
@@ -113,6 +116,7 @@ def setStateLocation(p, state, loc):
     p.put()
 
 def start(p):
+    p.enabled = True
     tell(p.chat_id, "Hi " + p.name + "! Are you a driver or a passenger?",
     kb=[[emoij.CAR + ' Driver', emoij.FOOTPRINTS + ' Passenger'],[emoij.NOENTRY + ' Abort']])
     setState(p,0)
@@ -144,11 +148,40 @@ def restartAllUsers():
             tell(p.chat_id, "Your ride has been aborted by the system manager")
             restart(p)
 
+def resestLanguages():
+    qry = Person.query()
+    for p in qry:
+        p.language = 'IT'
+        p.put()
+
+def resestEnabled():
+    qry = Person.query()
+    for p in qry:
+        p.enabled = True
+        p.put()
+
+def checkEnabled():
+    qry = Person.query(Person.enabled==True)
+    for p in qry:
+        try:
+            tell(p.chat_id, "test")
+        except urllib2.HTTPError, err:
+            if err.code == 403:
+                p.enabled = False
+                p.put()
+        sleep(0.100) # no more than 10 messages per second
+
 def broadcast(msg):
     qry = Person.query().order(-Person.last_mod)
-    #for p in qry:
-    #    tell(p.chat_id, "Listen listen... " + msg)
-    #    sleep(0.250) # no more than 4 messages per second
+    for p in qry:
+        if (p.enabled):
+            try:
+                tell(p.chat_id, "Listen listen... " + msg)
+            except urllib2.HTTPError, err:
+                if err.code == 403:
+                    p.enabled = False
+                    p.put()
+            sleep(0.100) # no more than 10 messages per second
 
 def tellmyself(p, msg):
     tell(p.chat_id, "Listen listen... " + msg)
@@ -292,6 +325,16 @@ def getDriverByLocAndName(loc, name_text):
     qry = Person.query().filter(Person.location==loc, Person.state.IN([32,33]), Person.name==name_text)
     return qry.get()
 
+def tell_katja_test():
+    try:
+        tell(114258373, 'test')
+    except urllib2.HTTPError, err:
+        if err.code == 403:
+            e = Person.query(Person.chat_id==114258373).get()
+            e.enabled = False
+            e.put()
+
+
 def tell(chat_id, msg, kb=None, hideKb=True):
     if kb:
         resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
@@ -428,8 +471,14 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif chat_id==key.MASTER_CHAT_ID:
                     if text == '/restartusers':
                         restartAllUsers()
+                        #resestEnabled()
+                        #resestLanguages()
+                    elif text=='/checkenabled':
+                        checkEnabled()
                     elif text == '/resetcounters':
                         resetCounter()
+                    elif text == '/test':
+                        tell_katja_test()
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:].encode('utf-8')
                         broadcast(msg)
@@ -438,7 +487,9 @@ class WebhookHandler(webapp2.RequestHandler):
                         tellmyself(p,msg)
                     else:
                         reply('What command? I only understnad /help /start '
-                              '/self /users /alldrivers /alldrivers /restartusers /resetcounters /broadcast.')
+                              '/users /alldrivers /alldrivers '
+                              '/checkenabled /restartusers /resetcounters '
+                              '/self /broadcast.')
                 else:
                     reply('What command? I only understnad /help or /start.')
             elif p.state == 0:
