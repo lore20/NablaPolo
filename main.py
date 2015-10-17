@@ -3,6 +3,7 @@ import logging
 import urllib
 import urllib2
 import datetime
+from time import sleep
 # import requests
 
 import key
@@ -23,6 +24,38 @@ import webapp2
 
 # TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
+# ================================
+
+class Counter(ndb.Model):
+    name = ndb.StringProperty()
+    counter = ndb.IntegerProperty()
+
+# ================================
+
+QUEUE_COUNTER_POVO = 'Queue_Counter_Povo'
+QUEUE_COUNTER_TRENTO = 'Queue_Counter_Trento'
+COUNTERS = [QUEUE_COUNTER_POVO, QUEUE_COUNTER_TRENTO]
+
+def resetCounter():
+    for name in COUNTERS:
+        c = Counter.get_or_insert(str(name))
+        c.name = name
+        c.counter = 0
+        c.put()
+
+def increaseCounter(n):
+    entry = Counter.query(Counter.name == n).get()
+    c = entry.counter
+    c = (c+1)%100
+    if (c==0):
+        c=1
+    entry.counter = c
+    entry.put()
+    return c
+
+
+# ================================
+
 BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 
 STATES = {
@@ -37,7 +70,7 @@ STATES = {
 #    31:  'DriverOnHold',
     32:  'DriverEngaged',
     33:  'DriverTookSomeone',
-};
+}
 
 # ================================
 
@@ -112,12 +145,13 @@ def restartAllUsers():
             restart(p)
 
 def broadcast(msg):
-    qry = Person.query()
-    for p in qry:
-        tell(p.chat_id, "Listen listen... " + msg, hideKb=False)
+    qry = Person.query().order(-Person.last_mod)
+    #for p in qry:
+    #    tell(p.chat_id, "Listen listen... " + msg)
+    #    sleep(0.250) # no more than 4 messages per second
 
 def tellmyself(p, msg):
-    tell(p.chat_id, "Listen listen... " + msg, hideKb=False)
+    tell(p.chat_id, "Listen listen... " + msg)
 
 
 def restart(person):
@@ -392,8 +426,10 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif text == '/allpassengers':
                     reply(listAllPassengers())
                 elif chat_id==key.MASTER_CHAT_ID:
-                    if text == '/resetall':
+                    if text == '/restartusers':
                         restartAllUsers()
+                    elif text == '/resetcounters':
+                        resetCounter()
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:].encode('utf-8')
                         broadcast(msg)
@@ -402,7 +438,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         tellmyself(p,msg)
                     else:
                         reply('What command? I only understnad /help /start '
-                              '/self /users /alldrivers /alldrivers /resetall /broadcast.')
+                              '/self /users /alldrivers /alldrivers /restartusers /resetcounters /broadcast.')
                 else:
                     reply('What command? I only understnad /help or /start.')
             elif p.state == 0:
@@ -426,6 +462,10 @@ class WebhookHandler(webapp2.RequestHandler):
                 # PASSANGERS, ASKED FOR LOCATION
                 if text in ['Povo Sommarive','Trento Porta Aquila']:
                     setLocation(p, text)
+                    if text == 'Povo Sommarive':
+                        reply("Your waiting position is: " + str(increaseCounter(QUEUE_COUNTER_POVO)))
+                    else:
+                        reply("Your waiting position is: " + str(increaseCounter(QUEUE_COUNTER_TRENTO)))
                     if check_available_drivers(p):
                         reply("There is a driver coming!", 
                               kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + ' Abort']])
