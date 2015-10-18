@@ -76,6 +76,7 @@ STATES = {
 
 class Person(ndb.Model):
     name = ndb.StringProperty()
+    last_name = ndb.StringProperty(default='-')
     last_mod = ndb.DateTimeProperty(auto_now=True)
     last_seen = ndb.DateTimeProperty()
     chat_id = ndb.IntegerProperty()
@@ -115,8 +116,18 @@ def setStateLocation(p, state, loc):
     p.location = loc
     p.put()
 
-def start(p):
-    p.enabled = True
+def start(p, cmd, name, last_name):
+    logging.debug(p.name + " " + cmd + " " + str(p.enabled))
+    if (p.name != name or p.last_name != last_name):
+        p.name = name
+        p.last_name = last_name
+        p.put()
+    if not p.enabled:
+        if cmd=='/start':
+            p.enabled = True
+            p.put()
+        else: # START when diasbled
+            return
     tell(p.chat_id, "Hi " + p.name + "! Are you a driver or a passenger?",
     kb=[[emoij.CAR + ' Driver', emoij.FOOTPRINTS + ' Passenger'],[emoij.NOENTRY + ' Abort']])
     setState(p,0)
@@ -160,6 +171,12 @@ def resestEnabled():
         p.enabled = True
         p.put()
 
+def resestLastNames():
+    qry = Person.query()
+    for p in qry:
+        p.last_name = '-'
+        p.put()
+
 def checkEnabled():
     qry = Person.query(Person.enabled==True)
     for p in qry:
@@ -175,12 +192,7 @@ def broadcast(msg):
     qry = Person.query().order(-Person.last_mod)
     for p in qry:
         if (p.enabled):
-            try:
-                tell(p.chat_id, "Listen listen... " + msg)
-            except urllib2.HTTPError, err:
-                if err.code == 403:
-                    p.enabled = False
-                    p.put()
+            tell(p.chat_id, "Listen listen... " + msg)
             sleep(0.100) # no more than 10 messages per second
 
 def tellmyself(p, msg):
@@ -213,7 +225,7 @@ def check_available_drivers(passenger):
 
 def engageDriver(d, min):
     d.last_seen = datetime.datetime.now() + datetime.timedelta(minutes=min)
-    tell(d.chat_id, "You can go pick up the passenger(s)!",
+    tell(d.chat_id, "You can go pick up the passenger(s)! " + emoij.SMILING_FACE,
           kb=[['List Passengers'],[emoij.NOENTRY + ' Abort']])
     qry = Person.query(Person.location == d.location, Person.state.IN([21, 22]))
     for p in qry:
@@ -224,7 +236,8 @@ def engageDriver(d, min):
     setState(d, 32)
 
 def askDriverTime(d):
-    tell(d.chat_id, "There is someone waiting for you! In how many minutes will you be there?",
+    tell(d.chat_id, "There is someone waiting for you!" + emoij.PEDESTRIAN +
+                    "\nIn how many minutes will you be there?",
           kb=[['1','5','10'],[emoij.NOENTRY + ' Abort']])
     setState(d, 305)
 
@@ -336,49 +349,56 @@ def tell_katja_test():
 
 
 def tell(chat_id, msg, kb=None, hideKb=True):
-    if kb:
-        resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
-            'chat_id': chat_id,
-            'text': msg, #.encode('utf-8'),
-            'disable_web_page_preview': 'true',
-            #'reply_to_message_id': str(message_id),
-            'reply_markup': json.dumps({
-                #'one_time_keyboard': True,
-                'resize_keyboard': True,
-                'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
-                'reply_markup': json.dumps({'hide_keyboard': True})
-            }),
-        })).read()
-    else:
-        if hideKb:
+    try:
+        if kb:
             resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
-                'chat_id': str(chat_id),
+                'chat_id': chat_id,
                 'text': msg, #.encode('utf-8'),
-                #'disable_web_page_preview': 'true',
+                'disable_web_page_preview': 'true',
                 #'reply_to_message_id': str(message_id),
                 'reply_markup': json.dumps({
                     #'one_time_keyboard': True,
                     'resize_keyboard': True,
-                    #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                    'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
                     'reply_markup': json.dumps({'hide_keyboard': True})
-            }),
+                }),
             })).read()
         else:
-            resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
-                'chat_id': str(chat_id),
-                'text': msg, #.encode('utf-8'),
-                #'disable_web_page_preview': 'true',
-                #'reply_to_message_id': str(message_id),
-                'reply_markup': json.dumps({
-                    #'one_time_keyboard': True,
-                    'resize_keyboard': True,
-                    #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
-                    'reply_markup': json.dumps({'hide_keyboard': False})
-            }),
-            })).read()
+            if hideKb:
+                resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
+                    'chat_id': str(chat_id),
+                    'text': msg, #.encode('utf-8'),
+                    #'disable_web_page_preview': 'true',
+                    #'reply_to_message_id': str(message_id),
+                    'reply_markup': json.dumps({
+                        #'one_time_keyboard': True,
+                        'resize_keyboard': True,
+                        #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                        'reply_markup': json.dumps({'hide_keyboard': True})
+                }),
+                })).read()
+            else:
+                resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
+                    'chat_id': str(chat_id),
+                    'text': msg, #.encode('utf-8'),
+                    #'disable_web_page_preview': 'true',
+                    #'reply_to_message_id': str(message_id),
+                    'reply_markup': json.dumps({
+                        #'one_time_keyboard': True,
+                        'resize_keyboard': True,
+                        #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                        'reply_markup': json.dumps({'hide_keyboard': False})
+                }),
+                })).read()
+        logging.info('send response: ')
+        logging.info(resp)
+    except urllib2.HTTPError, err:
+        if err.code == 403:
+            p = Person.query(Person.chat_id==chat_id).get()
+            p.enabled = False
+            p.put()
+            logging.info('Disabled user: ' + p.name + ' ' + str(chat_id))
 
-    logging.info('send response: ')
-    logging.info(resp)
 
 # ================================
 
@@ -419,9 +439,9 @@ class WebhookHandler(webapp2.RequestHandler):
         # fr = message.get('from')
         chat = message['chat']
         chat_id = chat['id']
-        first_name = chat["first_name"]
+        name = str(chat["first_name"])
+        last_name = str(chat["last_name"]) if "last_name" in chat else "-"
         #user_id = chat["id"]
-        name = str(first_name)
 
         if not text:
             logging.info('no text')
@@ -446,7 +466,7 @@ class WebhookHandler(webapp2.RequestHandler):
             if text == '/help':
                 reply(instructions)
             elif text in ['/start','START']:
-                start(p)
+                start(p, text, name, last_name)
                 # state = 0
             else:
                 reply("Hi " + name + ", welcome!")
@@ -460,7 +480,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text in ['/help','HELP']:
                     reply(instructions)
                 elif text in ['/start','START']:
-                    start(p)
+                    start(p, text, name, last_name)
                     # state = 0
                 elif text == '/users':
                     reply(getUsers())
@@ -469,8 +489,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif text == '/allpassengers':
                     reply(listAllPassengers())
                 elif chat_id==key.MASTER_CHAT_ID:
-                    if text == '/restartusers':
-                        restartAllUsers()
+                    if text == '/resetusers':
+                        #restartAllUsers()
+                        resestLastNames()
                         #resestEnabled()
                         #resestLanguages()
                     elif text=='/checkenabled':
@@ -488,7 +509,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     else:
                         reply('What command? I only understnad /help /start '
                               '/users /alldrivers /alldrivers '
-                              '/checkenabled /restartusers /resetcounters '
+                              '/checkenabled /resetusers /resetcounters '
                               '/self /broadcast.')
                 else:
                     reply('What command? I only understnad /help or /start.')
@@ -580,7 +601,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         askDriverTime(p)
                         # state = 305
                     else:
-                        reply("Nobody needs a ride in your location. "
+                        reply("Nobody needs a ride in your location.\n"
                               "You can try in a bit or go the bus stop and see if there is someone there " + emoij.SMILING_FACE)
                         restart(p);
                         # state = -1
