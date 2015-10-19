@@ -330,6 +330,13 @@ def listAllPassengers():
             text = text + p.name + _(' ') + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + _("\n")
         return text
 
+def countPasengers(loc):
+    return Person.query().filter(Person.location == loc, Person.state.IN([21, 22, 23])).count()
+
+def countDrivers(loc):
+    return Person.query().filter(Person.location == loc, Person.state.IN([31, 32, 33])).count()
+
+
 def removePassenger(p, driver=None):
     loc = p.location
     restart(p)
@@ -439,6 +446,21 @@ class MeHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getMe'))))
+
+class DashboardHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        data = {
+            "Passengers": {
+                "Trento": countPasengers(FERMATA_TRENTO),
+                "Povo": countPasengers(FERMATA_POVO)
+            },
+            "Drivers": {
+                "Trento": countDrivers(FERMATA_TRENTO),
+                "Povo": countDrivers(FERMATA_POVO)
+            }
+        }
+        self.response.write(json.dumps(data))
 
 
 class GetUpdatesHandler(webapp2.RequestHandler):
@@ -728,6 +750,7 @@ class WebhookHandler(webapp2.RequestHandler):
 
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
+    ('/dashboard', DashboardHandler),
     ('/updates', GetUpdatesHandler),
     ('/set_webhook', SetWebhookHandler),
     ('/webhook', WebhookHandler),
