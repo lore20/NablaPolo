@@ -1,5 +1,5 @@
 application: pickmeup-telegram
-version: 2
+version: 3
 runtime: python27
 api_version: 1
 threadsafe: false
@@ -21,3 +21,5 @@ libraries:
   version: "2.5.2"
 - name: PIL
   version: latest
+#- name: jinja2
+#  version: "2.6"

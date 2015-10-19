@@ -1,0 +1,72 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: VERSION\n"
+"POT-Creation-Date: 2015-10-18 22:47+0000\n"
+"PO-Revision-Date: 2015-10-18 22:47+0000\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE TEAM <EMAIL@ADDRESS>\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#: main.py:133 main.py:480
+msgid "Hi"
+msgstr "Witaj"
+
+#: main.py:133
+msgid "Are you a driver or a passenger?"
+msgstr "Jesteś kierowcą czy pasażerem?"
+
+#: main.py:134 main.py:534
+msgid "Driver"
+msgstr "Kierowca"
+
+#: main.py:134 main.py:529
+msgid "Passenger"
+msgstr "Pasażer"
+
+#: main.py:134 main.py:217 main.py:232 main.py:238 main.py:243 main.py:533
+#: main.py:538 main.py:539 main.py:554 main.py:559 main.py:566 main.py:572
+#: main.py:579 main.py:590 main.py:599 main.py:622 main.py:631 main.py:639
+#: main.py:649 main.py:663
+msgid "Abort"
+msgstr "Anuluj"
+
+#: main.py:198
+msgid "Listen listen..."
+msgstr "Słuchajcie słuchajcie..."
+
+#: main.py:207
+msgid "Press START if you want to restart"
+msgstr "Naciśnij START jeśli chcesz zrestartować"
+
+#: main.py:217
+msgid "Waiting for a driver..."
+msgstr "Czekamy na kierowcę..."
+
+#: main.py:231
+msgid "You can go pick up the passenger(s)!"
+msgstr "Możesz jechać odebrać pasażera/pasażerów!"
+
+#: main.py:232 main.py:647 main.py:657
+msgid "List Passengers"
+msgstr "Pokaż pasażerów"
+
+#: main.py:237
+msgid "A driver coming:"
+msgstr "Przybywa kierowca:"
+
+#: main.py:237 main.py:264
+msgid "expected at"
+msgstr "oczekiwany o"
+
+#: main.py:238
+msgid "List Drivers"
+msgstr "Pokaż kierowców"
+
+#: main.py:616
+msgid "You can try in a bit or go to the bus stop and see if there is someone there"
+msgstr "k"
+
