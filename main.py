@@ -36,8 +36,8 @@ class Counter(ndb.Model):
 QUEUE_COUNTER_POVO = 'Queue_Counter_Povo'
 QUEUE_COUNTER_TRENTO = 'Queue_Counter_Trento'
 COUNTERS = [QUEUE_COUNTER_POVO, QUEUE_COUNTER_TRENTO]
-FERMATA_TRENTO = 'Trento (bus stop x)'
-FERMATA_POVO = 'Povo (bus stop y)'
+FERMATA_TRENTO = 'Trento (bus stop A)'
+FERMATA_POVO = 'Povo (bus stop B)'
 
 MAX_WAITING_TIMEOUT_MIN = 30
 
@@ -281,6 +281,7 @@ def check_available_passenger(driver):
         #    kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + _(' ') + _("Abort")]])
     #return qry.get() is not None
     for p in oldPassengers:
+        gettext.translation('PickMeUp', localedir='locale', languages=[p.language]).install()
         tell(p.chat_id, _("Ride aborted: you have waited for too long!"))
         removePassenger(p)
     return counter > 0
@@ -329,13 +330,6 @@ def listAllPassengers():
         for p in qry:
             text = text + p.name + _(' ') + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + _("\n")
         return text
-
-def countPasengers(loc):
-    return Person.query().filter(Person.location == loc, Person.state.IN([21, 22, 23])).count()
-
-def countDrivers(loc):
-    return Person.query().filter(Person.location == loc, Person.state.IN([31, 32, 33])).count()
-
 
 def removePassenger(p, driver=None):
     loc = p.location
@@ -450,15 +444,41 @@ class MeHandler(webapp2.RequestHandler):
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
+
+        p_wait_trento = Person.query().filter(Person.location == FERMATA_TRENTO, Person.state.IN([21, 22])).count()
+        p_wait_povo = Person.query().filter(Person.location == FERMATA_POVO, Person.state.IN([21, 22])).count()
+
+        r_cur_tn_pv = 0
+        p_cur_tn_pv = 0
+        r_tot_tn_pv = 0
+        p_tot_tn_pv = 0
+
+        r_cur_pv_tn = 0
+        p_cur_pv_tn = 0
+        r_tot_pv_tn = 0
+        p_tot_pv_tn = 0
+
         data = {
             "Passengers": {
-                "Trento": countPasengers(FERMATA_TRENTO),
-                "Povo": countPasengers(FERMATA_POVO)
+                "Trento": p_wait_trento,
+                "Povo": p_wait_povo
             },
-            "Drivers": {
-                "Trento": countDrivers(FERMATA_TRENTO),
-                "Povo": countDrivers(FERMATA_POVO)
+            "Rides TN->PV": {
+                "Current rides": r_cur_tn_pv,
+                "Current passengers": p_cur_tn_pv,
+                "Total rides": r_tot_tn_pv,
+                "Total passangers": p_tot_tn_pv
+            },
+            "Rides PV->TN": {
+                "Current rides": r_cur_pv_tn,
+                "Current passengers": p_cur_pv_tn,
+                "Total rides": r_tot_pv_tn,
+                "Total passangers": p_tot_pv_tn
             }
+            # "Drivers": {
+            #     "Trento": countDrivers(FERMATA_TRENTO),
+            #     "Povo": countDrivers(FERMATA_POVO)
+            # }
         }
         self.response.write(json.dumps(data))
 

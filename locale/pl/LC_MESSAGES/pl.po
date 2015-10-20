@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: VERSION\n"
-"POT-Creation-Date: 2015-10-18 22:47+0000\n"
-"PO-Revision-Date: 2015-10-18 22:47+0000\n"
+"POT-Creation-Date: 2015-10-20 13:23+0000\n"
+"PO-Revision-Date: 2015-10-20 13:23+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE TEAM <EMAIL@ADDRESS>\n"
 "Language: pl\n"
@@ -11,62 +11,245 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: main.py:133 main.py:480
+#: ../main.py:135 ../main.py:505
 msgid "Hi"
 msgstr "Witaj"
 
-#: main.py:133
+#: ../main.py:135
 msgid "Are you a driver or a passenger?"
 msgstr "Jesteś kierowcą czy pasażerem?"
 
-#: main.py:134 main.py:534
+#: ../main.py:136 ../main.py:564
 msgid "Driver"
 msgstr "Kierowca"
 
-#: main.py:134 main.py:529
+#: ../main.py:136 ../main.py:559
 msgid "Passenger"
 msgstr "Pasażer"
 
-#: main.py:134 main.py:217 main.py:232 main.py:238 main.py:243 main.py:533
-#: main.py:538 main.py:539 main.py:554 main.py:559 main.py:566 main.py:572
-#: main.py:579 main.py:590 main.py:599 main.py:622 main.py:631 main.py:639
-#: main.py:649 main.py:663
+#: ../main.py:136 ../main.py:219 ../main.py:245 ../main.py:251 ../main.py:256
+#: ../main.py:524 ../main.py:563 ../main.py:568 ../main.py:569 ../main.py:584
+#: ../main.py:589 ../main.py:596 ../main.py:602 ../main.py:609 ../main.py:620
+#: ../main.py:629 ../main.py:652 ../main.py:661 ../main.py:669 ../main.py:679
+#: ../main.py:693 ../main.py:700
 msgid "Abort"
 msgstr "Anuluj"
 
-#: main.py:198
+#: ../main.py:164
+msgid "Your ride has been aborted by the system manager"
+msgstr "Twoja podróż została przerwana przez administratora systemu"
+
+#: ../main.py:200
 msgid "Listen listen..."
 msgstr "Słuchajcie słuchajcie..."
 
-#: main.py:207
+#: ../main.py:209
 msgid "Press START if you want to restart"
 msgstr "Naciśnij START jeśli chcesz zrestartować"
 
-#: main.py:217
+#: ../main.py:219
 msgid "Waiting for a driver..."
 msgstr "Czekamy na kierowcę..."
 
-#: main.py:231
+#: ../main.py:238
+msgid "Ride aborted: you were expected to give a ride long time ago!"
+msgstr "Podróż anulowana: miałeś/miałaś kogoś podwieźć dawno temu!"
+
+#: ../main.py:238
+msgid "Ride aborted: you were expeted to give a ride long time ago!"
+msgstr "Podróż anulowana: miałeś/miałaś kogoś podwieźć dawno temu!"
+
+#: ../main.py:244
 msgid "You can go pick up the passenger(s)!"
 msgstr "Możesz jechać odebrać pasażera/pasażerów!"
 
-#: main.py:232 main.py:647 main.py:657
+#: ../main.py:245 ../main.py:629 ../main.py:677 ../main.py:687
 msgid "List Passengers"
 msgstr "Pokaż pasażerów"
 
-#: main.py:237
+#: ../main.py:250
 msgid "A driver coming:"
 msgstr "Przybywa kierowca:"
 
-#: main.py:237 main.py:264
+#: ../main.py:250 ../main.py:286
 msgid "expected at"
 msgstr "oczekiwany o"
 
-#: main.py:238
+#: ../main.py:251 ../main.py:584 ../main.py:607
 msgid "List Drivers"
 msgstr "Pokaż kierowców"
 
-#: main.py:616
+#: ../main.py:251 ../main.py:584 ../main.py:605
+msgid "Got the Ride!"
+msgstr "Zostałem/zostałam podwieziony/a!"
+
+#: ../main.py:255
+msgid "There is someone waiting for you!"
+msgstr "Ktoś na Ciebie czeka!"
+
+#: ../main.py:256
+msgid "In how many minutes will you be there?"
+msgstr "Za ile minut tam będziesz?"
+
+#: ../main.py:275
+msgid "Ride aborted: you have waited for too long!"
+msgstr "Podróż anulowana: czekałeś/czekałaś za długo!"
+
+#: ../main.py:282
+msgid "No drivers found in your location"
+msgstr "Nie znaleziono żadnych kierowców w Twojej lokalizacji"
+
+#: ../main.py:305
+msgid "No passengers needing a ride found in your location"
+msgstr "Nie znaleziono żadnych pasażerów w Twojej lokalizacji"
+
+#: ../main.py:309
+msgid "waiting since"
+msgstr "czekamy od"
+
+#: ../main.py:316
+msgid "No passangers found"
+msgstr "Nie znaleziono żadnych pasażerów"
+
+#: ../main.py:333
+msgid "Oops... the driver(s) is no longer available!"
+msgstr "Ojej... kierowca już nie jest dostępny!"
+
+#: ../main.py:333
+msgid "Oops... the driver(s) are no longer available!"
+msgstr "Ojej... kierowca już nie jest dostępny!"
+
+#: ../main.py:345
+msgid "Oops... there are no more passengers waiting!"
+msgstr "Ojej... już nie ma oczekujących pasażerów!"
+
+#: ../main.py:351 ../main.py:618
+msgid "Thanks, have a good ride!"
+msgstr "Dzięki, miłej podróży!"
+
+#: ../main.py:357
+msgid "Someone else"
+msgstr "Ktoś inny"
+
+#: ../main.py:351
+msgid "Thanks you, have a good ride!"
+msgstr "Dzięki, miłej podróży!"
+
+#: ../main.py:357
+msgid "Somone else"
+msgstr "Ktoś inny"
+
+#: ../main.py:358
+msgid "Great, which driver gave you a ride?"
+msgstr "Super, który kierowca Cię podwiózł?"
+
+#: ../main.py:487
+msgid "I'm your Trento <-> Povo travelling assistant."
+msgstr "Jestem Twoim asystentem podróży na trasie Trento <-> Povo."
+
+#: ../main.py:488
+msgid "You can press START to get or offer a ride"
+msgstr "Możesz nacisnąć START, żeby zamówić lub zaoferować podwiezienie"
+
+#: ../main.py:489
+msgid "You can press HELP to see this message again"
+msgstr "Możesz nacisnąć POMOC, żeby ponownie zobaczyć tę wiadomość"
+
+#: ../main.py:490
+msgid "You can press LANGUAGE to change the settings (language)"
+msgstr "Możesz nacisnąć JĘZYK, żeby zmienić ustawienia (język)"
+
+#: ../main.py:491
+msgid "If you want to join the discussion about this initiative"
+msgstr "Jeśli chcesz dołączyć do dyskusji na temat tej inicjatywy"
+
+#: ../main.py:492
+msgid "come to the tiramisu group at the following link:"
+msgstr "napisz do grupy tiramisu pod tym linkiem:"
+
+#: ../main.py:505
+msgid "welcome!"
+msgstr "witaj!"
+
+#: ../main.py:519
+msgid "Choose the langauge"
+msgstr "Wybierz język"
+
+#: ../main.py:556
+msgid "What command? I only understnad HELP or START."
+msgstr "Jaka komenda? Rozumiem tylko POMOC lub START."
+
+#: ../main.py:562
+msgid "Hi! I can try to help you to get a ride. Where are you?"
+msgstr "Cześć! Mogę spróbować pomóc Ci znaleźć kogoś, kto Cię może podwieźć. Gdzie jesteś?"
+
+#: ../main.py:567
+msgid "Hi! Glad you can give a ride. Where are you?"
+msgstr "Cześć! Świetnie, że możesz kogoś podwieźć. Gdzie jesteś?"
+
+#: ../main.py:570 ../main.py:590 ../main.py:597 ../main.py:610 ../main.py:621
+#: ../main.py:653 ../main.py:662 ../main.py:670 ../main.py:680 ../main.py:694
+msgid "Passage aborted."
+msgstr "Przejazd anulowany."
+
+#: ../main.py:573
+msgid "Eh? I don't understand you. Are you a Driver or a Passenger?"
+msgstr "Słucham? Nie rozumiem. Jesteś Kierowcą czy Pasażerem?"
+
+#: ../main.py:579 ../main.py:581
+msgid "Your waiting position is:"
+msgstr "Twoje miejsce oczekiwania to:"
+
+#: ../main.py:583
+msgid "There is a driver coming!"
+msgstr "Kierowca przybywa!"
+
+#: ../main.py:593 ../main.py:666 ../main.py:674 ../main.py:684 ../main.py:698
+#: ../main.py:710
+msgid "Eh? I don't understand you."
+msgstr "Słucham? Nie rozumiem."
+
+#: ../main.py:593 ../main.py:656
+msgid "or"
+msgstr "lub"
+
+#: ../main.py:602
+msgid "Eh? If you want to Abort press the button!"
+msgstr "Słucham? Jeśli chcesz anulować, naciśnij guzik ANULUJ!"
+
+#: ../main.py:614
+msgid "Eh? I don't understand you. A driver is supposed to come, be patient!"
+msgstr "Słucham? Nie rozumiem. Kierowca powinien przyjechać, bądź cierpliwy!"
+
+#: ../main.py:617
+msgid "Other"
+msgstr "Inne"
+
+#: ../main.py:627
+msgid "Great! Many thanks to"
+msgstr "Świetnie! Wielkie dzięki dla"
+
+#: ../main.py:628
+msgid "confirmed you gave him/her a ride!"
+msgstr "potwierdził(a), że go podwiozłeś/podwiozłaś!"
+
+#: ../main.py:629 ../main.py:689
+msgid "Reached Destination!"
+msgstr "Cel podróży osiągnięty!"
+
+#: ../main.py:635
+msgid "Name of driver not correct, try again."
+msgstr "Imię kierowcy nieprawidłowe, spróbuj ponownie."
+
+#: ../main.py:645
+msgid "Nobody needs a ride in your location."
+msgstr "Nikt nie potrzebuje podwiezienia w Twoim miejscu lokalizacji."
+
+#: ../main.py:646
 msgid "You can try in a bit or go to the bus stop and see if there is someone there"
-msgstr "k"
+msgstr "Możesz spróbować ponownie później lub pójść na przystanek autobusowy i zobaczyć czy ktoś tam czeka"
+
+#: ../main.py:690
+msgid "Great, thanks!"
+msgstr "Świetnie, dzięki!"
 

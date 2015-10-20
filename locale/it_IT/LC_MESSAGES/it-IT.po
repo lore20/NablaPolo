@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: VERSION\n"
-"POT-Creation-Date: 2015-10-19 14:17+0000\n"
-"PO-Revision-Date: 2015-10-19 14:17+0000\n"
+"POT-Creation-Date: 2015-10-20 12:27+0000\n"
+"PO-Revision-Date: 2015-10-20 12:27+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE TEAM <EMAIL@ADDRESS>\n"
 "Language: it_IT\n"
@@ -243,7 +243,7 @@ msgstr "Nome dell'autista non corretto, prova di nuovo."
 
 #: ../main.py:645
 msgid "Nobody needs a ride in your location."
-msgstr "Nessuno a bisgono di un passaggio in questa fermata."
+msgstr "Nessuno ha bisogno di un passaggio in questa fermata."
 
 #: ../main.py:646
 msgid "You can try in a bit or go to the bus stop and see if there is someone there"
