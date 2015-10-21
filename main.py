@@ -14,15 +14,6 @@ from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 import webapp2
 
-# import sys, gettext
-# kwargs = {}
-# if sys.version_info[0] < 3:
-#     # In Python 2, ensure that the _() that gets installed into built-ins
-#     # always returns unicodes.  This matches the default behavior under Python
-#     # 3, although that keyword argument is not present in the Python 3 API.
-#     kwargs['unicode'] = True
-# gettext.install("PickMeUp", **kwargs)
-
 import gettext
 
 # ================================
@@ -200,25 +191,32 @@ def restartAllUsers():
     qry = Person.query()
     for p in qry:
         if (p.state>-1):
+            setLanguage(p.language)
             tell(p.chat_id, _("Your ride has been aborted by the system manager"))
             restart(p)
 
-def resestLanguages():
+def resetLanguages():
     qry = Person.query()
     for p in qry:
         p.language = 'IT'
         p.put()
 
-def resestEnabled():
+def resetEnabled():
     qry = Person.query()
     for p in qry:
         p.enabled = True
         p.put()
 
-def resestLastNames():
+def resetLastNames():
     qry = Person.query()
     for p in qry:
         p.last_name = '-'
+        p.put()
+
+def resesetNames():
+    qry = Person.query()
+    for p in qry:
+        p.name = p.name.encode('utf-8')
         p.put()
 
 def checkEnabled():
@@ -236,6 +234,7 @@ def broadcast(msg):
     qry = Person.query().order(-Person.last_mod)
     for p in qry:
         if (p.enabled):
+            setLanguage(p.language)
             tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
             sleep(0.100) # no more than 10 messages per second
 
@@ -273,16 +272,19 @@ def check_available_drivers(passenger):
         else:
             oldDrivers[passenger.state].append(d)
         #    setState(p, 22)
-        #tell(p.chat_id, "A driver coming: " + driver.name + " (" + get_time_string(driver.last_mod) + ")",
+        #tell(p.chat_id, "A driver coming: " + driver.name.encode('utf-8') + " (" + get_time_string(driver.last_mod) + ")",
         #    kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + _(' ') + _("Abort")]])
     #return qry.get() is not None
     for d in oldDrivers[32]:
+        setLanguage(d.language)
         tell(d.chat_id, _("Ride aborted: you were expected to give a ride long time ago!"))
         removeDriver(d)
     for d in oldDrivers[33]:
+        setLanguage(d.language)
         tell(d.chat_id, _("Ride complete automatically (you were supposed to arrive long time ago)!"))
         removeDriver(d)
         removeRide(d) # update counter current ride of -1
+    setLanguage(passenger.language)
     return counter > 0
 
 def engageDriver(d, min):
@@ -293,8 +295,10 @@ def engageDriver(d, min):
     for p in qry:
         if (p.state==21):
             setState(p, 22)
-        tell(p.chat_id, _("A driver coming:") + _(' ') + d.name + _(' ') + _("expected at") + _(' ') + get_time_string(d.last_seen),
-            kb=[[_("List Drivers"), _("Got the Ride!")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+        setLanguage(p.language)
+        tell(p.chat_id, _("A driver is coming:") + _(' ') + d.name.encode('utf-8') + _(' ') + _("expected at") + _(' ') + get_time_string(d.last_seen),
+             kb=[[_("List Drivers"), _("Got the Ride!")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+    setLanguage(d.language)
     setState(d, 32)
 
 def askDriverTime(d):
@@ -314,13 +318,15 @@ def check_available_passenger(driver):
         else:
             oldPassengers.append(p)
         #    setState(p, 22)
-        #tell(p.chat_id, "A driver coming: " + driver.name + " (" + get_time_string(driver.last_mod) + ")",
+        #tell(p.chat_id, "A driver coming: " + driver.name.encode('utf-8') + " (" + get_time_string(driver.last_mod) + ")",
         #    kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + _(' ') + _("Abort")]])
     #return qry.get() is not None
     for p in oldPassengers:
         gettext.translation('PickMeUp', localedir='locale', languages=[p.language]).install()
+        setLanguage(p.language)
         tell(p.chat_id, _("Ride aborted: you have waited for too long!"))
         removePassenger(p)
+    setLanguage(driver.language)
     return counter > 0
 
 def listDrivers(passenger):
@@ -330,7 +336,7 @@ def listDrivers(passenger):
     else:
         text = ""
         for d in qry:
-            text = text + d.name + _(' ') + _("expected at") + _(' ') + get_time_string(d.last_seen) + _("\n")
+            text = text + d.name.encode('utf-8') + _(' ') + _("expected at") + _(' ') + get_time_string(d.last_seen) + _("\n")
             #" (" + str(d.state) + ") " +
         return text
 
@@ -342,7 +348,7 @@ def listAllDrivers():
         #qry = qry.order(-Person.last_mod)
         text = ""
         for d in qry:
-            text = text + d.name + _(' ') + d.location + _(" (") + str(d.state) + _(") ") + get_time_string(d.last_seen) + _("\n")
+            text = text + d.name.encode('utf-8') + _(' ') + d.location + _(" (") + str(d.state) + _(") ") + get_time_string(d.last_seen) + _("\n")
         return text
 
 
@@ -353,7 +359,8 @@ def listPassengers(driver):
     else:
         text = ""
         for p in qry:
-            text = text + p.name + _(' ') + _("waiting since") + _(' ') + get_time_string(p.last_seen) + _("\n")
+            text = text + p.name.encode('utf-8') + _(' ') + _("waiting since") + _(' ') + get_time_string(p.last_seen) + _("\n")
+            #" (" + str(p.state) + ") "
             #" (" + str(p.state) + ") "
         return text
 
@@ -365,7 +372,7 @@ def listAllPassengers():
         #qry = qry.order(-Person.last_mod)
         text = ""
         for p in qry:
-            text = text + p.name + _(' ') + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + _("\n")
+            text = text + p.name.encode('utf-8') + _(' ') + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + _("\n")
         return text
 
 def removePassenger(p, driver=None):
@@ -377,9 +384,11 @@ def removePassenger(p, driver=None):
         qry = Person.query().filter(Person.state.IN([305,32]), Person.location==loc)
         for d in qry:
             if d!=driver:
+                setLanguage(d.language)
                 tell(d.chat_id, _("Oops... there are no more passengers waiting!"))
                 #putDriverOnHold(d)
                 restart(d)
+        setLanguage(p.language)
 
 def removeDriver(d):
     loc = d.location
@@ -389,8 +398,10 @@ def removeDriver(d):
         # there are no more drivers in that location
         qry = Person.query().filter(Person.state == 22, Person.location==loc)
         for p in qry:
+            setLanguage(p.language)
             tell(p.chat_id, _("Oops... the driver(s) is no longer available!"))
             putPassengerOnHold(p)
+        setLanguage(d.language)
 
 def askToSelectDriverByName(p):
     qry = Person.query().filter(Person.state.IN([32,33]), Person.location==p.location)
@@ -400,7 +411,7 @@ def askToSelectDriverByName(p):
     else:
         buttons = []
         for d in qry:
-            buttons.append([d.name])
+            buttons.append([d.name.encode('utf-8')])
         buttons.append([_("Someone else")])
         tell(p.chat_id, _("Great, which driver gave you a ride?"), kb=buttons)
         setState(p, 23)
@@ -418,6 +429,9 @@ def tell_katja_test():
             e.enabled = False
             e.put()
 
+def setLanguage(langId):
+    lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
+    gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
 
 def tell(chat_id, msg, kb=None, hideKb=True):
     try:
@@ -468,7 +482,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
             p = Person.query(Person.chat_id==chat_id).get()
             p.enabled = False
             p.put()
-            logging.info('Disabled user: ' + p.name + _(' ') + str(chat_id))
+            logging.info('Disabled user: ' + p.name.encode('utf-8') + _(' ') + str(chat_id))
 
 
 # ================================
@@ -566,12 +580,7 @@ class WebhookHandler(webapp2.RequestHandler):
 
         p = ndb.Key(Person, str(chat_id)).get()
 
-        #gettext.translation('PickMeUp', localedir='locale', languages=['en']).install()
-
         lang = LANGUAGES[p.language] if p is not None else LANGUAGES['IT']
-        #lang = 'en'
-        #logging.debug("Language: " + p.language)
-
         gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
 
         instructions = (_("I\'m your Trento <-> Povo travelling assistant.") + _("\n\n") +
@@ -606,7 +615,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     start(p, text, name, last_name)
                     # state = 0
                 elif text in ['LANGUAGE']:
-                    reply(_("Choose the langauge"),
+                    reply(_("Choose the language"),
                           kb=[[emoij.FLAG_IT + _(' ') + "IT", emoij.FLAG_EN + _(' ') + "EN", emoij.FLAG_RU + _(' ') + "RU"],
                               [emoij.FLAG_DE + _(' ') + "DE", emoij.FLAG_FR + _(' ') + "FR", emoij.FLAG_PL + _(' ') + "PL"],
 #                             [emoij.FLAG_NL + _(' ') + "NL"
@@ -621,9 +630,10 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif chat_id==key.MASTER_CHAT_ID:
                     if text == '/resetusers':
                         #restartAllUsers()
-                        resestLastNames()
-                        #resestEnabled()
-                        #resestLanguages()
+                        #resetLastNames()
+                        #resetEnabled()
+                        #resetLanguages()
+                        resesetNames()
                     elif text=='/checkenabled':
                         checkEnabled()
                     elif text == '/resetcounters':
@@ -637,12 +647,12 @@ class WebhookHandler(webapp2.RequestHandler):
                         msg = text[6:].encode('utf-8')
                         tellmyself(p,msg)
                     else:
-                        reply('What command? I only understnad /help /start'
+                        reply('What command? I only understand /help /start'
                               '/users /alldrivers /alldrivers '
                               '/checkenabled /resetusers /resetcounters '
                               '/self /broadcast')
                 else:
-                    reply(_("What command? I only understnad HELP or START."))
+                    reply(_("What command? I only understand HELP or START."))
             #kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
             elif p.state == 0:
                 # AFTER TYPING START
@@ -720,9 +730,11 @@ class WebhookHandler(webapp2.RequestHandler):
                 else:
                     d = getDriverByLocAndName(p.location, text)
                     if d is not None:
-                        reply(_("Great! Many thanks to") + _(' ') + d.name + "!")
-                        tell(d.chat_id, p.name + _(' ') + _("confirmed you gave him/her a ride!"),
+                        reply(_("Great! Many thanks to") + _(' ') + d.name.encode('utf-8') + "!")
+                        setLanguage(d.language)
+                        tell(d.chat_id, p.name.encode('utf-8') + _(' ') + _("confirmed you gave him/her a ride!"),
                              kb=[[_("List Passengers"), _("Reached Destination!")]]) #[emoij.NOENTRY + _(' ') + _("Abort")]
+                        setLanguage(p.language)
                         if (d.state==32):
                             setState(d, 33)
                             addRide(d) # update counter tot and current ride of 1

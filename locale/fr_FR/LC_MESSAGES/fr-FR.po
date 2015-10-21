@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: VERSION\n"
-"POT-Creation-Date: 2015-10-20 15:10+0000\n"
-"PO-Revision-Date: 2015-10-20 15:10+0000\n"
+"POT-Creation-Date: 2015-10-21 19:13+0000\n"
+"PO-Revision-Date: 2015-10-21 19:13+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE TEAM <EMAIL@ADDRESS>\n"
 "Language: fr_FR\n"
@@ -11,125 +11,238 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: ../main.py:135 ../main.py:505
+#: ../main.py:175 ../main.py:598
 msgid "Hi"
 msgstr "Salut"
 
-#: ../main.py:135
+#: ../main.py:175
 msgid "Are you a driver or a passenger?"
 msgstr "Es-tu un conducteur ou un passager ?"
 
-#: ../main.py:136 ../main.py:564
+#: ../main.py:176 ../main.py:659
 msgid "Driver"
 msgstr "Conducteur"
 
-#: ../main.py:136 ../main.py:559
+#: ../main.py:176 ../main.py:653
 msgid "Passenger"
 msgstr "Passager"
 
-#: ../main.py:136 ../main.py:219 ../main.py:245 ../main.py:251 ../main.py:256
-#: ../main.py:524 ../main.py:563 ../main.py:568 ../main.py:569 ../main.py:584
-#: ../main.py:589 ../main.py:596 ../main.py:602 ../main.py:609 ../main.py:620
-#: ../main.py:629 ../main.py:652 ../main.py:661 ../main.py:669 ../main.py:679
-#: ../main.py:693 ../main.py:700
+#: ../main.py:176 ../main.py:258 ../main.py:291 ../main.py:297 ../main.py:302
+#: ../main.py:616 ../main.py:658 ../main.py:664 ../main.py:665 ../main.py:681
+#: ../main.py:686 ../main.py:693 ../main.py:699 ../main.py:706 ../main.py:719
+#: ../main.py:753 ../main.py:762 ../main.py:770 ../main.py:780 ../main.py:803
 msgid "Abort"
 msgstr "Annuler"
 
-#: ../main.py:164
+#: ../main.py:203
 msgid "Your ride has been aborted by the system manager"
 msgstr "Votre trajet a été annulé par l'administrateur système"
 
-#: ../main.py:200
+#: ../main.py:239
 msgid "Listen listen..."
 msgstr "Écoute écoute ..."
 
-#: ../main.py:209
+#: ../main.py:248
 msgid "Press START if you want to restart"
 msgstr "Clique sur START si tu veux recommencer"
 
-#: ../main.py:219
+#: ../main.py:258
 msgid "Waiting for a driver..."
 msgstr "En attente d'un conducteur ..."
 
-#: ../main.py:238
+#: ../main.py:290
+msgid "You can go pick up the passenger(s)!"
+msgstr "Peux-tu aller à l'arrêt pour prendre le(s) passager(s)"
+
+#: ../main.py:291 ../main.py:728 ../main.py:778 ../main.py:788
+msgid "List Passengers"
+msgstr "Liste des passagers"
+
+#: ../main.py:296
+msgid "A driver coming:"
+msgstr "Un conducteur est en train d'arriver :"
+
+#: ../main.py:296 ../main.py:333
+msgid "expected at"
+msgstr "prévu à"
+
+#: ../main.py:297 ../main.py:681 ../main.py:704
+msgid "List Drivers"
+msgstr "Liste des conducteurs"
+
+#: ../main.py:297 ../main.py:681 ../main.py:702
+msgid "Got the Ride!"
+msgstr "Trajet confirmé !"
+
+#: ../main.py:301
+msgid "There is someone waiting for you!"
+msgstr "Il y a quelqu'un qui est en train de t'attendre !"
+
+#: ../main.py:302
+msgid "In how many minutes will you be there?"
+msgstr "Dans combien de minutes prévois-tu d'arriver ?"
+
+#: ../main.py:329
+msgid "No drivers found in your location"
+msgstr "Aucun conducteur disponible à ton arrêt"
+
+#: ../main.py:352
+msgid "No passengers needing a ride found in your location"
+msgstr "Aucun passager n'a besoin d'un trajet depuis cet arrêt"
+
+#: ../main.py:356
+msgid "waiting since"
+msgstr "en attente depuis"
+
+#: ../main.py:363
+msgid "No passangers found"
+msgstr "Aucun passager trouvé"
+
+#: ../main.py:380
+msgid "Oops... there are no more passengers waiting!"
+msgstr "Oops ... il n'y a plus de passagers qui attendent !"
+
+#: ../main.py:405
+msgid "Great, which driver gave you a ride?"
+msgstr "Super, quel conducteur a assuré le trajet ?"
+
+#: ../main.py:580
+msgid "I'm your Trento <-> Povo travelling assistant."
+msgstr "Je suis ton assistant pour tes trajets Trento <-> Povo."
+
+#: ../main.py:581
+msgid "You can press START to get or offer a ride"
+msgstr "Tu peux appuyer sur START pour obtenir ou offrir un trajet."
+
+#: ../main.py:582
+msgid "You can press HELP to see this message again"
+msgstr "Tu peux appuyer sur HELP pour voir de nouveau ce message."
+
+#: ../main.py:584
+msgid "If you want to join the discussion about this initiative"
+msgstr "Si tu veux participer à la discussion concernant cette initiative"
+
+#: ../main.py:585
+msgid "come to the tiramisu group at the following link:"
+msgstr "rejoins le groupe tiramisu en cliquant sur le lien suivant :"
+
+#: ../main.py:598
+msgid "welcome!"
+msgstr "Bienvenue !"
+
+#: ../main.py:649
+msgid "What command? I only understnad HELP or START."
+msgstr "Qu'as-tu demandé ? Je comprends seulement HELP ou START."
+
+#: ../main.py:657
+msgid "Hi! I can try to help you to get a ride. Where are you?"
+msgstr "Salut ! Je peux essayer de t'aider à trouver un trajet. Où es-tu ?"
+
+#: ../main.py:746
+msgid "Nobody needs a ride in your location."
+msgstr "Personne n'a besoin qu'on le prenne à cet arrêt."
+
+#: ../main.py:667 ../main.py:687 ../main.py:694 ../main.py:707 ../main.py:720
+#: ../main.py:754 ../main.py:763 ../main.py:771 ../main.py:781
+msgid "Passage aborted."
+msgstr "Trajet annulé."
+
+#: ../main.py:690 ../main.py:757
+msgid "or"
+msgstr "ou"
+
+#: ../main.py:690 ../main.py:767 ../main.py:775 ../main.py:785 ../main.py:801
+#: ../main.py:813
+msgid "Eh? I don't understand you."
+msgstr "Eh ? Je ne comprends pas."
+
+#: ../main.py:728 ../main.py:790
+msgid "Reached Destination!"
+msgstr "Destination atteinte !"
+
+#: ../main.py:791
+msgid "Great, thanks!"
+msgstr "Merci!"
+
+#: ../main.py:747
+msgid "You can try in a bit or go to the bus stop and see if there is someone there"
+msgstr "Tu peux essayer de nouveau plus tard ou aller à l'arrêt de bus et voir s'il y a quelqu'un."
+
+#: ../main.py:583
+msgid "You can press LANGUAGE to change the settings (language)"
+msgstr "Tu peux appuyer sur LANGUAGE pour changer les réglages (langue)."
+
+#: ../main.py:613
+msgid "Choose the langauge"
+msgstr "Choisis la langue"
+
+#: ../main.py:663
+msgid "Hi! Glad you can give a ride. Where are you?"
+msgstr "Salut ! Je suis content que tu puisses proposer un trajet. Où es-tu ?"
+
+#: ../main.py:670
+msgid "Eh? I don't understand you. Are you a Driver or a Passenger?"
+msgstr "Eh ? Je ne comprends pas. Es-tu un conducteur ou un passager ?"
+
+#: ../main.py:676 ../main.py:678
+msgid "Your waiting position is:"
+msgstr "Ton numéro d'attente est :"
+
+#: ../main.py:680
+msgid "There is a driver coming!"
+msgstr "Un conducteur est en train d'arriver !"
+
+#: ../main.py:699
+msgid "Eh? If you want to Abort press the button!"
+msgstr "Eh ? Si tu veux annuler clique sur le bouton !"
+
+#: ../main.py:711
+msgid "Eh? I don't understand you. A driver is supposed to come, be patient!"
+msgstr "Eh ? Je ne te comprends pas. Un conducteur devrait arriver, sois patient !"
+
+#: ../main.py:714
+msgid "Other"
+msgstr "Autre"
+
+#: ../main.py:398 ../main.py:715
+msgid "Thanks, have a good ride!"
+msgstr "Merci, bonne route !"
+
+#: ../main.py:726
+msgid "Great! Many thanks to"
+msgstr "Super ! Merci beaucoup à"
+
+#: ../main.py:727
+msgid "confirmed you gave him/her a ride!"
+msgstr "Il a confirmé que tu l'avais déposé !"
+
+#: ../main.py:736
+msgid "Name of driver not correct, try again."
+msgstr "Le nom du conducteur n'est pas correct, essaye de nouveau."
+
+#: ../main.py:322
+msgid "Ride aborted: you have waited for too long!"
+msgstr "Trajet annulé : tu as attendu trop longtemps !"
+
+#: ../main.py:280
 msgid "Ride aborted: you were expected to give a ride long time ago!"
 msgstr "Trajet annulé : ton arrivée était prévue il y a longtemps."
+
+#: ../main.py:392
+msgid "Oops... the driver(s) is no longer available!"
+msgstr "Oops ... il n'y a plus de conducteurs disponibles !"
+
+#: ../main.py:404
+msgid "Someone else"
+msgstr "Quelqu'un d'autre"
 
 #: ../main.py:238
 msgid "Ride aborted: you were expeted to give a ride long time ago!"
 msgstr "Trajet annulé : ton arrivée était prévue il y a longtemps."
 
-#: ../main.py:244
-msgid "You can go pick up the passenger(s)!"
-msgstr "Peux-tu aller à l'arrêt pour prendre le(s) passager(s)"
-
-#: ../main.py:245 ../main.py:629 ../main.py:677 ../main.py:687
-msgid "List Passengers"
-msgstr "Liste des passagers"
-
-#: ../main.py:250
-msgid "A driver coming:"
-msgstr "Un conducteur est en train d'arriver :"
-
-#: ../main.py:250 ../main.py:286
-msgid "expected at"
-msgstr "prévu à"
-
-#: ../main.py:251 ../main.py:584 ../main.py:607
-msgid "List Drivers"
-msgstr "Liste des conducteurs"
-
-#: ../main.py:251 ../main.py:584 ../main.py:605
-msgid "Got the Ride!"
-msgstr "Trajet confirmé !"
-
-#: ../main.py:255
-msgid "There is someone waiting for you!"
-msgstr "Il y a quelqu'un qui est en train de t'attendre !"
-
-#: ../main.py:256
-msgid "In how many minutes will you be there?"
-msgstr "Dans combien de minutes prévois-tu d'arriver ?"
-
-#: ../main.py:275
-msgid "Ride aborted: you have waited for too long!"
-msgstr "Trajet annulé : tu as attendu trop longtemps !"
-
-#: ../main.py:282
-msgid "No drivers found in your location"
-msgstr "Aucun conducteur disponible à ton arrêt"
-
-#: ../main.py:305
-msgid "No passengers needing a ride found in your location"
-msgstr "Aucun passager n'a besoin d'un trajet depuis cet arrêt"
-
-#: ../main.py:309
-msgid "waiting since"
-msgstr "en attente depuis"
-
-#: ../main.py:316
-msgid "No passangers found"
-msgstr "Aucun passager trouvé"
-
-#: ../main.py:333
-msgid "Oops... the driver(s) is no longer available!"
-msgstr "Oops ... il n'y a plus de conducteurs disponibles !"
-
 #: ../main.py:333
 msgid "Oops... the driver(s) are no longer available!"
 msgstr "Oops ... il n'y a plus de conducteurs disponibles !"
-
-#: ../main.py:345
-msgid "Oops... there are no more passengers waiting!"
-msgstr "Oops ... il n'y a plus de passagers qui attendent !"
-
-#: ../main.py:351 ../main.py:618
-msgid "Thanks, have a good ride!"
-msgstr "Merci, bonne route !"
-
-#: ../main.py:357
-msgid "Someone else"
-msgstr "Quelqu'un d'autre"
 
 #: ../main.py:351
 msgid "Thanks you, have a good ride!"
@@ -138,118 +251,4 @@ msgstr "Merci, bonne route !"
 #: ../main.py:357
 msgid "Somone else"
 msgstr "Quelqu'un d'autre"
-
-#: ../main.py:358
-msgid "Great, which driver gave you a ride?"
-msgstr "Super, quel conducteur a assuré le trajet ?"
-
-#: ../main.py:487
-msgid "I'm your Trento <-> Povo travelling assistant."
-msgstr "Je suis ton assistant pour tes trajets Trento <-> Povo."
-
-#: ../main.py:488
-msgid "You can press START to get or offer a ride"
-msgstr "Tu peux appuyer sur START pour obtenir ou offrir un trajet."
-
-#: ../main.py:489
-msgid "You can press HELP to see this message again"
-msgstr "Tu peux appuyer sur HELP pour voir de nouveau ce message."
-
-#: ../main.py:490
-msgid "You can press LANGUAGE to change the settings (language)"
-msgstr "Tu peux appuyer sur LANGUAGE pour changer les réglages (langue)."
-
-#: ../main.py:491
-msgid "If you want to join the discussion about this initiative"
-msgstr "Si tu veux participer à la discussion concernant cette initiative"
-
-#: ../main.py:492
-msgid "come to the tiramisu group at the following link:"
-msgstr "rejoins le groupe tiramisu en cliquant sur le lien suivant :"
-
-#: ../main.py:505
-msgid "welcome!"
-msgstr "Bienvenue !"
-
-#: ../main.py:519
-msgid "Choose the langauge"
-msgstr "Choisis la langue"
-
-#: ../main.py:556
-msgid "What command? I only understnad HELP or START."
-msgstr "Qu'as-tu demandé ? Je comprends seulement HELP ou START."
-
-#: ../main.py:562
-msgid "Hi! I can try to help you to get a ride. Where are you?"
-msgstr "Salut ! Je peux essayer de t'aider à trouver un trajet. Où es-tu ?"
-
-#: ../main.py:567
-msgid "Hi! Glad you can give a ride. Where are you?"
-msgstr "Salut ! Je suis content que tu puisses proposer un trajet. Où es-tu ?"
-
-#: ../main.py:570 ../main.py:590 ../main.py:597 ../main.py:610 ../main.py:621
-#: ../main.py:653 ../main.py:662 ../main.py:670 ../main.py:680 ../main.py:694
-msgid "Passage aborted."
-msgstr "Trajet annulé."
-
-#: ../main.py:573
-msgid "Eh? I don't understand you. Are you a Driver or a Passenger?"
-msgstr "Eh ? Je ne comprends pas. Es-tu un conducteur ou un passager ?"
-
-#: ../main.py:579 ../main.py:581
-msgid "Your waiting position is:"
-msgstr "Ton numéro d'attente est :"
-
-#: ../main.py:583
-msgid "There is a driver coming!"
-msgstr "Un conducteur est en train d'arriver !"
-
-#: ../main.py:593 ../main.py:666 ../main.py:674 ../main.py:684 ../main.py:698
-#: ../main.py:710
-msgid "Eh? I don't understand you."
-msgstr "Eh ? Je ne comprends pas."
-
-#: ../main.py:593 ../main.py:656
-msgid "or"
-msgstr "ou"
-
-#: ../main.py:602
-msgid "Eh? If you want to Abort press the button!"
-msgstr "Eh ? Si tu veux annuler clique sur le bouton !"
-
-#: ../main.py:614
-msgid "Eh? I don't understand you. A driver is supposed to come, be patient!"
-msgstr "Eh ? Je ne te comprends pas. Un conducteur devrait arriver, sois patient !"
-
-#: ../main.py:617
-msgid "Other"
-msgstr "Autre"
-
-#: ../main.py:627
-msgid "Great! Many thanks to"
-msgstr "Super ! Merci beaucoup à"
-
-#: ../main.py:628
-msgid "confirmed you gave him/her a ride!"
-msgstr "Il a confirmé que tu l'avais déposé !"
-
-#: ../main.py:629 ../main.py:689
-msgid "Reached Destination!"
-msgstr "Destination atteinte !"
-
-#: ../main.py:635
-msgid "Name of driver not correct, try again."
-msgstr "Le nom du conducteur n'est pas correct, essaye de nouveau."
-
-#: ../main.py:645
-msgid "Nobody needs a ride in your location."
-msgstr "Personne n'a besoin qu'on le prenne à cet arrêt."
-
-#: ../main.py:646
-msgid "You can try in a bit or go to the bus stop and see if there is someone there"
-msgstr "Tu peux essayer de nouveau plus tard ou aller à l'arrêt de bus et voir s'il y a quelqu'un."
-
-#: ../main.py:690
-msgid "Great, thanks!"
-msgstr "Merci!"
 
