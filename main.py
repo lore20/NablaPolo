@@ -33,13 +33,22 @@ class Counter(ndb.Model):
 
 # ================================
 
+MAX_WAITING_TIMEOUT_MIN = 2
+
 QUEUE_COUNTER_POVO = 'Queue_Counter_Povo'
 QUEUE_COUNTER_TRENTO = 'Queue_Counter_Trento'
-COUNTERS = [QUEUE_COUNTER_POVO, QUEUE_COUNTER_TRENTO]
+TN_PV_CURRENT_RIDES = 'tn_pv_current_rides'
+TN_PV_TOTAL_RIDES = 'tn_pv_total_rides'
+TN_PV_TOTAL_PASSENGERS = 'tn_pv_total_passengers'
+PV_TN_CURRENT_RIDES = 'pv_tn_current_rides'
+PV_TN_TOTAL_RIDES = 'pv_tn_total_rides'
+PV_TN_TOTAL_PASSENGERS = 'pv_tn_total_passengers'
+
+COUNTERS = [QUEUE_COUNTER_POVO, QUEUE_COUNTER_TRENTO,
+            TN_PV_CURRENT_RIDES, TN_PV_TOTAL_RIDES, TN_PV_TOTAL_PASSENGERS,
+            PV_TN_CURRENT_RIDES, PV_TN_TOTAL_RIDES, PV_TN_TOTAL_PASSENGERS]
 FERMATA_TRENTO = 'Trento (bus stop A)'
 FERMATA_POVO = 'Povo (bus stop B)'
-
-MAX_WAITING_TIMEOUT_MIN = 30
 
 def resetCounter():
     for name in COUNTERS:
@@ -48,7 +57,7 @@ def resetCounter():
         c.counter = 0
         c.put()
 
-def increaseCounter(n):
+def increaseQueueCounter(n):
     entry = Counter.query(Counter.name == n).get()
     c = entry.counter
     c = (c+1)%100
@@ -58,6 +67,27 @@ def increaseCounter(n):
     entry.put()
     return c
 
+def increaseCounter(c, i):
+    entry = Counter.query(Counter.name == c).get()
+    c = entry.counter
+    c = (c+i)
+    entry.counter = c
+    entry.put()
+    return c
+
+def addRide(driver):
+    riders_current_counter = TN_PV_CURRENT_RIDES if driver.location == FERMATA_TRENTO else PV_TN_CURRENT_RIDES
+    increaseCounter(riders_current_counter, 1)
+    riders_tot_current_counter = TN_PV_TOTAL_RIDES if driver.location == FERMATA_TRENTO else PV_TN_TOTAL_RIDES
+    increaseCounter(riders_tot_current_counter, 1)
+
+def removeRide(driver):
+    riders_current_counter = TN_PV_CURRENT_RIDES if driver.location == FERMATA_TRENTO else PV_TN_CURRENT_RIDES
+    increaseCounter(riders_current_counter, -1)
+
+def addPassengerRide(passenger):
+    passenger_tot_counter = TN_PV_TOTAL_PASSENGERS if passenger.location == FERMATA_TRENTO else PV_TN_TOTAL_PASSENGERS
+    increaseCounter(passenger_tot_counter, 1)
 
 # ================================
 
@@ -233,19 +263,26 @@ def check_available_drivers(passenger):
     #passenger.last_seen = datetime.datetime.now()
     qry = Person.query(Person.location == passenger.location, Person.state.IN([32,33])) #31
     counter = 0
-    oldDrivers = []
+    oldDrivers = {
+        32: [],
+        33: []
+    }
     for d in qry:
         if (datetime.datetime.now() < d.last_seen + datetime.timedelta(minutes=MAX_WAITING_TIMEOUT_MIN)):
             counter = counter + 1
         else:
-            oldDrivers.append(d)
+            oldDrivers[passenger.state].append(d)
         #    setState(p, 22)
         #tell(p.chat_id, "A driver coming: " + driver.name + " (" + get_time_string(driver.last_mod) + ")",
         #    kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + _(' ') + _("Abort")]])
     #return qry.get() is not None
-    for d in oldDrivers:
+    for d in oldDrivers[32]:
         tell(d.chat_id, _("Ride aborted: you were expected to give a ride long time ago!"))
         removeDriver(d)
+    for d in oldDrivers[33]:
+        tell(d.chat_id, _("Ride complete automatically (you were supposed to arrive long time ago)!"))
+        removeDriver(d)
+        removeRide(d) # update counter current ride of -1
     return counter > 0
 
 def engageDriver(d, min):
@@ -340,7 +377,7 @@ def removePassenger(p, driver=None):
         qry = Person.query().filter(Person.state.IN([305,32]), Person.location==loc)
         for d in qry:
             if d!=driver:
-                tell(d.chat_id, _("Oops... the driver(s) is no longer available!"))
+                tell(d.chat_id, _("Oops... there are no more passengers waiting!"))
                 #putDriverOnHold(d)
                 restart(d)
 
@@ -352,7 +389,7 @@ def removeDriver(d):
         # there are no more drivers in that location
         qry = Person.query().filter(Person.state == 22, Person.location==loc)
         for p in qry:
-            tell(p.chat_id, _("Oops... there are no more passengers waiting!"))
+            tell(p.chat_id, _("Oops... the driver(s) is no longer available!"))
             putPassengerOnHold(p)
 
 def askToSelectDriverByName(p):
@@ -448,15 +485,16 @@ class DashboardHandler(webapp2.RequestHandler):
         p_wait_trento = Person.query().filter(Person.location == FERMATA_TRENTO, Person.state.IN([21, 22])).count()
         p_wait_povo = Person.query().filter(Person.location == FERMATA_POVO, Person.state.IN([21, 22])).count()
 
-        r_cur_tn_pv = 0
-        p_cur_tn_pv = 0
-        r_tot_tn_pv = 0
-        p_tot_tn_pv = 0
+        r_cur_tn_pv = Counter.query(Counter.name == 'tn_pv_current_rides').get().counter
+        #p_cur_tn_pv = 0
+        r_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_rides').get().counter
+        p_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_passengers').get().counter
 
-        r_cur_pv_tn = 0
-        p_cur_pv_tn = 0
-        r_tot_pv_tn = 0
-        p_tot_pv_tn = 0
+        r_cur_pv_tn = Counter.query(Counter.name == 'pv_tn_current_rides').get().counter
+        #p_cur_pv_tn = 0
+        r_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_rides').get().counter
+        p_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_passengers').get().counter
+
 
         data = {
             "Passengers": {
@@ -465,13 +503,13 @@ class DashboardHandler(webapp2.RequestHandler):
             },
             "Rides TN->PV": {
                 "Current rides": r_cur_tn_pv,
-                "Current passengers": p_cur_tn_pv,
+#                "Current passengers": p_cur_tn_pv,
                 "Total rides": r_tot_tn_pv,
                 "Total passangers": p_tot_tn_pv
             },
             "Rides PV->TN": {
                 "Current rides": r_cur_pv_tn,
-                "Current passengers": p_cur_pv_tn,
+ #               "Current passengers": p_cur_pv_tn,
                 "Total rides": r_tot_pv_tn,
                 "Total passangers": p_tot_pv_tn
             }
@@ -632,9 +670,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text in [FERMATA_POVO,FERMATA_TRENTO]:
                     setLocation(p, text)
                     if text == FERMATA_POVO:
-                        reply(_("Your waiting position is:") + _(' ') + str(increaseCounter(QUEUE_COUNTER_POVO)))
+                        reply(_("Your waiting position is:") + _(' ') + str(increaseQueueCounter(QUEUE_COUNTER_POVO)))
                     else:
-                        reply(_("Your waiting position is:") + _(' ') + str(increaseCounter(QUEUE_COUNTER_TRENTO)))
+                        reply(_("Your waiting position is:") + _(' ') + str(increaseQueueCounter(QUEUE_COUNTER_TRENTO)))
                     if check_available_drivers(p):
                         reply(_("There is a driver coming!"),
                               kb=[[_('List Drivers'), _('Got the Ride!')],[emoij.NOENTRY + _(' ') + _("Abort")]])
@@ -672,6 +710,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 # PASSENGERS WHO JUST CONFIRMED A RIDE
                 if text == _('Other'):
                     reply(_("Thanks, have a good ride!"))
+                    addPassengerRide(p) # increase counter tot passengers in ride of 1
+                    addRide(p) # update counter tot and current ride of 1
                     removePassenger(p)
                 elif text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
@@ -682,9 +722,11 @@ class WebhookHandler(webapp2.RequestHandler):
                     if d is not None:
                         reply(_("Great! Many thanks to") + _(' ') + d.name + "!")
                         tell(d.chat_id, p.name + _(' ') + _("confirmed you gave him/her a ride!"),
-                             kb=[[_("List Passengers"), _("Reached Destination!")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                             kb=[[_("List Passengers"), _("Reached Destination!")]]) #[emoij.NOENTRY + _(' ') + _("Abort")]
                         if (d.state==32):
                             setState(d, 33)
+                            addRide(d) # update counter tot and current ride of 1
+                        addPassengerRide(p)
                         removePassenger(p, driver=d)
                         # passenger state = -1
                     else:
@@ -744,12 +786,14 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listPassengers(p))
                 elif text == _("Reached Destination!"):
                     reply(_("Great, thanks!") + _(' ') + emoij.CLAPPING_HANDS)
+                    removeRide(p) # update counter current ride of -1
                     removeDriver(p)
                     # set state -1
-                elif text.endswith(_("Abort")):
-                    reply(_("Passage aborted."))
-                    removeDriver(p)
-                    # state = -1
+                # elif text.endswith(_("Abort")):
+                #     reply(_("Passage aborted."))
+                #     removeRide(p) # update counter current ride of -1
+                #     removeDriver(p)
+                #     # state = -1
                 else:
                     reply(_("Eh? I don't understand you."))# (" + text + ")")
             elif p.state == 90:
