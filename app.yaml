@@ -13,13 +13,24 @@ handlers:
   login: admin
   script: main.app
 
+- url: /tiramisulottery
+  login: admin
+  script: main.app
+
+- url: /dashboard/assets
+  static_dir: dashboard/assets
+
 - url: .*
   script: main.app
 
 libraries:
 - name: webapp2
-  version: "2.5.2"
+  version: latest
 - name: PIL
   version: latest
-#- name: jinja2
-#  version: "2.6"
+- name: jinja2
+  version: latest
+
+inbound_services:
+- channel_presence
+

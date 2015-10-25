@@ -1,3 +1,4 @@
+#import json
 import json
 import logging
 import urllib
@@ -12,9 +13,21 @@ import emoij
 # standard app engine imports
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
+from google.appengine.api import channel
+
+#from google.appengine.ext import vendor
+#vendor.add('lib')
+
 import webapp2
+#from flask import Flask, jsonify
 
 import gettext
+
+from jinja2 import Environment, FileSystemLoader
+
+DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
+token = channel.create_channel('default')
+
 
 # ================================
 
@@ -38,8 +51,8 @@ PV_TN_TOTAL_PASSENGERS = 'pv_tn_total_passengers'
 COUNTERS = [QUEUE_COUNTER_POVO, QUEUE_COUNTER_TRENTO,
             TN_PV_CURRENT_RIDES, TN_PV_TOTAL_RIDES, TN_PV_TOTAL_PASSENGERS,
             PV_TN_CURRENT_RIDES, PV_TN_TOTAL_RIDES, PV_TN_TOTAL_PASSENGERS]
-FERMATA_TRENTO = 'Trento (bus stop A)'
-FERMATA_POVO = 'Povo (bus stop B)'
+FERMATA_TRENTO = 'Trento Porta Aquila'
+FERMATA_POVO = 'Povo Sommarive'
 
 def resetCounter():
     for name in COUNTERS:
@@ -79,6 +92,48 @@ def removeRide(driver):
 def addPassengerRide(passenger):
     passenger_tot_counter = TN_PV_TOTAL_PASSENGERS if passenger.location == FERMATA_TRENTO else PV_TN_TOTAL_PASSENGERS
     increaseCounter(passenger_tot_counter, 1)
+
+def getDashboardData():
+    p_wait_trento = Person.query().filter(Person.location == FERMATA_TRENTO, Person.state.IN([21, 22])).count()
+    p_wait_povo = Person.query().filter(Person.location == FERMATA_POVO, Person.state.IN([21, 22])).count()
+
+    r_cur_tn_pv = Counter.query(Counter.name == 'tn_pv_current_rides').get().counter
+    #p_cur_tn_pv = 0
+    r_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_rides').get().counter
+    p_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_passengers').get().counter
+
+    r_cur_pv_tn = Counter.query(Counter.name == 'pv_tn_current_rides').get().counter
+    #p_cur_pv_tn = 0
+    r_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_rides').get().counter
+    p_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_passengers').get().counter
+
+    data = {
+        "token" : token,
+        "passenger": {
+            "trento": str(p_wait_trento),
+            "povo": str(p_wait_povo)
+        },
+        "ridesPovoToTrento": {
+            "currentRides": str(r_cur_tn_pv),
+    #                "Current passengers": p_cur_tn_pv,
+            "totalRides": str(r_tot_tn_pv),
+            "totalPassengers": str(p_tot_tn_pv)
+        },
+        "ridesTrentoToPovo": {
+            "currentRides": str(r_cur_pv_tn),
+    #               "Current passengers": p_cur_pv_tn,
+            "totalRides": str(r_tot_pv_tn),
+            "totalPassangers": str(p_tot_pv_tn)
+        }
+        # "Drivers": {
+        #     "Trento": countDrivers(FERMATA_TRENTO),
+        #     "Povo": countDrivers(FERMATA_POVO)
+        # }
+    }
+    return data
+
+def updateDashboard():
+    channel.send_message(token, 'update')
 
 # ================================
 
@@ -177,14 +232,14 @@ def getUsers():
     return text
 
 def get_date_string(date):
-    newdate = date + datetime.timedelta(hours=2)
+    newdate = date + datetime.timedelta(hours=1)
     time_day = str(newdate).split(" ")
     time = time_day[1].split(".")[0]
     day = time_day[0]
     return day + " " + time
 
 def get_time_string(date):
-    newdate = date + datetime.timedelta(hours=2)
+    newdate = date + datetime.timedelta(hours=1)
     return str(newdate).split(" ")[1].split(".")[0]
 
 def restartAllUsers():
@@ -238,6 +293,12 @@ def broadcast(msg):
             tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
             sleep(0.100) # no more than 10 messages per second
 
+def broadcastInfoCount():
+    c = Person.query().count()
+    broadcast(_("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!") + _(' ')
+              + _("We want to get bigger and bigger!") + _(' ')
+              + _("Invite more people to join us!"))
+
 def tellmyself(p, msg):
     tell(p.chat_id, "Listen listen... " + msg)
 
@@ -271,6 +332,7 @@ def check_available_drivers(passenger):
             counter = counter + 1
         else:
             oldDrivers[passenger.state].append(d)
+            #logging.debug('test')
         #    setState(p, 22)
         #tell(p.chat_id, "A driver coming: " + driver.name.encode('utf-8') + " (" + get_time_string(driver.last_mod) + ")",
         #    kb=[['List Drivers', 'Got the Ride!'],[emoij.NOENTRY + _(' ') + _("Abort")]])
@@ -429,6 +491,10 @@ def tell_katja_test():
             e.enabled = False
             e.put()
 
+def tell_katja(msg):
+    tell(114258373, msg)
+
+
 def setLanguage(langId):
     lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
     gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
@@ -492,47 +558,26 @@ class MeHandler(webapp2.RequestHandler):
         urlfetch.set_default_fetch_deadline(60)
         self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getMe'))))
 
+class TiramisuHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        #tell(key.MASTER_CHAT_ID, msg = "Lottery test")
+
+class InfouserHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        broadcastInfoCount()
+
+
+
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
 
-        p_wait_trento = Person.query().filter(Person.location == FERMATA_TRENTO, Person.state.IN([21, 22])).count()
-        p_wait_povo = Person.query().filter(Person.location == FERMATA_POVO, Person.state.IN([21, 22])).count()
+        data = getDashboardData()
 
-        r_cur_tn_pv = Counter.query(Counter.name == 'tn_pv_current_rides').get().counter
-        #p_cur_tn_pv = 0
-        r_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_rides').get().counter
-        p_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_passengers').get().counter
-
-        r_cur_pv_tn = Counter.query(Counter.name == 'pv_tn_current_rides').get().counter
-        #p_cur_pv_tn = 0
-        r_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_rides').get().counter
-        p_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_passengers').get().counter
-
-
-        data = {
-            "Passengers": {
-                "Trento": p_wait_trento,
-                "Povo": p_wait_povo
-            },
-            "Rides TN->PV": {
-                "Current rides": r_cur_tn_pv,
-#                "Current passengers": p_cur_tn_pv,
-                "Total rides": r_tot_tn_pv,
-                "Total passangers": p_tot_tn_pv
-            },
-            "Rides PV->TN": {
-                "Current rides": r_cur_pv_tn,
- #               "Current passengers": p_cur_pv_tn,
-                "Total rides": r_tot_pv_tn,
-                "Total passangers": p_tot_pv_tn
-            }
-            # "Drivers": {
-            #     "Trento": countDrivers(FERMATA_TRENTO),
-            #     "Povo": countDrivers(FERMATA_POVO)
-            # }
-        }
-        self.response.write(json.dumps(data))
+        template = DASHBOARD_DIR_ENV.get_template('PickMeUp.html')
+        self.response.write(template.render(data))
 
 
 class GetUpdatesHandler(webapp2.RequestHandler):
@@ -634,23 +679,26 @@ class WebhookHandler(webapp2.RequestHandler):
                         #resetEnabled()
                         #resetLanguages()
                         resesetNames()
+                    elif text=='/infocount':
+                        broadcastInfoCount()
                     elif text=='/checkenabled':
                         checkEnabled()
                     elif text == '/resetcounters':
                         resetCounter()
                     elif text == '/test':
-                        tell_katja_test()
+                        #tell_katja_test()
+                        updateDashboard()
                     elif text.startswith('/broadcast ') and len(text)>11:
-                        msg = text[11:].encode('utf-8')
+                        msg = text[11:] #.encode('utf-8')
                         broadcast(msg)
                     elif text.startswith('/self ') and len(text)>6:
-                        msg = text[6:].encode('utf-8')
+                        msg = text[6:] #.encode('utf-8')
                         tellmyself(p,msg)
                     else:
                         reply('What command? I only understand /help /start'
                               '/users /alldrivers /alldrivers '
                               '/checkenabled /resetusers /resetcounters '
-                              '/self /broadcast')
+                              '/self /broadcast /infocount')
                 else:
                     reply(_("What command? I only understand HELP or START."))
             #kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
@@ -690,6 +738,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     else:
                         putPassengerOnHold(p)
                         # state = 21
+                    updateDashboard()
                 elif text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
                     restart(p);
@@ -700,6 +749,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
                     removePassenger(p)
+                    updateDashboard()
                     #restart(p);
                     # state = -1
                 else:
@@ -830,4 +880,6 @@ app = webapp2.WSGIApplication([
     ('/updates', GetUpdatesHandler),
     ('/set_webhook', SetWebhookHandler),
     ('/webhook', WebhookHandler),
+    ('/infousers', InfouserHandler),
+    ('/tiramisulottery', TiramisuHandler),
 ], debug=True)
