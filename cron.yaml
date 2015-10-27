@@ -7,5 +7,9 @@ cron:
 #  timezone: Europe/Rome
 - description: info user
   url: /infousers
-  schedule: every monday 09:00
+  schedule: every day 09:00
+  timezone: Europe/Rome
+- description: reset counters
+  url: /resetcounters
+  schedule: every day 04:00
   timezone: Europe/Rome

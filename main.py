@@ -26,7 +26,7 @@ import gettext
 from jinja2 import Environment, FileSystemLoader
 
 DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
-token = channel.create_channel('default')
+token = channel.create_channel('default', duration_minutes=1440)
 
 
 # ================================
@@ -123,7 +123,7 @@ def getDashboardData():
             "currentRides": str(r_cur_pv_tn),
     #               "Current passengers": p_cur_pv_tn,
             "totalRides": str(r_tot_pv_tn),
-            "totalPassangers": str(p_tot_pv_tn)
+            "totalPassengers": str(p_tot_pv_tn)
         }
         # "Drivers": {
         #     "Trento": countDrivers(FERMATA_TRENTO),
@@ -133,7 +133,10 @@ def getDashboardData():
     return data
 
 def updateDashboard():
-    channel.send_message(token, 'update')
+    #logging.debug('updateDashboard')
+    data = getDashboardData()
+    data.pop("token", None)
+    channel.send_message(token, json.dumps(data))
 
 # ================================
 
@@ -299,6 +302,11 @@ def broadcastInfoCount():
               + _("We want to get bigger and bigger!") + _(' ')
               + _("Invite more people to join us!"))
 
+def getInfoCount(p):
+    c = Person.query().count()
+    msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!")
+    tell(p.chat_id, msg)
+
 def tellmyself(p, msg):
     tell(p.chat_id, "Listen listen... " + msg)
 
@@ -451,6 +459,7 @@ def removePassenger(p, driver=None):
                 #putDriverOnHold(d)
                 restart(d)
         setLanguage(p.language)
+    updateDashboard()
 
 def removeDriver(d):
     loc = d.location
@@ -568,7 +577,10 @@ class InfouserHandler(webapp2.RequestHandler):
         urlfetch.set_default_fetch_deadline(60)
         broadcastInfoCount()
 
-
+class ResetCountersHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        resetCounter()
 
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
@@ -599,6 +611,7 @@ class WebhookHandler(webapp2.RequestHandler):
 
     def post(self):
         urlfetch.set_default_fetch_deadline(60)
+        #return
         body = json.loads(self.request.body)
         logging.info('request body:')
         logging.info(body)
@@ -608,7 +621,7 @@ class WebhookHandler(webapp2.RequestHandler):
         message = body['message']
         message_id = message.get('message_id')
         # date = message.get('date')
-        text = message.get('text').encode('utf-8')
+        text = message.get('text').encode('utf-8') if 'text' in message else False
         # fr = message.get('from')
         chat = message['chat']
         chat_id = chat['id']
@@ -638,7 +651,8 @@ class WebhookHandler(webapp2.RequestHandler):
 
         if p is None:
             # new user
-            tell(key.MASTER_CHAT_ID, msg = "New user: " + name)
+            for id in key.MASTER_CHAT_ID:
+                tell(id, msg = "New user: " + name)
             p = addPerson(chat_id, name)
             if text == '/help':
                 reply(instructions)
@@ -672,7 +686,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listAllDrivers())
                 elif text == '/allpassengers':
                     reply(listAllPassengers())
-                elif chat_id==key.MASTER_CHAT_ID:
+                elif chat_id in key.MASTER_CHAT_ID:
                     if text == '/resetusers':
                         #restartAllUsers()
                         #resetLastNames()
@@ -680,7 +694,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         #resetLanguages()
                         resesetNames()
                     elif text=='/infocount':
-                        broadcastInfoCount()
+                        getInfoCount(p)
                     elif text=='/checkenabled':
                         checkEnabled()
                     elif text == '/resetcounters':
@@ -749,7 +763,6 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
                     removePassenger(p)
-                    updateDashboard()
                     #restart(p);
                     # state = -1
                 else:
@@ -881,5 +894,6 @@ app = webapp2.WSGIApplication([
     ('/set_webhook', SetWebhookHandler),
     ('/webhook', WebhookHandler),
     ('/infousers', InfouserHandler),
+    ('/resetcounters', ResetCountersHandler),
     ('/tiramisulottery', TiramisuHandler),
 ], debug=True)

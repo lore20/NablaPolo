@@ -50,6 +50,16 @@
       left: 744.5px;
       top: 359px;
     }
+    .gwd-div-bh29 {
+      position: absolute;
+      width: 298px;
+      height: 69px;
+      left: 291px;
+      top: 359px;
+      font-family: 'Times New Roman';
+      text-align: left;
+      color: rgb(0, 0, 0);
+    }
   </style>
 </head>
 
@@ -59,11 +69,34 @@
     channel = new goog.appengine.Channel('{{ token }}');
     channel.open({
       onopen : function () {
-        console.log("open socket");
+        //console.log("open socket");
       },
       onmessage: function(msg) {
-        console.log("received message");
-        location.reload();
+        var scan = JSON.parse(msg.data.toString());
+        var peopleInTrento = scan.passenger.trento
+        var peopleInPovo = scan.passenger.povo
+        //location.reload();
+        //console.log("received message: " + msg.data);
+        console.log("people in trento: " + scan.passenger.trento);
+        document.getElementById("p_tn").innerHTML=peopleInTrento;
+        document.getElementById("p_pv").innerHTML=peopleInPovo;
+        document.getElementById("log_text").innerHTML=msg.data;
+
+        console.log("people in povo: " + peopleInPovo);
+        console.log("people in trento: " + peopleInTrento);
+        console.log("current rides trento -> povo: " + scan.ridesTrentoToPovo.currentRides);
+        console.log("total rides trento -> povo: " + scan.ridesTrentoToPovo.totalRides);
+        console.log("total passengers trento -> povo: " + scan.ridesTrentoToPovo.totalPassengers);
+        console.log("current rides povo -> trento: " + scan.ridesPovoToTrento.currentRides);
+        console.log("total rides povo -> trento: " + scan.ridesPovoToTrento.totalRides);
+        console.log("total passengers povo -> trento: " + scan.ridesPovoToTrento.totalPassengers);
+        //console.log("received message: ");
+      },
+      onerror: function() {
+        console.log("onerror");
+      },
+      onclose: function() {
+        console.log("onclose");
       }
     });
   </script>
@@ -72,8 +105,9 @@
   <img src="dashboard/assets/image_3.png" class="gwd-img-1rko">
   <img src="dashboard/assets/image_4.png" class="gwd-img-1p4q">
   <img src="dashboard/assets/image_5.png" class="gwd-img-19jd">
-  <div class="gwd-div-1n6o">{{ passenger['trento'] }}</div>
-  <div class="gwd-div-1n6o gwd-div-1394">{{ passenger['povo'] }}</div>
+  <div id="p_tn" class="gwd-div-1n6o">{{ passenger['trento'] }}</div>
+  <div id="p_pv" class="gwd-div-1n6o gwd-div-1394">{{ passenger['povo'] }}</div>
+  <div id="log_text" class="gwd-div-bh29">passengers: {{ passenger }} PV-TN: {{ ridesPovoToTrento }} TN-PV: {{ ridesTrentoToPovo }}</div>
 </body>
 
 </html>
