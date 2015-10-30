@@ -13,3 +13,6 @@ cron:
   url: /resetcounters
   schedule: every day 04:00
   timezone: Europe/Rome
+- description: checking drivers and passengers that are expired
+  url: /checkExpiredUsers
+  schedule: every 1 minutes
