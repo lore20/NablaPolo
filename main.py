@@ -309,7 +309,7 @@ def tellmyself(p, msg):
 
 
 def restart(person):
-    tell(person.chat_id, _("Press START if you want to restart"), kb=[['START'],['HELP', _('LANGUAGE'),_('DISCLAIMER')]])
+    tell(person.chat_id, _("Press START if you want to restart"), kb=[['START','HELP'], [_('LANGUAGE'),_('DISCLAIMER')]]    )
     setStateLocation(person, -1, '-')
 
 
@@ -710,12 +710,11 @@ class WebhookHandler(webapp2.RequestHandler):
                         _("WARNINGS:") + _("\n") +
                         _("Drivers: please offer rides before starting the ride. "
                           "DO NOT use your phone while you drive.") + _("\n") +
-                        _("Passengers: please ask for rides when you are at the bus stop. "
-                          "Be kind with the driver and the other passengers.") + _("\n\n") +
-                        _("PickMeUp is a non-profit service. ") + _("\n") +
-                        _("The current version is under testing: "
-                          "no feeback system has been implemented yet "
-                          "and ride traceability is still limited. ") + _("\n\n") +
+                        _("Passengers: please ask for rides when you are at the bus stop. ") +
+                        _("Be kind with the driver and the other passengers.") + _("\n\n") +
+                        _("PickMeUp is a non-profit service and it is totally money-free between passengers and drivers.") + _("\n") +
+                        _("The current version is under testing: ") +
+                        _("no review system has been implemented yet and ride traceability is still limited. ") + _("\n\n") +
                         _("PickMeUp developers decline any responsibility for the use of the service."))
 
         if p is None:
