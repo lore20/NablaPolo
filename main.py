@@ -1047,7 +1047,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             else:
                 reply(_("Something is wrong with your state (") + str(p.state).encode('utf-8') +
-                      _("). Please contact the admin at pickmeupbot@gmail.com")
+                      _("). Please contact the admin at pickmeupbot@gmail.com"))
 
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
