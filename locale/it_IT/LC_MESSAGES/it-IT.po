@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: VERSION\n"
-"POT-Creation-Date: 2015-10-29 10:53+0000\n"
-"PO-Revision-Date: 2015-10-29 10:53+0000\n"
+"POT-Creation-Date: 2015-11-01 21:14+0000\n"
+"PO-Revision-Date: 2015-11-01 21:14+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE TEAM <EMAIL@ADDRESS>\n"
 "Language: it_IT\n"
@@ -11,286 +11,340 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../main.py:224 ../main.py:679
+#: ../main.py:232 ../main.py:823
 msgid "Hi"
 msgstr "Ciao"
 
-#: ../main.py:224
+#: ../main.py:232
+msgid "! "
+msgstr "! "
+
+#: ../main.py:232
 msgid "Are you a driver or a passenger?"
 msgstr "Sei un autista o un passeggero?"
 
-#: ../main.py:225 ../main.py:746
+#: ../main.py:233 ../main.py:892
 msgid "Driver"
 msgstr "Autista"
 
-#: ../main.py:225 ../main.py:740
+#: ../main.py:233 ../main.py:886
 msgid "Passenger"
 msgstr "Passeggero"
 
-#: ../main.py:225 ../main.py:326 ../main.py:363 ../main.py:370 ../main.py:376
-#: ../main.py:699 ../main.py:745 ../main.py:751 ../main.py:752 ../main.py:768
-#: ../main.py:774 ../main.py:781 ../main.py:787 ../main.py:794 ../main.py:807
-#: ../main.py:843 ../main.py:852 ../main.py:860 ../main.py:870 ../main.py:893
+#: ../main.py:233 ../main.py:328 ../main.py:411 ../main.py:428 ../main.py:843
+#: ../main.py:891 ../main.py:897 ../main.py:898 ../main.py:915 ../main.py:923
+#: ../main.py:936 ../main.py:953 ../main.py:982 ../main.py:985 ../main.py:996
+#: ../main.py:1001 ../main.py:1008 ../main.py:1018 ../main.py:1037
 msgid "Abort"
 msgstr "Annulla"
 
-#: ../main.py:253
-msgid "Your ride has been aborted by the system manager"
-msgstr "Il passaggio è stato annullato dall'amministratore del sistema"
+#: ../main.py:261
+msgid "Your state has been reset by the system manager"
+msgstr "Il tuo stato è stato resettato dall'amministratore del sistema"
 
-#: ../main.py:296
+#: ../main.py:304
 msgid "Listen listen..."
 msgstr "Udite udite..."
 
-#: ../main.py:301 ../main.py:307
+#: ../main.py:309 ../main.py:315
 msgid "We are now"
 msgstr "Siamo ora in"
 
-#: ../main.py:301 ../main.py:307
+#: ../main.py:309 ../main.py:315
 msgid "people subscribed to PickMeUp!"
 msgstr "persone iscritte a PickMeUp!"
 
-#: ../main.py:302
+#: ../main.py:310
 msgid "We want to get bigger and bigger!"
 msgstr "Vogliamo diventare ancora di più!"
 
-#: ../main.py:303
+#: ../main.py:311
 msgid "Invite more people to join us!"
 msgstr "Invita altre persone ad unirsi!"
 
-#: ../main.py:316
+#: ../main.py:323
 msgid "Press START if you want to restart"
 msgstr "Premi START se vuoi ricominciare"
 
-#: ../main.py:316 ../main.py:694
+#: ../main.py:323 ../main.py:838
 msgid "LANGUAGE"
 msgstr "LINGUA"
 
-#: ../main.py:316 ../main.py:689
+#: ../main.py:323 ../main.py:833
 msgid "DISCLAIMER"
 msgstr "AVVERTENZE"
 
-#: ../main.py:326
+#: ../main.py:328
 msgid "Waiting for a driver..."
 msgstr "Aspettiamo un autista..."
 
-#: ../main.py:350
-msgid "Ride aborted: you were expected to give a ride long time ago!"
-msgstr "Passaggio annullato: il tuo arrivo era previsto molto tempo fa."
+#: ../main.py:340
+msgid "DP"
+msgstr "DP"
 
-#: ../main.py:362
-msgid "You can go pick up the passenger(s)!"
-msgstr "Puoi andare alla fermata a prendere il/i passeggero/i"
+#: ../main.py:342
+msgid "DT"
+msgstr "DT"
 
-#: ../main.py:363 ../main.py:817 ../main.py:868 ../main.py:878
-msgid "List Passengers"
-msgstr "Lista Passeggeri"
+#: ../main.py:346
+msgid "PP"
+msgstr "PP"
 
-#: ../main.py:369
-msgid "A driver is coming:"
-msgstr "Un autista sta arrivando:"
+#: ../main.py:348
+msgid "PT"
+msgstr "PT"
 
-#: ../main.py:369 ../main.py:409
-msgid "expected at"
-msgstr "previsto alle"
+#: ../main.py:373
+msgid "The ride offer has been aborted: you were expected to give a ride some time ago!"
+msgstr "L'offerta del passaggio è stata annullata: il tuo arrivo alla fermata era previsto un po' di tempo fa!"
 
-#: ../main.py:370 ../main.py:768 ../main.py:792
-msgid "List Drivers"
-msgstr "Lista Autisti"
+#: ../main.py:377
+msgid "The ride has been completed automatically: you were supposed to arrive some time ago!"
+msgstr "Il viaggio è stato completato automaticamente: il tuo arrivo alla destinazione era previsto un po' di tempo fa!"
 
-#: ../main.py:370 ../main.py:768 ../main.py:790
-msgid "Got the Ride!"
-msgstr "Passaggio Confermato!"
+#: ../main.py:391
+msgid "The ride request has been aborted: "
+msgstr "La richiesta di passaggio è stata annullata: "
 
-#: ../main.py:375
-msgid "There is someone waiting for you!"
-msgstr "C'è qualcuno che ti sta aspettando!"
+#: ../main.py:392
+msgid "after some time the requests automatically expire."
+msgstr "dopo un po' di tempo la richiesta scade."
 
-#: ../main.py:376
-msgid "In how many minutes will you be there?"
-msgstr "In quanti minuti prevedi di arrivare?"
+#: ../main.py:393
+msgid "We believe and hope you have already reached your destination,                    otherwise feel free to start another request"
+msgstr "Crediamo (e ci auguriamo) che tu abbia raggiunto la destinazione, altrimenti ti invitiamo a inserire una nuova richiesta"
 
-#: ../main.py:397
-msgid "Ride aborted: you have waited for too long!"
-msgstr "Passaggio annullato: hai aspettato per troppo tempo!"
+#: ../main.py:406
+msgid "There is now a passenger waiting at the stop "
+msgstr "C'è ora un passeggero in attesa alla fermata "
 
-#: ../main.py:405
-msgid "No drivers found in your location"
-msgstr "Nessun autista disponibile nella tua fermata"
-
-#: ../main.py:428
-msgid "No passengers needing a ride found in your location"
-msgstr "Nessun  passeggero ha bisogno di un passaggio in questa fermata"
-
-#: ../main.py:432
-msgid "waiting since"
-msgstr "in attesa dalle"
-
-#: ../main.py:440
-msgid "No passangers found"
-msgstr "Nessun passeggero trovato"
-
-#: ../main.py:458
-msgid "Oops... there are no more passengers waiting!"
-msgstr "Oops, non c'è  più nessun passeggero disponibile!"
-
-#: ../main.py:473
-msgid "Oops... the driver(s) is no longer available!"
-msgstr "Oops, non c'è  più nessun autista disponibile!"
-
-#: ../main.py:480 ../main.py:803
-msgid "Thanks, have a good ride!"
-msgstr "Grazie, buon viaggio!"
-
-#: ../main.py:486
-msgid "Someone else"
-msgstr "Qualcun altro"
-
-#: ../main.py:487
-msgid "Great, which driver gave you a ride?"
-msgstr "Bene! Quale autista ti ha dato il passaggio?"
-
-#: ../main.py:647
-msgid "I'm your Trento <-> Povo travelling assistant."
-msgstr "Sono il tuo assistente di viaggio nella tratta Trento <-> Povo"
-
-#: ../main.py:648
-msgid "You can press START to get or offer a ride"
-msgstr "Puoi premere START per ottenere o offrire un passaggio"
-
-#: ../main.py:649
-msgid "You can press HELP to see this message again"
-msgstr "Puoi premere HELP per vedere questo messaggio"
-
-#: ../main.py:650
-msgid "You can press LANGUAGE to change the settings (language)"
-msgstr "Puoi premere LANGUAGE per cambiare i settaggi (lingua)"
-
-#: ../main.py:651
-msgid "If you want to join the discussion about this initiative"
-msgstr "Se vuoi unirti alla discussione riguardo a questa iniziativa"
-
-#: ../main.py:652
-msgid "come to the tiramisu group at the following link:"
-msgstr "vieni al gruppo tiramisù al seguente link:"
-
-#: ../main.py:655
-msgid "PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city."
-msgstr "PickMeUp è un sistema di carpooling dinamico, come BlaBlaCar ma in città."
-
-#: ../main.py:656
-msgid "It is currently  under testing on the Trento-Povo route."
-msgstr "Attualmente è in sperimentazione nella tratta Trento-Povo."
-
-#: ../main.py:657
-msgid "WARNINGS:"
-msgstr "AVVERTENZE:"
-
-#: ../main.py:658
-msgid "Drivers: please offer rides before starting the ride. DO NOT use your phone while you drive."
-msgstr "Autisti: effettua l’offerta dei passaggi prima di iniziare il viaggio. NON usare il telefono mentre guidi."
-
-#: ../main.py:660
-msgid "Passengers: please ask for rides when you are at the bus stop. Be kind with the driver and the other passengers."
-msgstr "Passeggeri: effettua l’offerta quando sei alla fermata dell’autobus. Sii cortese con gli autisti e con gli altri potenziali passeggeri."
-
-#: ../main.py:662
-msgid "PickMeUp is a non-profit service. "
-msgstr "PickMeUp è un servizio non-profit. "
-
-#: ../main.py:663
-msgid "The current version is under testing: no feeback system has been implemented yet and ride tracability is still limited. "
-msgstr "La versione attuale del bot è in sperimentazione: non è ancora stato implementato nessun sistema di feedback e la tracciabilità dei passaggi è ancora limitata. "
-
-#: ../main.py:666
-msgid "PickMeUp developers decline any responsability for the use of the service."
-msgstr "Gli sviluppatori di PickMeUp declinano ogni responsabilità per l'uso del servizio."
-
-#: ../main.py:679
-msgid "welcome!"
-msgstr "benvenuto!"
-
-#: ../main.py:695
-msgid "Choose the language"
-msgstr "Scegli la lingua"
-
-#: ../main.py:735 ../main.py:865 ../main.py:875 ../main.py:891 ../main.py:903
-msgid "Sorry, I don't understand you"
-msgstr "Scusa, non capisco"
-
-#: ../main.py:744
-msgid "Hi! I can try to help you to get a ride. Where are you?"
-msgstr "Ciao!  Proviamo a trovare un passaggio. Dove ti trovi?"
-
-#: ../main.py:750
-msgid "Hi! Glad you can give a ride. Where are you?"
-msgstr "Ciao! Sono felice che puoi offrire un passaggio. Dove sei?"
-
-#: ../main.py:754 ../main.py:775 ../main.py:782 ../main.py:795 ../main.py:808
-msgid "Passage aborted."
-msgstr "Passaggio annullato."
-
-#: ../main.py:757
-msgid "Eh? I don't understand you. Are you a Driver or a Passenger?"
-msgstr "Eh? Non capisco. Sei un Autista o un Passeggero?"
-
-#: ../main.py:763 ../main.py:765
-msgid "Your ID is: "
-msgstr "Il tuo codice di identificazione è "
-
-#: ../main.py:767
+#: ../main.py:410
 msgid "There is a driver coming!"
 msgstr "C'è un autista che sta arrivando!"
 
-#: ../main.py:778 ../main.py:857
-msgid "Eh? I don't understand you."
-msgstr "Eh? Non capisco."
+#: ../main.py:411 ../main.py:428 ../main.py:934
+msgid "List Drivers"
+msgstr "Lista Autisti"
 
-#: ../main.py:778 ../main.py:847
+#: ../main.py:411 ../main.py:428 ../main.py:931
+msgid "Got the Ride!"
+msgstr "Passaggio Confermato!"
+
+#: ../main.py:425
+msgid "A driver is coming: "
+msgstr "Un autista è in arrivo: "
+
+#: ../main.py:426 ../main.py:446
+msgid " expected at "
+msgstr " previsto alle "
+
+#: ../main.py:427 ../main.py:447 ../main.py:458 ../main.py:523
+msgid " (id: "
+msgstr " (id: "
+
+#: ../main.py:427 ../main.py:447 ../main.py:458 ../main.py:523
+msgid ")"
+msgstr ")"
+
+#: ../main.py:442
+msgid "No drivers found in your location"
+msgstr "Nessun autista disponibile nella tua fermata"
+
+#: ../main.py:453
+msgid "No passengers needing a ride found in your location"
+msgstr "Nessun  passeggero ha bisogno di un passaggio in questa fermata"
+
+#: ../main.py:457
+msgid " waiting since "
+msgstr " in attesa dalle "
+
+#: ../main.py:470
+msgid " ("
+msgstr " ("
+
+#: ../main.py:471
+msgid ") "
+msgstr ") "
+
+#: ../main.py:478
+msgid "No passangers found"
+msgstr "Nessun passeggero trovato"
+
+#: ../main.py:496
+msgid "Oops... there are no more passengers waiting!"
+msgstr "Oops, non c'è  più nessun passeggero disponibile!"
+
+#: ../main.py:511
+msgid "Oops... the driver(s) is no longer available!"
+msgstr "Oops, non c'è  più nessun autista disponibile!"
+
+#: ../main.py:518 ../main.py:946
+msgid "Thanks, have a good ride!"
+msgstr "Grazie, buon viaggio!"
+
+#: ../main.py:524 ../main.py:945
+msgid "Someone else"
+msgstr "Qualcun altro"
+
+#: ../main.py:525
+msgid "Great, which driver gave you a ride?"
+msgstr "Bene! Quale autista ti ha dato il passaggio?"
+
+#: ../main.py:790
+msgid "I'm your Trento <-> Povo travelling assistant."
+msgstr "Sono il tuo assistente di viaggio nella tratta Trento <-> Povo"
+
+#: ../main.py:791
+msgid "You can press START to get or offer a ride"
+msgstr "Puoi premere START per ottenere o offrire un passaggio"
+
+#: ../main.py:792
+msgid "You can press HELP to see this message again"
+msgstr "Puoi premere HELP per vedere questo messaggio"
+
+#: ../main.py:793
+msgid "You can press LANGUAGE to change the settings (language)"
+msgstr "Puoi premere LANGUAGE per cambiare i settaggi (lingua)"
+
+#: ../main.py:794
+msgid "You can visit our website at http://tiny.cc/pickmeup_site                        or read the pdf instructions at http://tiny.cc/pickmeup_info"
+msgstr "Puoi visitare il nostro sito al link http://tiny.cc/pickmeup_site o leggere le istruzioni in pdf al link http://tiny.cc/pickmeup_info"
+
+#: ../main.py:796
+msgid "If you want to join the discussion about this initiative                         come to the tiramisu group at the following link:                         https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g"
+msgstr "Se vuoi unirti al gruppo di discussione vieni al gruppo tiramisu cliccando su https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g"
+
+#: ../main.py:800
+msgid "PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city."
+msgstr "PickMeUp è un sistema di carpooling dinamico, come BlaBlaCar ma in città."
+
+#: ../main.py:801
+msgid "It is currently  under testing on the Trento-Povo route."
+msgstr "Attualmente è in sperimentazione nella tratta Trento-Povo."
+
+#: ../main.py:802
+msgid "WARNINGS:"
+msgstr "AVVERTENZE:"
+
+#: ../main.py:803
+msgid "Drivers: please offer rides before starting the ride. DO NOT use your phone while you drive."
+msgstr "Autisti: effettua l’offerta dei passaggi prima di iniziare il viaggio. NON usare il telefono mentre guidi."
+
+#: ../main.py:805
+msgid "Passengers: please ask for rides when you are at the bus stop. "
+msgstr "Passeggeri: immettere la richiesta di passaggio solo una volta raggiunta la stazione prestabilita. "
+
+#: ../main.py:806
+msgid "Be kind with the driver and the other passengers."
+msgstr "Sii gentile con l'autista e con gli altri passeggeri."
+
+#: ../main.py:807
+msgid "PickMeUp is a non-profit service and it is totally money-free between passengers and drivers."
+msgstr "PickMeUp è un'iniziativa no-profit e non prevede alcuno scambio di denaro tra passeggeri e autisti."
+
+#: ../main.py:808
+msgid "The current version is under testing: "
+msgstr "La versione corrente è in fase di sperimentazione: "
+
+#: ../main.py:809
+msgid "no review system has been implemented yet and ride traceability is still limited. "
+msgstr "il sistema non prevede la possibilità di lasciare referenze sugli utilizzatori, e il tracciamento dei viaggi è ancora limitato. "
+
+#: ../main.py:810
+msgid "PickMeUp developers decline any responsibility for the use of the service."
+msgstr "Gli sviluppatori di PickMeUp declinano ogni responsabilità per l'uso del servizio."
+
+#: ../main.py:823
+msgid "welcome!"
+msgstr "benvenuto!"
+
+#: ../main.py:839
+msgid "Choose the language"
+msgstr "Scegli la lingua"
+
+#: ../main.py:880 ../main.py:903 ../main.py:919 ../main.py:928 ../main.py:942
+#: ../main.py:1013 ../main.py:1023 ../main.py:1035 ../main.py:1047
+msgid "Sorry, I don't understand you"
+msgstr "Scusa, non capisco"
+
+#: ../main.py:890
+msgid "Hi! I can try to help you to get a ride. Which bus stop are you at?"
+msgstr "Ciao, posso aiutarti a trovare un passaggio! A quale fermata dell'autobus ti trovi?"
+
+#: ../main.py:896
+msgid "Hi! Glad you can give a ride. Where can you pick up passengers?"
+msgstr "Ciao, sono felice che puoi offrire un passaggio! A che fermata puoi passare per prendere dei passeggeri a bordo?"
+
+#: ../main.py:900 ../main.py:916 ../main.py:924 ../main.py:937 ../main.py:954
+msgid "Passage aborted."
+msgstr "Passaggio annullato."
+
+#: ../main.py:911
+msgid "Your passenger ID is: "
+msgstr "Il tuo codice identificativo è: "
+
+#: ../main.py:920 ../main.py:989
 msgid "or"
 msgstr "o"
 
-#: ../main.py:787
-msgid "Eh? If you want to Abort press the button!"
-msgstr "Eh? Se vuoi Annullare premi il pulsante!"
-
-#: ../main.py:799
-msgid "Eh? I don't understand you. A driver is supposed to come, be patient!"
-msgstr "Eh? Non capisco. Un autista sta arrivando, sii paziente o Annulla il viaggio."
-
-#: ../main.py:802
-msgid "Other"
-msgstr "Qualcun altro"
-
-#: ../main.py:814
+#: ../main.py:962
 msgid "Great! Many thanks to"
 msgstr "Bene! Un ringraziamento a"
 
-#: ../main.py:816
+#: ../main.py:965
 msgid "confirmed you gave him/her a ride!"
 msgstr "ha confermato che gli/le hai dato un passaggio!"
 
-#: ../main.py:817 ../main.py:880
+#: ../main.py:966 ../main.py:996 ../main.py:1001 ../main.py:1016
+#: ../main.py:1026
+msgid "List Passengers"
+msgstr "Lista Passeggeri"
+
+#: ../main.py:966 ../main.py:1028
 msgid "Reached Destination!"
 msgstr "Raggiunta Destinazione!"
 
-#: ../main.py:826
+#: ../main.py:975
 msgid "Name of driver not correct, try again."
 msgstr "Nome dell'autista non corretto, prova di nuovo."
 
-#: ../main.py:836
-msgid "Nobody needs a ride in your location."
-msgstr "Nessuno ha bisogno di un passaggio in questa fermata."
+#: ../main.py:981
+msgid "In how many minutes will you be there?"
+msgstr "In quanti minuti prevedi di arrivare?"
 
-#: ../main.py:837
-msgid "You can try in a bit or go to the bus stop and see if there is someone there"
-msgstr "Puoi provare tra un po' o andare alla fermata e vedere se c'è qualcuno là."
-
-#: ../main.py:844 ../main.py:853 ../main.py:861 ../main.py:871
+#: ../main.py:986 ../main.py:1009 ../main.py:1019
 msgid "Passage offer has been aborted."
 msgstr "Offerta di passaggio annullata"
 
-#: ../main.py:881
+#: ../main.py:994
+msgid "There is someone waiting for you "
+msgstr "C'è qualcuno che ti sta aspettando "
+
+#: ../main.py:995
+msgid "Have a nice trip!"
+msgstr "Buon viaggio!"
+
+#: ../main.py:998
+msgid "There is currently nobody there but if somebody arrives                         we will notify you and will let them know you are coming."
+msgstr "In questo momento non c'è nessuno alla fermata ma se qualcuno arriva verrai notificato e gli/le faremo sapere che stai arrivando."
+
+#: ../main.py:1000
+msgid "Have a nice trip! "
+msgstr "Buon viaggio! "
+
+#: ../main.py:1006
+msgid "Your driver ID is: "
+msgstr "Il tuo codice identificativo è: "
+
+#: ../main.py:1029
 msgid "Great, thanks!"
 msgstr "Bene, grazie!"
+
+#: ../main.py:1049
+msgid "Something is wrong with your state ("
+msgstr "Sembra esserci un problema con il tuo stato ("
+
+#: ../main.py:1050
+msgid "). Please contact the admin at pickmeupbot@gmail.com"
+msgstr "). Ti preghiamo di contattarci a pickmeupbot@gmail.com"
 
