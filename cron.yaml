@@ -16,3 +16,7 @@ cron:
 - description: checking drivers and passengers that are expired
   url: /checkExpiredUsers
   schedule: every 1 minutes
+- description: info dayly ride
+  url: /infoday
+  schedule: every day 22:00
+  timezone: Europe/Rome

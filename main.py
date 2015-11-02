@@ -32,7 +32,7 @@ from jinja2 import Environment, FileSystemLoader
 BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 
 DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
-token = channel.create_channel('default', duration_minutes=1440)
+#token = channel.create_channel('default', duration_minutes=1440)
 
 STATES = {
     -1: 'Initial',
@@ -68,9 +68,9 @@ FERMATA_TRENTO = 'Trento Porta Aquila'
 FERMATA_POVO = 'Povo Sommarive'
 
 
-MAX_WAITING_PASSENGER_MIN = 1 #25
-MAX_PICKUP_DRIVER_MIN = 1 #10
-MAX_COMPLETE_DRIVER_MIN = 1 #15
+MAX_WAITING_PASSENGER_MIN = 25
+MAX_PICKUP_DRIVER_MIN = 10
+MAX_COMPLETE_DRIVER_MIN = 15
 
 QUEUE_PASSENGERS_COUNTER_POVO = 'Queue_Passengers_Counter_Povo'
 QUEUE_PASSENGERS_COUNTER_TRENTO = 'Queue_Passengers_Counter_Trento'
@@ -142,7 +142,6 @@ def getDashboardData():
     p_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_passengers').get().counter
 
     data = {
-        "token" : token,
         "passenger": {
             "trento": str(p_wait_trento),
             "povo": str(p_wait_povo)
@@ -166,11 +165,6 @@ def getDashboardData():
     }
     return data
 
-def updateDashboard():
-    #logging.debug('updateDashboard')
-    data = getDashboardData()
-    data.pop("token", None)
-    channel.send_message(token, json.dumps(data))
 
 # ================================
 # ================================
@@ -179,6 +173,7 @@ def updateDashboard():
 class Person(ndb.Model):
     name = ndb.StringProperty()
     last_name = ndb.StringProperty(default='-')
+    username = ndb.StringProperty(default='-')
     last_mod = ndb.DateTimeProperty(auto_now=True)
     last_seen = ndb.DateTimeProperty()
     chat_id = ndb.IntegerProperty()
@@ -217,11 +212,16 @@ def setStateLocation(p, state, loc):
     p.location = loc
     p.put()
 
-def start(p, cmd, name, last_name):
+def start(p, cmd, name, last_name, username):
     #logging.debug(p.name + _(' ') + cmd + _(' ') + str(p.enabled))
-    if (p.name != name or p.last_name != last_name):
+    if (p.name != name):
         p.name = name
+        p.put()
+    if (p.last_name != last_name):
         p.last_name = last_name
+        p.put()
+    if (p.username != username):
+        p.username = username
         p.put()
     if not p.enabled:
         if cmd=='/start':
@@ -256,7 +256,7 @@ def get_time_string(date):
 def restartAllUsers():
     qry = Person.query()
     for p in qry:
-        if (p.state is None or p.state>-1):
+        if (p.state is None): # or p.state>-1
             setLanguage(p.language)
             tell(p.chat_id, _("Your state has been reset by the system manager"))
             restart(p)
@@ -314,6 +314,20 @@ def getInfoCount(p):
     c = Person.query().count()
     msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!")
     tell(p.chat_id, msg)
+
+def broadcastInfoDay():
+    today = datetime.datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
+    qryRide = Ride.query(Ride.start_daytime > today)
+    qryRideCompleted = Ride.query(Ride.start_daytime > today and Ride.end_daytime > today)
+    msg = _("Today there were a total of ") + str(qryRideRequest.count()) +\
+          _(" ride requests and ") + str(qryRide.count()) + _(" ride offers, of which ") +\
+          str(qryRideCompleted.count()) + _(" successfully completed!\n") +\
+          _("Many thanks to all of you! " + emoij.CLAPPING_HANDS)
+    broadcast(msg)
+    #return msg
+    #return 'test'
+
 
 def tellmyself(p, msg):
     tell(p.chat_id, "Listen listen... " + msg)
@@ -530,6 +544,14 @@ def getDriverByLocAndNameAndId(loc, name_text):
     qry = Person.query().filter(Person.location==loc, Person.ticket_id==id_str)
     return qry.get()
 
+def tell_katja(msg):
+    tell(114258373, msg)
+
+
+def setLanguage(langId):
+    lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
+    gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
+
 def tell_katja_test():
     try:
         tell(114258373, 'test')
@@ -539,13 +561,9 @@ def tell_katja_test():
             e.enabled = False
             e.put()
 
-def tell_katja(msg):
-    tell(114258373, msg)
-
-
-def setLanguage(langId):
-    lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
-    gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
+def tell_masters(msg):
+    for id in key.MASTER_CHAT_ID:
+        tell(id, msg)
 
 def tell(chat_id, msg, kb=None, hideKb=True):
     try:
@@ -646,6 +664,10 @@ def endRide(driver, auto_end):
     ride.auto_end = auto_end
     ride.passengers_names_str = str(ride.passengers_names)
     ride.put()
+    duration_sec = (ride.end_daytime - ride.start_daytime).seconds
+    duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
+    tell_masters("Passenger completed! Driver: " + driver.name +
+                 ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
 
 
 # ================================
@@ -687,11 +709,48 @@ def confirmRideRequest(passenger, driver):
     request.put()
 
 def abortRideRequest(passenger, auto_end):
+#    logging.debug('aborted requested by ' + passenger.name)
     key = getRideRequestKey(passenger)
     request = RideRequest.get_or_insert(key)
     request.abort_time = datetime.datetime.now()
     request.auto_aborted = auto_end
     request.put()
+
+# ================================
+# ================================
+# ================================
+
+TOKEN_DURATION_MIN = 30
+TOKEN_DURATION_SEC = TOKEN_DURATION_MIN*60
+
+class Token(ndb.Model):
+    token_id = ndb.StringProperty()
+    start_daytime = ndb.DateTimeProperty()
+
+def createToken():
+    now = datetime.datetime.now()
+    token_id = channel.create_channel(str(now), duration_minutes=TOKEN_DURATION_MIN)
+    token = Token.get_or_insert(token_id)
+    token.start_daytime = now
+    token.token_id = token_id
+    token.put()
+    return token_id
+
+def updateDashboard():
+    #logging.debug('updateDashboard')
+    data = getDashboardData()
+    data.pop("token", None)
+    qry = Token.query()
+    removeKeys = []
+    now = datetime.datetime.now()
+    for t in qry:
+        duration_sec = (now - t.start_daytime).seconds
+        if (duration_sec>TOKEN_DURATION_SEC):
+            removeKeys.append(t.token_id)
+        else:
+            channel.send_message(t.token_id, json.dumps(data))
+    for k in removeKeys:
+        ndb.Key(Token, k).delete()
 
 # ================================
 # ================================
@@ -712,6 +771,11 @@ class InfouserHandler(webapp2.RequestHandler):
         urlfetch.set_default_fetch_deadline(60)
         broadcastInfoCount()
 
+class InfodayHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        broadcastInfoDay()
+
 class ResetCountersHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
@@ -720,11 +784,32 @@ class ResetCountersHandler(webapp2.RequestHandler):
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-
         data = getDashboardData()
-
+        token_id = createToken()
+        data['token'] = token_id
         template = DASHBOARD_DIR_ENV.get_template('PickMeUp.html')
+        logging.debug("Requested Dashboard. Created new token.")
         self.response.write(template.render(data))
+
+class GetTokenHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        token_id = createToken()
+        logging.debug("Token handler. Created a new token.")
+        self.response.headers['Content-Type'] = 'application/json'
+        self.response.write(json.dumps({'token': token_id}))
+
+class DashboardConnectedHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        client_id = self.request.get('from')
+        logging.debug("Channel connection request from client id: " + client_id)
+
+class DashboardDisconnectedHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        client_id = self.request.get('from')
+        logging.debug("Channel disconnection request from client id: " + client_id)
 
 class CheckExpiredUsersHandler(webapp2.RequestHandler):
     def get(self):
@@ -776,8 +861,7 @@ class WebhookHandler(webapp2.RequestHandler):
             return;
         name = chat["first_name"].encode('utf-8')
         last_name = chat["last_name"].encode('utf-8') if "last_name" in chat else "-"
-        #user_id = chat["id"]
-
+        username = chat["username"] if "username" in chat else "-"
 
         def reply(msg=None, kb=None, hideKb=True):
             tell(chat_id, msg, kb, hideKb)
@@ -811,13 +895,12 @@ class WebhookHandler(webapp2.RequestHandler):
 
         if p is None:
             # new user
-            for id in key.MASTER_CHAT_ID:
-                tell(id, msg = "New user: " + name)
+            tell_masters("New user: " + name)
             p = addPerson(chat_id, name)
             if text == '/help':
                 reply(instructions)
             elif text in ['/start','START']:
-                start(p, text, name, last_name)
+                start(p, text, name, last_name, username)
                 # state = 0
             else:
                 reply(_("Hi") + _(' ') + name + ", " + _("welcome!"))
@@ -833,7 +916,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif text == _('DISCLAIMER'):
                     reply(disclaimer)
                 elif text in ['/start','START']:
-                    start(p, text, name, last_name)
+                    start(p, text, name, last_name, username)
                     # state = 0
                 elif text == _('LANGUAGE'):
                     reply(_("Choose the language"),
@@ -863,7 +946,9 @@ class WebhookHandler(webapp2.RequestHandler):
                         resetCounter()
                     elif text == '/test':
                         #tell_katja_test()
-                        updateDashboard()
+                        #updateDashboard()
+                        #reply('test')
+                        broadcastInfoDay()
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
                         broadcast(msg)
@@ -922,6 +1007,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 # PASSENGERS IN A LOCATION WITH NO DRIVERS
                 if text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
+                    abortRideRequest(p, auto_end=False)
                     removePassenger(p)
                     # state = -1
                 else:
@@ -1052,10 +1138,14 @@ class WebhookHandler(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
     ('/dashboard', DashboardHandler),
+#    ('/_ah/channel/connected/', DashboardConnectedHandler),
+#    ('/_ah/channel/disconnected/', DashboardDisconnectedHandler),
+    ('/notify_token', GetTokenHandler),
     ('/updates', GetUpdatesHandler),
     ('/set_webhook', SetWebhookHandler),
     ('/webhook', WebhookHandler),
     ('/infousers', InfouserHandler),
+    ('/infoday', InfodayHandler),
     ('/resetcounters', ResetCountersHandler),
     ('/checkExpiredUsers', CheckExpiredUsersHandler),
     ('/tiramisulottery', TiramisuHandler),

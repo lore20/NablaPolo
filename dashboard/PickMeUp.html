@@ -66,39 +66,82 @@
 <body>
 
   <script>
-    channel = new goog.appengine.Channel('{{ token }}');
+
+    var setupChannel = function(token) {
+      var channel = new goog.appengine.Channel(token);
+      var socket = channel.open();
+      socket.onopen = function() {
+        console.log('Channel opened!');
+      };
+      socket.onmessage = function(msg) {
+        console.log('Received message!');
+        var scan = JSON.parse(msg.data.toString());
+        var peopleInTrento = scan.passenger.trento
+        var peopleInPovo = scan.passenger.povo
+        console.log("received message: " + msg.data);
+        document.getElementById("p_tn").innerHTML=peopleInTrento;
+        document.getElementById("p_pv").innerHTML=peopleInPovo;
+        document.getElementById("log_text").innerHTML=msg.data;
+      }
+      socket.onerror = function(err) {
+        // reconnect on timeout
+        if (err.code == 401) {
+          console.log('Token expired, reconnecting!');
+          reconnect();
+        }
+        else {
+          console.log('CHANNEL ERROR!');
+        }
+      };
+      socket.onclose = function() {
+        console.log('channel closed');
+      };
+    };
+
+    // get channel token from the backend and connect
+    var reconnect = function() {
+      var tokenReq = new XMLHttpRequest();
+      tokenReq.onload = function () {
+        var token = JSON.parse(this.responseText).token;
+        setupChannel(token);
+      };
+      tokenReq.open("get", "/notify_token", true);
+      tokenReq.send();
+    };
+
+    setupChannel('{{token}}')
+
+/*
     channel.open({
       onopen : function () {
-        //console.log("open socket");
+        console.log("Channel API Connection is open.");
       },
       onmessage: function(msg) {
         var scan = JSON.parse(msg.data.toString());
         var peopleInTrento = scan.passenger.trento
         var peopleInPovo = scan.passenger.povo
         //location.reload();
-        //console.log("received message: " + msg.data);
-        console.log("people in trento: " + scan.passenger.trento);
+        console.log("received message: " + msg.data);
+        //console.log("people in trento: " + scan.passenger.trento);
         document.getElementById("p_tn").innerHTML=peopleInTrento;
         document.getElementById("p_pv").innerHTML=peopleInPovo;
         document.getElementById("log_text").innerHTML=msg.data;
 
-        console.log("people in povo: " + peopleInPovo);
-        console.log("people in trento: " + peopleInTrento);
-        console.log("current rides trento -> povo: " + scan.ridesTrentoToPovo.currentRides);
-        console.log("total rides trento -> povo: " + scan.ridesTrentoToPovo.totalRides);
-        console.log("total passengers trento -> povo: " + scan.ridesTrentoToPovo.totalPassengers);
-        console.log("current rides povo -> trento: " + scan.ridesPovoToTrento.currentRides);
-        console.log("total rides povo -> trento: " + scan.ridesPovoToTrento.totalRides);
-        console.log("total passengers povo -> trento: " + scan.ridesPovoToTrento.totalPassengers);
-        //console.log("received message: ");
       },
-      onerror: function() {
-        console.log("onerror");
+      onerror: function(err) {
+        if (err.code == 401) {
+          console.info("CHANNEL Error - reconnect on timeout");
+          init();
+        }
+        else {
+          console.info("CHANNEL Error");
+        }
       },
       onclose: function() {
-        console.log("onclose");
+        console.log("CHANNEL Closed.");
       }
     });
+*/
   </script>
 
   <img src="dashboard/assets/image.png" class="gwd-img-47wf">

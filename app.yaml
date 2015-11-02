@@ -4,6 +4,9 @@ runtime: python27
 api_version: 1
 threadsafe: false
 
+#inbound_services:
+#- channel_presence
+
 handlers:
 - url: /favicon\.ico
   static_files: favicon.ico
@@ -20,8 +23,19 @@ handlers:
 - url: /dashboard/assets
   static_dir: dashboard/assets
 
+#- url: /_ah/channel/connected/
+#  script: com.pickmeup-telegram.server.channel.ChannelConnected
+#  name: ChannelConnected
+#  script: main.app
+
+#- url: /_ah/channel/disconnected/
+#  script: com.pickmeup-telegram.server.channel.ChannelDisconnected
+#  name: ChannelDisconnected
+#  script: main.app
+
 - url: .*
   script: main.app
+
 
 libraries:
 - name: webapp2
@@ -31,6 +45,4 @@ libraries:
 - name: jinja2
   version: latest
 
-inbound_services:
-- channel_presence
 
