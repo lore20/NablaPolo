@@ -45,7 +45,8 @@ STATES = {
     31:  'DriverAskedForTime',
     32:  'DriverEngaged',
     33:  'DriverTookSomeone',
-    90:  'LanguageSettings'
+    90:  'Settings',
+    91:  'Language'
 }
 
 LANGUAGES = {'IT': 'it_IT',
@@ -253,13 +254,14 @@ def get_time_string(date):
     newdate = date + datetime.timedelta(hours=1)
     return str(newdate).split(" ")[1].split(".")[0]
 
-def restartAllUsers():
+def restartAllUsers(msg):
     qry = Person.query()
     for p in qry:
-        if (p.state is None): # or p.state>-1
-            setLanguage(p.language)
-            tell(p.chat_id, _("Your state has been reset by the system manager"))
+        #if (p.state is None): # or p.state>-1
+        if (p.enabled): # or p.state>-1
+            tell(p.chat_id, msg)
             restart(p)
+            sleep(0.100) # no more than 10 messages per second
 
 def resetLanguages():
     qry = Person.query()
@@ -304,29 +306,27 @@ def broadcast(msg):
             tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
             sleep(0.100) # no more than 10 messages per second
 
-def broadcastInfoCount():
-    c = Person.query().count()
-    broadcast(_("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!") + _(' ')
-              + _("We want to get bigger and bigger!") + _(' ')
-              + _("Invite more people to join us!"))
 
-def getInfoCount(p):
+def getInfoCount():
     c = Person.query().count()
-    msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!")
-    tell(p.chat_id, msg)
+    msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!") + _(' ') +\
+          _("We want to get bigger and bigger!") + _(' ') + _("Invite more people to join us!")
+    return msg
 
-def broadcastInfoDay():
+def getInfoDay():
     today = datetime.datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
     qryRide = Ride.query(Ride.start_daytime > today)
     qryRideCompleted = Ride.query(Ride.start_daytime > today and Ride.end_daytime > today)
+    qryRideCompletedCount = qryRideCompleted.count()
     msg = _("Today there were a total of ") + str(qryRideRequest.count()) +\
           _(" ride requests and ") + str(qryRide.count()) + _(" ride offers, of which ") +\
-          str(qryRideCompleted.count()) + _(" successfully completed!\n") +\
-          _("Many thanks to all of you! " + emoij.CLAPPING_HANDS)
-    broadcast(msg)
-    #return msg
-    #return 'test'
+          str(qryRideCompletedCount) + _(" successfully completed!\n")
+    if qryRideCompletedCount>0:
+        msg += _("Many thanks to all of you! " + emoij.CLAPPING_HANDS)
+    else:
+        msg += _("Let's make it happen! " + emoij.SMILING_FACE)
+    return msg
 
 
 def tellmyself(p, msg):
@@ -334,7 +334,7 @@ def tellmyself(p, msg):
 
 
 def restart(person):
-    tell(person.chat_id, _("Press START if you want to restart"), kb=[['START','HELP'], [_('LANGUAGE'),_('DISCLAIMER')]]    )
+    tell(person.chat_id, _("Press START if you want to restart"), kb=[['START','HELP'], [_('SETTINGS'),_('DISCLAIMER')]]    )
     setStateLocation(person, -1, '-')
 
 
@@ -385,6 +385,7 @@ def checkExpiredDrivers():
         for d in oldDrivers[32]:
             setLanguage(d.language)
             tell(d.chat_id, _("The ride offer has been aborted: you were expected to give a ride some time ago!"))
+            abortRideOffer(d, True)
             removeDriver(d)
         for d in oldDrivers[33]:
             setLanguage(d.language)
@@ -566,6 +567,9 @@ def tell_masters(msg):
     for id in key.MASTER_CHAT_ID:
         tell(id, msg)
 
+def tell_tiramisu_group(msg):
+    tell(key.TIRAMISU_CHAT_ID, msg)
+
 def tell(chat_id, msg, kb=None, hideKb=True):
     try:
         if kb:
@@ -626,6 +630,9 @@ class Ride(ndb.Model):
     driver_id = ndb.IntegerProperty()
     driver_ticket_id = ndb.StringProperty()
     start_daytime = ndb.DateTimeProperty()
+    abort_daytime = ndb.DateTimeProperty()
+    auto_abort = ndb.BooleanProperty()
+    minutes_to_pickup = ndb.IntegerProperty()
     start_location = ndb.StringProperty()
     passengers_ids = ndb.JsonProperty()
     passengers_names = ndb.JsonProperty()
@@ -633,42 +640,51 @@ class Ride(ndb.Model):
     end_daytime = ndb.DateTimeProperty()
     auto_end = ndb.BooleanProperty()
 
-def getRideKey(d_id, driver_last_seen):
-    key = str(d_id) + '_' + str(driver_last_seen)
+def getRideKey(driver):
+    key = str(driver.chat_id) + '_' + str(driver.last_seen)
     return key
 
-def recordRide(driver):
-    key = getRideKey(driver.chat_id, driver.last_seen)
+def recordRide(driver, minutes_to_pickup):
+    key = getRideKey(driver)
     r = Ride.get_or_insert(key)
     r.driver_name = driver.name
     r.driver_id = driver.chat_id
     r.driver_ticket_id = driver.ticket_id
     r.start_daytime = datetime.datetime.now()
+    r.minutes_to_pickup = minutes_to_pickup
     r.start_location = driver.location
     r.passengers_ids = [] #ids
-    r.passengers_names = [] #ids
+    r.passengers_names = [] #names
     k = r.put()
     #logging.debug('New ride. Key:' + str(k))
     return r
 
+def abortRideOffer(driver, auto_end):
+#    logging.debug('aborted requested by ' + passenger.name)
+    key = getRideKey(driver)
+    r = Ride.get_or_insert(key)
+    r.abort_daytime = datetime.datetime.now()
+    r.auto_abort = auto_end
+    r.put()
+
 def addPassengerInRide(driver, passenger):
-    key = getRideKey(driver.chat_id, driver.last_seen)
+    key = getRideKey(driver)
     ride = ndb.Key(Ride, key).get()
     ride.passengers_ids.append(passenger.chat_id)
     ride.passengers_names.append(passenger.name)
     ride.put()
 
 def endRide(driver, auto_end):
-    key = getRideKey(driver.chat_id, driver.last_seen)
+    key = getRideKey(driver)
     ride = ndb.Key(Ride, key).get()
     ride.end_daytime = datetime.datetime.now()
     ride.auto_end = auto_end
     ride.passengers_names_str = str(ride.passengers_names)
     ride.put()
-    duration_sec = (ride.end_daytime - ride.start_daytime).seconds
-    duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
-    tell_masters("Passenger completed! Driver: " + driver.name +
-                 ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
+    #duration_sec = (ride.end_daytime - ride.start_daytime).seconds
+    #duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
+    #tell_masters("Passenger completed! Driver: " + driver.name +
+    #             ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
 
 
 # ================================
@@ -770,12 +786,12 @@ class TiramisuHandler(webapp2.RequestHandler):
 class InfouserHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        broadcastInfoCount()
+        tell_tiramisu_group(getInfoCount())
 
 class InfodayHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        broadcastInfoDay()
+        tell_tiramisu_group(getInfoDay())
 
 class ResetCountersHandler(webapp2.RequestHandler):
     def get(self):
@@ -875,7 +891,7 @@ class WebhookHandler(webapp2.RequestHandler):
         instructions =  (_("I\'m your Trento <-> Povo travelling assistant.") + _("\n\n") +
                         _("You can press START to get or offer a ride") + _("\n") +
                         _("You can press HELP to see this message again") + _("\n") +
-                        _("You can press LANGUAGE to change the settings (language)") + _("\n\n") +
+                        _("You can press SETTING to change the settings (e.g., language)") + _("\n\n") +
                         _("You can visit our website at http://tiny.cc/pickmeup_site\
                         or read the pdf instructions at http://tiny.cc/pickmeup_info") + _("\n\n") +
                         _("If you want to join the discussion about this initiative \
@@ -919,12 +935,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif text in ['/start','START']:
                     start(p, text, name, last_name, username)
                     # state = 0
-                elif text == _('LANGUAGE'):
-                    reply(_("Choose the language"),
-                          kb=[[emoij.FLAG_IT + _(' ') + "IT", emoij.FLAG_EN + _(' ') + "EN", emoij.FLAG_RU + _(' ') + "RU"],
-                              [emoij.FLAG_DE + _(' ') + "DE", emoij.FLAG_FR + _(' ') + "FR", emoij.FLAG_PL + _(' ') + "PL"],
-#                             [emoij.FLAG_NL + _(' ') + "NL"
-                              [emoij.NOENTRY + _(' ') + _("Abort")]])
+                elif text == _('SETTINGS'):
+                    reply(_("Settings options"),
+                          kb=[[_('LANGUAGE')], [_('INFO USERS'),_('DAY SUMMARY')],[emoij.NOENTRY + _(' ') + _("Abort")]])
                     setState(p, 90)
                 elif text == '/users':
                     reply(getUsers())
@@ -934,13 +947,13 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listAllPassengers())
                 elif chat_id in key.MASTER_CHAT_ID:
                     if text == '/resetusers':
-                        restartAllUsers()
+                        restartAllUsers('Less spam, new interface :)')
                         #resetLastNames()
                         #resetEnabled()
                         #resetLanguages()
                         #resesetNames()
                     elif text=='/infocount':
-                        getInfoCount(p)
+                        reply(getInfoCount())
                     elif text=='/checkenabled':
                         checkEnabled()
                     elif text == '/resetcounters':
@@ -949,7 +962,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         #tell_katja_test()
                         #updateDashboard()
                         #reply('test')
-                        broadcastInfoDay()
+                        reply(getInfoDay())
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
                         broadcast(msg)
@@ -1091,7 +1104,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     engageDriver(p, int(text))
                     assignNextTicketId(p)
                     reply(_("Your driver ID is: ") + p.ticket_id.encode('utf-8'))
-                    recordRide(p)
+                    recordRide(p, int(text))
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
                     restart(p);
@@ -1104,6 +1117,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listPassengers(p))
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
+                    abortRideOffer(p, False)
                     removeDriver(p)
                     # state = -1
                 else:
@@ -1121,6 +1135,27 @@ class WebhookHandler(webapp2.RequestHandler):
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 90:
+                if text.endswith(_("Abort")):
+                    restart(p)
+                    # state = -1
+                elif text==_('LANGUAGE'):
+                    reply(_("Choose the language"),
+                          kb=[[emoij.FLAG_IT + _(' ') + "IT", emoij.FLAG_EN + _(' ') + "EN", emoij.FLAG_RU + _(' ') + "RU"],
+                              [emoij.FLAG_DE + _(' ') + "DE", emoij.FLAG_FR + _(' ') + "FR", emoij.FLAG_PL + _(' ') + "PL"],
+#                             [emoij.FLAG_NL + _(' ') + "NL"
+                              [emoij.NOENTRY + _(' ') + _("Abort")]])
+                    setState(p, 91)
+                elif text==_('INFO USERS'):
+                    reply(getInfoCount())
+                    restart(p)
+                    # state = -1
+                elif text==_('DAY SUMMARY'):
+                    reply(getInfoDay())
+                    restart(p)
+                    # state = -1
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 91:
                 if text.endswith(_("Abort")):
                     restart(p)
                     # state = -1
