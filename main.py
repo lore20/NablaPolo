@@ -407,6 +407,7 @@ def checkExpiredPassengers():
                  _("We believe and hope you have already reached your destination, \
                    otherwise feel free to start another request")
             )
+            abortRideRequest(p, auto_end=True)
             removePassenger(p)
 
 
