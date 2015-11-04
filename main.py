@@ -681,10 +681,10 @@ def endRide(driver, auto_end):
     ride.auto_end = auto_end
     ride.passengers_names_str = str(ride.passengers_names)
     ride.put()
-    #duration_sec = (ride.end_daytime - ride.start_daytime).seconds
-    #duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
-    #tell_masters("Passenger completed! Driver: " + driver.name +
-    #             ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
+    duration_sec = (ride.end_daytime - ride.start_daytime).seconds
+    duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
+    tell_tiramisu_group("Passenger completed! Driver: " + driver.name +
+                 ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
 
 
 # ================================
@@ -737,7 +737,7 @@ def abortRideRequest(passenger, auto_end):
 # ================================
 # ================================
 
-TOKEN_DURATION_MIN = 30
+TOKEN_DURATION_MIN = 100
 TOKEN_DURATION_SEC = TOKEN_DURATION_MIN*60
 
 class Token(ndb.Model):

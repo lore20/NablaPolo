@@ -60,3 +60,4 @@ target/
 key.py
 .idea*
 
+data/*
