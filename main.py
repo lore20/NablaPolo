@@ -674,6 +674,8 @@ def addPassengerInRide(driver, passenger):
     ride.passengers_names.append(passenger.name)
     ride.put()
 
+tell_completed = True
+
 def endRide(driver, auto_end):
     key = getRideKey(driver)
     ride = ndb.Key(Ride, key).get()
@@ -681,10 +683,11 @@ def endRide(driver, auto_end):
     ride.auto_end = auto_end
     ride.passengers_names_str = str(ride.passengers_names)
     ride.put()
-    duration_sec = (ride.end_daytime - ride.start_daytime).seconds
-    duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
-    tell_tiramisu_group("Passenger completed! Driver: " + driver.name +
-                 ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
+    if tell_completed:
+        duration_sec = (ride.end_daytime - ride.start_daytime).seconds
+        duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
+        tell_tiramisu_group("Passenger completed! Driver: " + driver.name +
+                     ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
 
 
 # ================================
@@ -1101,9 +1104,9 @@ class WebhookHandler(webapp2.RequestHandler):
                         kb=[[_("List Passengers")],[emoij.NOENTRY + _(' ') + _("Abort")]])
                     setState(p, 32)
                     # state = 31
-                    engageDriver(p, int(text))
                     assignNextTicketId(p)
                     reply(_("Your driver ID is: ") + p.ticket_id.encode('utf-8'))
+                    engageDriver(p, int(text))
                     recordRide(p, int(text))
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
