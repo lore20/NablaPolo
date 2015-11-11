@@ -4,7 +4,10 @@ import logging
 import urllib
 import urllib2
 import datetime
+from datetime import datetime
+from datetime import timedelta
 from time import sleep
+import date_util
 # import requests
 
 import key
@@ -32,7 +35,7 @@ from jinja2 import Environment, FileSystemLoader
 BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 
 DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
-#token = channel.create_channel('default', duration_minutes=1440)
+tell_completed = False
 
 STATES = {
     -1: 'Initial',
@@ -127,6 +130,43 @@ def decreaseRides(driver):
 def increasePassengerRide(passenger):
     passenger_tot_counter = TN_PV_TOTAL_PASSENGERS if passenger.location == FERMATA_TRENTO else PV_TN_TOTAL_PASSENGERS
     increaseCounter(passenger_tot_counter, 1)
+
+def getTodayEvents():
+
+    todayEvents = {}
+
+    today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+
+    for loc in [FERMATA_TRENTO,FERMATA_POVO]:
+
+        requests = []
+        qryRideRequests = RideRequest.query(RideRequest.passenger_last_seen > today)
+        for r in qryRideRequests:
+            #RideRequest.passenger_location==loc
+            #logging.debug(r.passenger_location + " " + str(r.passenger_location==loc))
+            if (r.passenger_location==loc):
+                start = r.passenger_last_seen
+                end = r.abort_time
+                if (end is not None):
+                    requests.append([start.isoformat(), end.isoformat()])
+
+        todayEvents[loc + ' Ride Requests'] = requests
+
+        offers = []
+        qryRideOffers = Ride.query(Ride.start_daytime > today)
+        for r in qryRideOffers:
+            if (r.start_location==loc):
+                start = r.start_daytime
+                end = r.abort_daytime if r.abort_daytime is not None else r.end_daytime
+                if (end is not None):
+                    offers.append([start.isoformat(), end.isoformat()])
+
+        #requests = date_util.removeOverlapping(requests)
+        #offers = date_util.removeOverlapping(offers)
+
+        todayEvents[loc + ' Ride Offers'] = offers
+
+    return todayEvents
 
 def getDashboardData():
     p_wait_trento = Person.query().filter(Person.location == FERMATA_TRENTO, Person.state.IN([21, 22])).count()
@@ -244,14 +284,14 @@ def getUsers():
     return text
 
 def get_date_string(date):
-    newdate = date + datetime.timedelta(hours=1)
+    newdate = date + timedelta(hours=1)
     time_day = str(newdate).split(" ")
     time = time_day[1].split(".")[0]
     day = time_day[0]
     return day + " " + time
 
 def get_time_string(date):
-    newdate = date + datetime.timedelta(hours=1)
+    newdate = date + timedelta(hours=1)
     return str(newdate).split(" ")[1].split(".")[0]
 
 def restartAllUsers(msg):
@@ -306,6 +346,14 @@ def broadcast(msg):
             tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
             sleep(0.100) # no more than 10 messages per second
 
+def broadcast(language, msg):
+    qry = Person.query().order(-Person.last_mod)
+    setLanguage(language)
+    for p in qry:
+        if (p.enabled):
+            if p.language==language:
+                tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
+            sleep(0.100) # no more than 10 messages per second
 
 def getInfoCount():
     c = Person.query().count()
@@ -314,18 +362,30 @@ def getInfoCount():
     return msg
 
 def getInfoDay():
-    today = datetime.datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
     qryRide = Ride.query(Ride.start_daytime > today)
     qryRideCompleted = Ride.query(Ride.start_daytime > today and Ride.end_daytime > today)
     qryRideCompletedCount = qryRideCompleted.count()
     msg = _("Today there were a total of ") + str(qryRideRequest.count()) +\
           _(" ride requests and ") + str(qryRide.count()) + _(" ride offers, of which ") +\
-          str(qryRideCompletedCount) + _(" successfully completed!\n")
+          str(qryRideCompletedCount) + _(" successfully completed!") + _("\n")
     if qryRideCompletedCount>0:
         msg += _("Many thanks to all of you! " + emoij.CLAPPING_HANDS)
     else:
         msg += _("Let's make it happen! " + emoij.SMILING_FACE)
+    return msg
+
+def getInfoWeek():
+    lastweek = datetime.now() - timedelta(days=7)
+    qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > lastweek)
+    qryRide = Ride.query(Ride.start_daytime > lastweek)
+    qryRideCompleted = Ride.query(Ride.start_daytime > lastweek and Ride.end_daytime > lastweek)
+    qryRideCompletedCount = qryRideCompleted.count()
+    msg = _("This week there were a total of ") + str(qryRideRequest.count()) +\
+          _(" ride requests and ") + str(qryRide.count()) + _(" ride offers, of which ") +\
+          str(qryRideCompletedCount) + _(" successfully completed!") + _("\n")
+    msg += _("Many thanks to all of you! " + emoij.CLAPPING_HANDS)
     return msg
 
 
@@ -343,7 +403,7 @@ def putPassengerOnHold(passenger):
     setState(passenger, 21)
 
 def updateLastSeen(p):
-    p.last_seen = datetime.datetime.now()
+    p.last_seen = datetime.now()
     p.put()
 
 def assignNextTicketId(p):
@@ -377,10 +437,10 @@ def checkExpiredDrivers():
         }
         for d in qry:
             if d.state==32: #picking up drivers
-                if (datetime.datetime.now() >= d.last_seen + datetime.timedelta(minutes=MAX_PICKUP_DRIVER_MIN)):
+                if (datetime.now() >= d.last_seen + timedelta(minutes=MAX_PICKUP_DRIVER_MIN)):
                     oldDrivers[d.state].append(d)
             else:
-                if (datetime.datetime.now() >= d.last_seen + datetime.timedelta(minutes=MAX_COMPLETE_DRIVER_MIN)):
+                if (datetime.now() >= d.last_seen + timedelta(minutes=MAX_COMPLETE_DRIVER_MIN)):
                     oldDrivers[d.state].append(d)
         for d in oldDrivers[32]:
             setLanguage(d.language)
@@ -399,7 +459,7 @@ def checkExpiredPassengers():
         qry = Person.query(Person.location == location, Person.state.IN([21, 22]))
         oldPassengers = []
         for p in qry:
-            if (datetime.datetime.now() >= p.last_seen + datetime.timedelta(minutes=MAX_WAITING_PASSENGER_MIN)):
+            if (datetime.now() >= p.last_seen + timedelta(minutes=MAX_WAITING_PASSENGER_MIN)):
                 oldPassengers.append(p)
         for p in oldPassengers:
             setLanguage(p.language)
@@ -432,7 +492,7 @@ def check_available_drivers(passenger):
 
 
 def engageDriver(d, min):
-    d.last_seen = datetime.datetime.now() + datetime.timedelta(minutes=min)
+    d.last_seen = datetime.now() + timedelta(minutes=min)
     qry = Person.query(Person.location == d.location, Person.state.IN([21, 22]))
     for p in qry:
         if (p.state==21):
@@ -447,7 +507,7 @@ def engageDriver(d, min):
 
 def check_available_passenger(driver):
     # a driver is availbale for a location and we want to check if there are passengers bored or engaged
-    #driver.last_seen = datetime.datetime.now()
+    #driver.last_seen = datetime.now()
     qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
     counter = qry.count()
     return counter > 0
@@ -568,6 +628,7 @@ def tell_masters(msg):
         tell(id, msg)
 
 def tell_tiramisu_group(msg):
+    setLanguage('IT')
     tell(key.TIRAMISU_CHAT_ID, msg)
 
 def tell(chat_id, msg, kb=None, hideKb=True):
@@ -650,7 +711,7 @@ def recordRide(driver, minutes_to_pickup):
     r.driver_name = driver.name
     r.driver_id = driver.chat_id
     r.driver_ticket_id = driver.ticket_id
-    r.start_daytime = datetime.datetime.now()
+    r.start_daytime = datetime.now()
     r.minutes_to_pickup = minutes_to_pickup
     r.start_location = driver.location
     r.passengers_ids = [] #ids
@@ -663,7 +724,7 @@ def abortRideOffer(driver, auto_end):
 #    logging.debug('aborted requested by ' + passenger.name)
     key = getRideKey(driver)
     r = Ride.get_or_insert(key)
-    r.abort_daytime = datetime.datetime.now()
+    r.abort_daytime = datetime.now()
     r.auto_abort = auto_end
     r.put()
 
@@ -674,12 +735,10 @@ def addPassengerInRide(driver, passenger):
     ride.passengers_names.append(passenger.name)
     ride.put()
 
-tell_completed = True
-
 def endRide(driver, auto_end):
     key = getRideKey(driver)
     ride = ndb.Key(Ride, key).get()
-    ride.end_daytime = datetime.datetime.now()
+    ride.end_daytime = datetime.now()
     ride.auto_end = auto_end
     ride.passengers_names_str = str(ride.passengers_names)
     ride.put()
@@ -732,9 +791,32 @@ def abortRideRequest(passenger, auto_end):
 #    logging.debug('aborted requested by ' + passenger.name)
     key = getRideRequestKey(passenger)
     request = RideRequest.get_or_insert(key)
-    request.abort_time = datetime.datetime.now()
+    request.abort_time = datetime.now()
     request.auto_aborted = auto_end
     request.put()
+
+# ================================
+# ================================
+# ================================
+
+class PollAnswer(ndb.Model):
+    poll_title = ndb.StringProperty()
+    user_id = ndb.IntegerProperty()
+    user_name = ndb.StringProperty()
+    user_lastname = ndb.StringProperty()
+    submission_datetime = ndb.DateTimeProperty()
+    answer = ndb.StringProperty()
+
+def submittPollAnswer(id, name, lastname, title, answer):
+    item = PollAnswer.get_or_insert(str(id))
+    item.poll_title = title
+    item.user_id = id
+    item.user_name = name
+    item.user_lastname = lastname
+    item.submission_datetime = datetime.now()
+    item.answer = answer
+    item.put()
+
 
 # ================================
 # ================================
@@ -748,7 +830,7 @@ class Token(ndb.Model):
     start_daytime = ndb.DateTimeProperty()
 
 def createToken():
-    now = datetime.datetime.now()
+    now = datetime.now()
     token_id = channel.create_channel(str(now), duration_minutes=TOKEN_DURATION_MIN)
     token = Token.get_or_insert(token_id)
     token.start_daytime = now
@@ -759,10 +841,9 @@ def createToken():
 def updateDashboard():
     #logging.debug('updateDashboard')
     data = getDashboardData()
-    data.pop("token", None)
     qry = Token.query()
     removeKeys = []
-    now = datetime.datetime.now()
+    now = datetime.now()
     for t in qry:
         duration_sec = (now - t.start_daytime).seconds
         if (duration_sec>TOKEN_DURATION_SEC):
@@ -786,15 +867,25 @@ class TiramisuHandler(webapp2.RequestHandler):
         urlfetch.set_default_fetch_deadline(60)
         #tell(key.MASTER_CHAT_ID, msg = "Lottery test")
 
-class InfouserHandler(webapp2.RequestHandler):
+class InfouserTiramisuHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         tell_tiramisu_group(getInfoCount())
 
-class InfodayHandler(webapp2.RequestHandler):
+class InfouserAllHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        broadcast(getInfoCount())
+
+class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         tell_tiramisu_group(getInfoDay())
+
+class InfodayAllHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        broadcast(getInfoWeek())
 
 class ResetCountersHandler(webapp2.RequestHandler):
     def get(self):
@@ -807,6 +898,8 @@ class DashboardHandler(webapp2.RequestHandler):
         data = getDashboardData()
         token_id = createToken()
         data['token'] = token_id
+        data['today_events'] = json.dumps(getTodayEvents())
+        logging.debug('Requsts: ' + str(data['today_events']))
         template = DASHBOARD_DIR_ENV.get_template('PickMeUp.html')
         logging.debug("Requested Dashboard. Created new token.")
         self.response.write(template.render(data))
@@ -888,14 +981,13 @@ class WebhookHandler(webapp2.RequestHandler):
 
         p = ndb.Key(Person, str(chat_id)).get()
 
-        lang = LANGUAGES[p.language] if p is not None else LANGUAGES['IT']
-        gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
+        setLanguage(p.language if p is not None else None)
 
         instructions =  (_("I\'m your Trento <-> Povo travelling assistant.") + _("\n\n") +
                         _("You can press START to get or offer a ride") + _("\n") +
                         _("You can press HELP to see this message again") + _("\n") +
                         _("You can press SETTING to change the settings (e.g., language)") + _("\n\n") +
-                        _("You can visit our website at http://tiny.cc/pickmeup_site\
+                        _("You can visit our website at http://pickmeup.trentino.it\
                         or read the pdf instructions at http://tiny.cc/pickmeup_info") + _("\n\n") +
                         _("If you want to join the discussion about this initiative \
                         come to the tiramisu group at the following link: \
@@ -948,9 +1040,13 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listAllDrivers())
                 elif text == '/allpassengers':
                     reply(listAllPassengers())
+                elif text == '/join_pizza':
+                    submittPollAnswer(p.chat_id, p.name, p.last_name, "Pizza_09_Nov_15", 'YES')
+                    reply(_("Thanks! See you at the Pizzeria la Rosa D'Oro, Tuesday at 20.30"))
                 elif chat_id in key.MASTER_CHAT_ID:
                     if text == '/resetusers':
-                        restartAllUsers('Less spam, new interface :)')
+                        logging.debug('rest user')
+                        #restartAllUsers('Less spam, new interface :)')
                         #resetLastNames()
                         #resetEnabled()
                         #resetLanguages()
@@ -965,10 +1061,19 @@ class WebhookHandler(webapp2.RequestHandler):
                         #tell_katja_test()
                         #updateDashboard()
                         #reply('test')
-                        reply(getInfoDay())
+                        #reply(getInfoDay())
+                        #tell_masters('test')
+                        #tell_tiramisu_group(getInfoCount())
+                        reply(getInfoWeek())
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
                         broadcast(msg)
+                    elif text.startswith('/broadcast_it ') and len(text)>14:
+                        msg = text[14:] #.encode('utf-8')
+                        broadcast('IT',msg)
+                    elif text.startswith('/broadcast_en ') and len(text)>14:
+                        msg = text[14:] #.encode('utf-8')
+                        broadcast('EN',msg)
                     elif text.startswith('/self ') and len(text)>6:
                         msg = text[6:] #.encode('utf-8')
                         tellmyself(p,msg)
@@ -1183,8 +1288,10 @@ app = webapp2.WSGIApplication([
     ('/updates', GetUpdatesHandler),
     ('/set_webhook', SetWebhookHandler),
     ('/webhook', WebhookHandler),
-    ('/infousers', InfouserHandler),
-    ('/infoday', InfodayHandler),
+    ('/infousers_tiramisu', InfouserTiramisuHandler),
+    ('/infouser_weekly_all', InfouserAllHandler),
+    ('/infoday_tiramisu', InfodayTiramisuHandler),
+    ('/infoweek_all', InfodayAllHandler),
     ('/resetcounters', ResetCountersHandler),
     ('/checkExpiredUsers', CheckExpiredUsersHandler),
     ('/tiramisulottery', TiramisuHandler),
