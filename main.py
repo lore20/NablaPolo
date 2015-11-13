@@ -69,7 +69,7 @@ class Counter(ndb.Model):
     counter = ndb.IntegerProperty()
 
 FERMATA_TRENTO = 'Trento Porta Aquila'
-FERMATA_POVO = 'Povo Sommarive'
+FERMATA_POVO = 'Povo Sommarive/Valoni/Mesiano'
 
 
 MAX_WAITING_PASSENGER_MIN = 25
@@ -131,9 +131,9 @@ def increasePassengerRide(passenger):
     passenger_tot_counter = TN_PV_TOTAL_PASSENGERS if passenger.location == FERMATA_TRENTO else PV_TN_TOTAL_PASSENGERS
     increaseCounter(passenger_tot_counter, 1)
 
-def getTodayEvents():
+def getTodayTimeline():
 
-    todayEvents = {}
+    todayEvents = {FERMATA_TRENTO: {}, FERMATA_POVO: {}}
 
     today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
 
@@ -150,7 +150,7 @@ def getTodayEvents():
                 if (end is not None):
                     requests.append([start.isoformat(), end.isoformat()])
 
-        todayEvents[loc + ' Ride Requests'] = requests
+        todayEvents[loc][loc + ' Ride Requests'] = requests
 
         offers = []
         qryRideOffers = Ride.query(Ride.start_daytime > today)
@@ -164,7 +164,7 @@ def getTodayEvents():
         #requests = date_util.removeOverlapping(requests)
         #offers = date_util.removeOverlapping(offers)
 
-        todayEvents[loc + ' Ride Offers'] = offers
+        todayEvents[loc][loc + ' Ride Offers'] = offers
 
     return todayEvents
 
@@ -898,7 +898,7 @@ class DashboardHandler(webapp2.RequestHandler):
         data = getDashboardData()
         token_id = createToken()
         data['token'] = token_id
-        data['today_events'] = json.dumps(getTodayEvents())
+        data['today_events'] = json.dumps(getTodayTimeline())
         logging.debug('Requsts: ' + str(data['today_events']))
         template = DASHBOARD_DIR_ENV.get_template('PickMeUp.html')
         logging.debug("Requested Dashboard. Created new token.")
