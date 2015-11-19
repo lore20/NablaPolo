@@ -46,7 +46,8 @@ STATES = {
     23:  'PassengerConfirmedRide',
     30:  'DriverAskedForLoc',
     31:  'DriverAskedForTime',
-    32:  'DriverEngaged',
+    32:  'DriverWhoHasLeft',
+    315: 'DriverSendingMessage',
     33:  'DriverTookSomeone',
     90:  'Settings',
     91:  'Language'
@@ -136,6 +137,7 @@ def getTodayTimeline():
     todayEvents = {FERMATA_TRENTO: {}, FERMATA_POVO: {}}
 
     today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    #today = today - timedelta(days=1)
 
     for loc in [FERMATA_TRENTO,FERMATA_POVO]:
 
@@ -346,6 +348,16 @@ def broadcast(msg):
             tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
             sleep(0.100) # no more than 10 messages per second
 
+def broadcast_driver_message(driver, msg):
+    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
+    for p in qry:
+        setLanguage(p.language)
+        tell(p.chat_id, _("Message from " + driver.name) + _(': ') + msg)
+        sleep(0.100) # no more than 10 messages per second
+    setLanguage(driver.language)
+    return qry.count()
+
+
 def broadcast(language, msg):
     qry = Person.query().order(-Person.last_mod)
     setLanguage(language)
@@ -354,6 +366,16 @@ def broadcast(language, msg):
             if p.language==language:
                 tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
             sleep(0.100) # no more than 10 messages per second
+
+def broadcast_other(language, msg):
+    qry = Person.query().order(-Person.last_mod)
+    setLanguage(language)
+    for p in qry:
+        if (p.enabled):
+            if p.language!=language:
+                tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
+            sleep(0.100) # no more than 10 messages per second
+
 
 def getInfoCount():
     c = Person.query().count()
@@ -479,7 +501,8 @@ def check_available_drivers(passenger):
         for d in qry:
             if (d.state==32):
                 setLanguage(d.language)
-                tell(d.chat_id, _("There is now a passenger waiting at the stop " + emoij.PEDESTRIAN))
+                tell(d.chat_id, _("There is now a passenger waiting at the stop " + emoij.PEDESTRIAN),
+                    kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
     setLanguage(passenger.language)
 
     if (qry.count() > 0):
@@ -952,7 +975,6 @@ class WebhookHandler(webapp2.RequestHandler):
 
     def post(self):
         urlfetch.set_default_fetch_deadline(60)
-        #return
         body = json.loads(self.request.body)
         logging.info('request body:')
         logging.info(body)
@@ -1073,7 +1095,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         broadcast('IT',msg)
                     elif text.startswith('/broadcast_en ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        broadcast('EN',msg)
+                        broadcast_other('IT',msg)
                     elif text.startswith('/self ') and len(text)>6:
                         msg = text[6:] #.encode('utf-8')
                         tellmyself(p,msg)
@@ -1201,12 +1223,12 @@ class WebhookHandler(webapp2.RequestHandler):
                     if check_available_passenger(p):
                         reply(_("There is someone waiting for you ") + emoij.PEDESTRIAN + '\n' +
                               _("Have a nice trip!") + emoij.SMILING_FACE,
-                              kb=[[_("List Passengers")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                              kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
                     else:
                         reply(_("There is currently nobody there but if somebody arrives \
                         we will notify you and will let them know you are coming.") + _("\n") +
                         _("Have a nice trip! ") + emoij.SMILING_FACE,
-                        kb=[[_("List Passengers")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                        kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
                     setState(p, 32)
                     # state = 31
                     assignNextTicketId(p)
@@ -1223,6 +1245,10 @@ class WebhookHandler(webapp2.RequestHandler):
                 # DRIVERS WHO HAS LEFT
                 if text == _("List Passengers"):
                     reply(listPassengers(p))
+                elif text == (_("Send Message")):
+                    reply(_("Please type a short message which will be sent to all passenger waiting at your location"),
+                        kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    setState(p, 325)
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
                     abortRideOffer(p, False)
@@ -1230,6 +1256,18 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = -1
                 else:
                     reply(_("Sorry, I don't understand you"))# (" + text + ")")
+            elif p.state == 325:
+                if not text.endswith(_("Back")):
+                    count = broadcast_driver_message(p, text)
+                    reply(_("Sent message to ") + str(count) + _(" people"))
+                if check_available_passenger(p):
+                    reply(_("There is someone waiting for you ") + emoij.PEDESTRIAN,
+                          kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                else:
+                    reply(_("Oops... there are no more passengers waiting!"),
+                          kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
+                    # all passangers have left while driver was typing
+                setState(p, 32)
             elif p.state == 33:
                 # DRIVER WHO HAS JUST BORDED AT LEAST A PASSANGER
                 if text == _("List Passengers"):
