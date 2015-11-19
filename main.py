@@ -650,10 +650,6 @@ def tell_masters(msg):
     for id in key.MASTER_CHAT_ID:
         tell(id, msg)
 
-def tell_tiramisu_group(msg):
-    setLanguage('IT')
-    tell(key.TIRAMISU_CHAT_ID, msg)
-
 def tell(chat_id, msg, kb=None, hideKb=True):
     try:
         if kb:
@@ -893,7 +889,7 @@ class TiramisuHandler(webapp2.RequestHandler):
 class InfouserTiramisuHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        tell_tiramisu_group(getInfoCount())
+        tell(key.TIRAMISU_CHAT_ID, getInfoCount())
 
 class InfouserAllHandler(webapp2.RequestHandler):
     def get(self):
@@ -903,7 +899,8 @@ class InfouserAllHandler(webapp2.RequestHandler):
 class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        tell_tiramisu_group(getInfoDay())
+        setLanguage('IT')
+        tell(key.TIRAMISU_CHAT_ID, getInfoDay())
 
 class InfodayAllHandler(webapp2.RequestHandler):
     def get(self):
@@ -1085,7 +1082,6 @@ class WebhookHandler(webapp2.RequestHandler):
                         #reply('test')
                         #reply(getInfoDay())
                         #tell_masters('test')
-                        #tell_tiramisu_group(getInfoCount())
                         reply(getInfoWeek())
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
