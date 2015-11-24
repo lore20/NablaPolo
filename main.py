@@ -402,12 +402,14 @@ def broadcast_other(language, msg):
 
 
 def getInfoCount():
+    setLanguage('IT')
     c = Person.query().count()
     msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!") + _(' ') +\
           _("We want to get bigger and bigger!") + _(' ') + _("Invite more people to join us!")
     return msg
 
 def getInfoDay():
+    setLanguage('IT')
     today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
     qryRide = Ride.query(Ride.start_daytime > today)
@@ -423,6 +425,7 @@ def getInfoDay():
     return msg
 
 def getInfoWeek():
+    setLanguage('IT')
     lastweek = datetime.now() - timedelta(days=7)
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > lastweek)
     qryRide = Ride.query(Ride.start_daytime > lastweek)
@@ -928,7 +931,6 @@ class DayPeopleCountHandler(webapp2.RequestHandler):
 class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        setLanguage('IT')
         tell(key.TIRAMISU_CHAT_ID, getInfoDay())
 
 class InfodayAllHandler(webapp2.RequestHandler):
