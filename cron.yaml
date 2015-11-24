@@ -28,3 +28,7 @@ cron:
   url: /infoweek_all
   schedule: every friday 22:00
   timezone: Europe/Rome
+- description: day people count
+  url: /dayPeopleCount
+  schedule: every day 00:00
+  timezone: Europe/Rome

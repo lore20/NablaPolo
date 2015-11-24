@@ -69,6 +69,7 @@ class Counter(ndb.Model):
     name = ndb.StringProperty()
     counter = ndb.IntegerProperty()
 
+
 FERMATA_TRENTO = 'Trento Porta Aquila'
 FERMATA_POVO = 'Povo Sommarive/Valoni/Mesiano'
 
@@ -208,10 +209,26 @@ def getDashboardData():
     }
     return data
 
+# ================================
+# ================================
+# ================================
+
+
+class DateCounter(ndb.Model):
+    date = ndb.DateProperty(auto_now_add=True)
+    people_counter = ndb.IntegerProperty()
+
+def addPeopleCount():
+    p = DateCounter.get_or_insert(str(datetime.now()))
+    p.people_counter = Person.query().count()
+    p.put()
+    return p
+
 
 # ================================
 # ================================
 # ================================
+
 
 class Person(ndb.Model):
     name = ndb.StringProperty()
@@ -257,9 +274,11 @@ def setStateLocation(p, state, loc):
 
 def start(p, cmd, name, last_name, username):
     #logging.debug(p.name + _(' ') + cmd + _(' ') + str(p.enabled))
+    #if (p.name.decode('utf-8') != name.decode('utf-8')):
     if (p.name != name):
         p.name = name
         p.put()
+    #if (p.last_name.decode('utf-8') != last_name.decode('utf-8')):
     if (p.last_name != last_name):
         p.last_name = last_name
         p.put()
@@ -285,8 +304,13 @@ def getUsers():
         text = text + p.name + " (" + str(p.state) + ") " + get_date_string(p.last_mod) + _("\n")
     return text
 
-def get_date_string(date):
+def get_date_CET(date):
+    if date is None: return None
     newdate = date + timedelta(hours=1)
+    return newdate
+
+def get_date_string(date):
+    newdate = get_date_CET(date)
     time_day = str(newdate).split(" ")
     time = time_day[1].split(".")[0]
     day = time_day[0]
@@ -764,7 +788,7 @@ def endRide(driver, auto_end):
     if tell_completed:
         duration_sec = (ride.end_daytime - ride.start_daytime).seconds
         duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
-        tell_tiramisu_group("Passenger completed! Driver: " + driver.name +
+        tell(key.TIRAMISU_CHAT_ID, "Passenger completed! Driver: " + driver.name +
                      ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
 
 
@@ -895,6 +919,11 @@ class InfouserAllHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         broadcast(getInfoCount())
+
+class DayPeopleCountHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        addPeopleCount()
 
 class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
@@ -1329,4 +1358,5 @@ app = webapp2.WSGIApplication([
     ('/resetcounters', ResetCountersHandler),
     ('/checkExpiredUsers', CheckExpiredUsersHandler),
     ('/tiramisulottery', TiramisuHandler),
+    ('/dayPeopleCount', DayPeopleCountHandler),
 ], debug=True)
