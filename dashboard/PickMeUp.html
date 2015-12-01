@@ -156,7 +156,7 @@
         console.log("received message: " + msg.data);
         document.getElementById("p_tn").innerHTML=peopleInTrento;
         document.getElementById("p_pv").innerHTML=peopleInPovo;
-        document.getElementById("log_text").innerHTML=msg.data;
+        //document.getElementById("log_text").innerHTML=msg.data;
       }
       socket.onerror = function(err) {
         // reconnect on timeout
@@ -195,10 +195,13 @@
 
 <div id="p_tn" class="gwd-div-1n6o">{{ passenger['trento'] }}</div>
 <div id="p_pv" class="gwd-div-1n6o gwd-div-1394">{{ passenger['povo'] }}</div>
+
+<!--
 <div id="log_text" class="gwd-div-bh29">passengers: {{ passenger }} PV-TN: {{ ridesPovoToTrento }} TN-PV: {{
     ridesTrentoToPovo }}
-</div>
 
+</div>
+-->
 
 <!-- MAIN CONTENT -->
 
