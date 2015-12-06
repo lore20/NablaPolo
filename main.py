@@ -18,6 +18,7 @@ from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
 from google.appengine.api import channel
 from google.appengine.api import taskqueue
+from google.appengine.ext import deferred
 
 #from google.appengine.ext import vendor
 #vendor.add('lib')
@@ -330,6 +331,16 @@ def restartAllUsers(msg):
             restart(p)
             sleep(0.100) # no more than 10 messages per second
 
+def resetNullStatesUsers():
+    qry = Person.query()
+    count = 0
+    for p in qry:
+        if (p.state is None): # or p.state>-1
+            setState(p,-1)
+            count+=1
+    return count
+
+
 def resetLanguages():
     qry = Person.query()
     for p in qry:
@@ -375,21 +386,17 @@ def broadcast_driver_message(driver, msg):
     setLanguage(driver.language)
     return qry.count()
 
-def testQueue(msg):
-    taskqueue.add(url='/broadcast', params={'msg': msg, 'lang':'language'})
-
-def broadcastQueue(msg, language='ALL'):
-    taskqueue.add(url='/broadcast', params={'msg': msg, 'lang':language})
-
 def broadcast(msg, language='ALL'):
-    #return
-    qry = Person.query()
+    qry = Person.query().order(-Person.last_mod)
+    count = 0
     for p in qry:
         if (p.enabled):
             if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
+                count += 1
                 setLanguage(p.language)
-                tell(p.chat_id, _("Listen listen...") + _(' ') + msg)
-            sleep(0.035) # no more than 30 messages per second
+                tell(p.chat_id, _("Listen listen...") + _(' ') + _(msg))
+                sleep(0.100) # no more than 10 messages per second
+    logging.debug('broadcasted to people ' + str(count))
 
 def getInfoCount():
     setLanguage('IT')
@@ -676,6 +683,12 @@ def tell_katja_test():
 def tell_masters(msg):
     for id in key.MASTER_CHAT_ID:
         tell(id, msg)
+
+def tell_fede(msg):
+    for i in range(100):
+        tell(key.FEDE_CHAT_ID, "prova " + str(i))
+        sleep(0.1)
+
 
 def tell(chat_id, msg, kb=None, hideKb=True):
     try:
@@ -993,17 +1006,6 @@ class SetWebhookHandler(webapp2.RequestHandler):
             self.response.write(
                 json.dumps(json.load(urllib2.urlopen(BASE_URL + 'setWebhook', urllib.urlencode({'url': url})))))
 
-class BroadcastWorker(webapp2.RequestHandler):
-    def post(self): # should run at most 1/s due to entity group limit
-        msg = self.request.get('msg')
-        language = self.request.get('lang')
-        #language = self.request.get('lang')
-        #if language=='IT'
-        #broadcast(msg)
-        #tell_masters(msg)
-        broadcast(msg, language)
-
-
 # ================================
 # ================================
 # ================================
@@ -1100,12 +1102,11 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listAllDrivers())
                 elif text == '/allpassengers':
                     reply(listAllPassengers())
-                elif text == '/join_pizza':
-                    submittPollAnswer(p.chat_id, p.name, p.last_name, "Pizza_09_Nov_15", 'YES')
-                    reply(_("Thanks! See you at the Pizzeria la Rosa D'Oro, Tuesday at 20.30"))
                 elif chat_id in key.MASTER_CHAT_ID:
                     if text == '/resetusers':
                         logging.debug('reset user')
+                        c = resetNullStatesUsers()
+                        reply("Reset states of users: " + str(c))
                         #restartAllUsers('Less spam, new interface :)')
                         #resetLastNames()
                         #resetEnabled()
@@ -1119,29 +1120,39 @@ class WebhookHandler(webapp2.RequestHandler):
                         resetCounter()
                     elif text == '/test':
                         logging.debug('test')
+                        reply("/opzione1 bfdslkjfdsjaklfdj")
+                        reply("/opzione2 ju39jrkek")
+                        reply("/opzione3 349jfndkkj")
                         #tell_katja_test()
                         #updateDashboard()
                         #reply('test')
                         #reply(getInfoDay())
                         #tell_masters('test')
                         #reply(getInfoWeek())
-                        #testQueue("Test")
+                        #testQueue()
+                        #msg = "Prova di broadcasting.\n" + \
+                        #      "Se lo ricevi una sola volta vuol dire che da ora in poi funziona :D (se no cerchiamo di risolverlo)\n\n" + \
+                        #      "Broadcasting test.\n" + \
+                        #      "If you receive it only once it means that now it works correctly :D (if not we will try to fix it)"
+                        #msg = "Last  broadcast test for today :P"
+                        #broadcastQueue(msg)
+                        #deferred.defer(tell_fede, "Hello, world!")
                     elif text == '/getAllInfo':
                         reply(getInfoAllRequestsOffers())
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
-                        broadcastQueue(msg)
+                        deferred.defer(broadcast, msg)
                     elif text.startswith('/broadcast_it ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        broadcastQueue(msg,'IT')
+                        deferred.defer(broadcast, msg, 'IT')
                     elif text.startswith('/broadcast_en ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        broadcastQueue(msg,'EN')
+                        deferred.defer(broadcast, msg, 'EN')
                     elif text.startswith('/self ') and len(text)>6:
                         msg = text[6:] #.encode('utf-8')
                         tellmyself(p,msg)
                     else:
-                        reply('Sorry, I only understand /help /start'
+                        reply('Sorry, I only understand /help /start '
                               '/users and other secret commands...')
                     #setLanguage(d.language)
                 else:
@@ -1373,5 +1384,4 @@ app = webapp2.WSGIApplication([
     ('/checkExpiredUsers', CheckExpiredUsersHandler),
     ('/tiramisulottery', TiramisuHandler),
     ('/dayPeopleCount', DayPeopleCountHandler),
-    ('/broadcast', BroadcastWorker),
 ], debug=True)
