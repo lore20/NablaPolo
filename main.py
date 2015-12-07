@@ -12,6 +12,18 @@ import date_util
 
 import key
 import emoij
+import bus_stops
+import counter
+import person
+from person import Person
+import date_counter
+import ride
+from ride import Ride
+import ride_request
+from ride_request import RideRequest
+import polls
+from polls import PollAnswer
+import token
 
 # standard app engine imports
 from google.appengine.api import urlfetch
@@ -37,7 +49,6 @@ from jinja2 import Environment, FileSystemLoader
 BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 
 DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
-tell_completed = False
 
 STATES = {
     -1: 'Initial',
@@ -63,86 +74,23 @@ LANGUAGES = {'IT': 'it_IT',
              'PL': 'pl',
              'RU': 'ru'}
 
-# ================================
-# ================================
-# ================================
-
-class Counter(ndb.Model):
-    name = ndb.StringProperty()
-    counter = ndb.IntegerProperty()
-
-
-FERMATA_TRENTO = 'Trento Porta Aquila'
-FERMATA_POVO = 'Povo Sommarive/Valoni/Mesiano' #'Povo Sommarive'
-
 
 MAX_WAITING_PASSENGER_MIN = 25
 MAX_PICKUP_DRIVER_MIN = 10
 MAX_COMPLETE_DRIVER_MIN = 15
 
-QUEUE_PASSENGERS_COUNTER_POVO = 'Queue_Passengers_Counter_Povo'
-QUEUE_PASSENGERS_COUNTER_TRENTO = 'Queue_Passengers_Counter_Trento'
-QUEUE_DRIVERS_COUNTER_POVO = 'Queue_Drivers_Counter_Povo'
-QUEUE_DRIVERS_COUNTER_TRENTO = 'Queue_Drivers_Counter_Trento'
-TN_PV_CURRENT_RIDES = 'tn_pv_current_rides'
-TN_PV_TOTAL_RIDES = 'tn_pv_total_rides'
-TN_PV_TOTAL_PASSENGERS = 'tn_pv_total_passengers'
-PV_TN_CURRENT_RIDES = 'pv_tn_current_rides'
-PV_TN_TOTAL_RIDES = 'pv_tn_total_rides'
-PV_TN_TOTAL_PASSENGERS = 'pv_tn_total_passengers'
-
-COUNTERS = [QUEUE_PASSENGERS_COUNTER_POVO, QUEUE_PASSENGERS_COUNTER_TRENTO,
-            QUEUE_DRIVERS_COUNTER_POVO, QUEUE_DRIVERS_COUNTER_TRENTO,
-            TN_PV_CURRENT_RIDES, TN_PV_TOTAL_RIDES, TN_PV_TOTAL_PASSENGERS,
-            PV_TN_CURRENT_RIDES, PV_TN_TOTAL_RIDES, PV_TN_TOTAL_PASSENGERS]
-
-def resetCounter():
-    for name in COUNTERS:
-        c = Counter.get_or_insert(str(name))
-        c.name = name
-        c.counter = 0
-        c.put()
-
-def increaseQueueCounter(n):
-    entry = Counter.query(Counter.name == n).get()
-    c = entry.counter
-    c = (c+1)%100
-    if (c==0):
-        c=1
-    entry.counter = c
-    entry.put()
-    return c
-
-def increaseCounter(c, i):
-    entry = Counter.query(Counter.name == c).get()
-    c = entry.counter
-    c = (c+i)
-    entry.counter = c
-    entry.put()
-    return c
-
-def increaseRides(driver):
-    riders_current_counter = TN_PV_CURRENT_RIDES if driver.location == FERMATA_TRENTO else PV_TN_CURRENT_RIDES
-    increaseCounter(riders_current_counter, 1)
-    riders_tot_current_counter = TN_PV_TOTAL_RIDES if driver.location == FERMATA_TRENTO else PV_TN_TOTAL_RIDES
-    increaseCounter(riders_tot_current_counter, 1)
-
-def decreaseRides(driver):
-    riders_current_counter = TN_PV_CURRENT_RIDES if driver.location == FERMATA_TRENTO else PV_TN_CURRENT_RIDES
-    increaseCounter(riders_current_counter, -1)
-
-def increasePassengerRide(passenger):
-    passenger_tot_counter = TN_PV_TOTAL_PASSENGERS if passenger.location == FERMATA_TRENTO else PV_TN_TOTAL_PASSENGERS
-    increaseCounter(passenger_tot_counter, 1)
+# ================================
+# ================================
+# ================================
 
 def getTodayTimeline():
 
-    todayEvents = {FERMATA_TRENTO: {}, FERMATA_POVO: {}}
+    todayEvents = {bus_stops.FERMATA_TRENTO: {}, bus_stops.FERMATA_POVO: {}}
 
     today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
     #today = today - timedelta(days=1)
 
-    for loc in [FERMATA_TRENTO,FERMATA_POVO]:
+    for loc in [bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO]:
 
         requests = []
         qryRideRequests = RideRequest.query(RideRequest.passenger_last_seen > today)
@@ -173,106 +121,13 @@ def getTodayTimeline():
 
     return todayEvents
 
-def getDashboardData():
-    p_wait_trento = Person.query().filter(Person.location == FERMATA_TRENTO, Person.state.IN([21, 22])).count()
-    p_wait_povo = Person.query().filter(Person.location == FERMATA_POVO, Person.state.IN([21, 22])).count()
 
-    r_cur_tn_pv = Counter.query(Counter.name == 'tn_pv_current_rides').get().counter
-    #p_cur_tn_pv = 0
-    r_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_rides').get().counter
-    p_tot_tn_pv = Counter.query(Counter.name == 'tn_pv_total_passengers').get().counter
-
-    r_cur_pv_tn = Counter.query(Counter.name == 'pv_tn_current_rides').get().counter
-    #p_cur_pv_tn = 0
-    r_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_rides').get().counter
-    p_tot_pv_tn = Counter.query(Counter.name == 'pv_tn_total_passengers').get().counter
-
-    data = {
-        "passenger": {
-            "trento": str(p_wait_trento),
-            "povo": str(p_wait_povo)
-        },
-        "ridesPovoToTrento": {
-            "currentRides": str(r_cur_tn_pv),
-    #                "Current passengers": p_cur_tn_pv,
-            "totalRides": str(r_tot_tn_pv),
-            "totalPassengers": str(p_tot_tn_pv)
-        },
-        "ridesTrentoToPovo": {
-            "currentRides": str(r_cur_pv_tn),
-    #               "Current passengers": p_cur_pv_tn,
-            "totalRides": str(r_tot_pv_tn),
-            "totalPassengers": str(p_tot_pv_tn)
-        }
-        # "Drivers": {
-        #     "Trento": countDrivers(FERMATA_TRENTO),
-        #     "Povo": countDrivers(FERMATA_POVO)
-        # }
-    }
-    return data
-
-# ================================
-# ================================
-# ================================
-
-
-class DateCounter(ndb.Model):
-    date = ndb.DateProperty(auto_now_add=True)
-    people_counter = ndb.IntegerProperty()
-
-def addPeopleCount():
-    p = DateCounter.get_or_insert(str(datetime.now()))
-    p.people_counter = Person.query().count()
-    p.put()
-    return p
 
 
 # ================================
 # ================================
 # ================================
 
-
-class Person(ndb.Model):
-    name = ndb.StringProperty()
-    last_name = ndb.StringProperty(default='-')
-    username = ndb.StringProperty(default='-')
-    last_mod = ndb.DateTimeProperty(auto_now=True)
-    last_seen = ndb.DateTimeProperty()
-    chat_id = ndb.IntegerProperty()
-    state = ndb.IntegerProperty()
-    ticket_id = ndb.StringProperty()
-    last_type = ndb.StringProperty(default='-1')
-    location = ndb.StringProperty(default='-')
-    language = ndb.StringProperty(default='IT')
-    enabled = ndb.BooleanProperty(default=True)
-
-
-def addPerson(chat_id, name):
-    p = Person.get_or_insert(str(chat_id))
-    p.name = name
-    p.chat_id = chat_id
-    #p.state = -1
-    #p.location = '-'
-    #p.language = 'IT'
-    p.put()
-    return p
-
-def setType(p, type):
-    p.last_type = type
-    p.put()
-
-def setState(p, state):
-    p.state = state
-    p.put()
-
-def setLocation(p, loc):
-    p.location = loc
-    p.put()
-
-def setStateLocation(p, state, loc):
-    p.state = state
-    p.location = loc
-    p.put()
 
 def start(p, cmd, name, last_name, username):
     #logging.debug(p.name + _(' ') + cmd + _(' ') + str(p.enabled))
@@ -295,7 +150,7 @@ def start(p, cmd, name, last_name, username):
             return
     tell(p.chat_id, _("Hi") + _(' ') + p.name.encode('utf-8') + _('! ') + _("Are you a driver or a passenger?"),
     kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
-    setState(p,0)
+    person.setState(p,0)
 
 def getUsers():
     query = Person.query().order(-Person.last_mod)
@@ -336,7 +191,7 @@ def resetNullStatesUsers():
     count = 0
     for p in qry:
         if (p.state is None): # or p.state>-1
-            setState(p,-1)
+            person.setState(p,-1)
             count+=1
     return count
 
@@ -353,18 +208,6 @@ def resetEnabled():
         p.enabled = True
         p.put()
 
-def resetLastNames():
-    qry = Person.query()
-    for p in qry:
-        p.last_name = '-'
-        p.put()
-
-def resesetNames():
-    qry = Person.query()
-    for p in qry:
-        p.name = p.name.encode('utf-8')
-        p.put()
-
 def checkEnabled():
     qry = Person.query(Person.enabled==True)
     for p in qry:
@@ -375,7 +218,6 @@ def checkEnabled():
                 p.enabled = False
                 p.put()
         sleep(0.035) # no more than 30 messages per second
-
 
 def broadcast_driver_message(driver, msg):
     qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
@@ -449,43 +291,53 @@ def tellmyself(p, msg):
     tell(p.chat_id, "Listen listen... " + msg)
 
 
-def restart(person):
-    tell(person.chat_id, _("Press START if you want to restart"), kb=[['START','HELP'], [_('SETTINGS'),_('DISCLAIMER')]]    )
-    setStateLocation(person, -1, '-')
+def restart(p):
+    tell(p.chat_id, _("Press START if you want to restart"), kb=[['START','HELP'], [_('SETTINGS'),_('DISCLAIMER')]]    )
+    person.setStateLocation(p, -1, '-')
 
 
 def putPassengerOnHold(passenger):
     tell(passenger.chat_id, _("Waiting for a driver..."), kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
-    setState(passenger, 21)
+    person.setState(passenger, 21)
 
 def updateLastSeen(p):
     p.last_seen = datetime.now()
     p.put()
 
+# ================================
+# ================================
+# ================================
+
+
 def assignNextTicketId(p):
     ticketId = None
     if (p.state>29 and p.state<40):
         #driver
-        if p.location == FERMATA_POVO:
-            ticketId = _('DP') + str(increaseQueueCounter(QUEUE_DRIVERS_COUNTER_POVO))
+        if p.location == bus_stops.FERMATA_POVO:
+            ticketId = _('DP') + str(counter.increaseQueueCounter(counter.QUEUE_DRIVERS_COUNTER_POVO))
         else:
-            ticketId = _('DT') + str(increaseQueueCounter(QUEUE_DRIVERS_COUNTER_TRENTO))
+            ticketId = _('DT') + str(counter.increaseQueueCounter(counter.QUEUE_DRIVERS_COUNTER_TRENTO))
     else:
         #passenger
-        if p.location == FERMATA_POVO:
-            ticketId = _('PP') + str(increaseQueueCounter(QUEUE_PASSENGERS_COUNTER_POVO))
+        if p.location == bus_stops.FERMATA_POVO:
+            ticketId = _('PP') + str(counter.increaseQueueCounter(counter.QUEUE_PASSENGERS_COUNTER_POVO))
         else:
-            ticketId = _('PT') + str(increaseQueueCounter(QUEUE_PASSENGERS_COUNTER_TRENTO))
+            ticketId = _('PT') + str(counter.increaseQueueCounter(counter.QUEUE_PASSENGERS_COUNTER_TRENTO))
     p.ticket_id = ticketId
     p.put()
     return ticketId
+
+# ================================
+# ================================
+# ================================
+
 
 def checkExpiredUsers():
     checkExpiredDrivers()
     checkExpiredPassengers()
 
 def checkExpiredDrivers():
-    for location in [FERMATA_TRENTO,FERMATA_POVO]:
+    for location in [bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO]:
         qry = Person.query(Person.location == location, Person.state.IN([32,33]))
         oldDrivers = {
             32: [],
@@ -501,17 +353,17 @@ def checkExpiredDrivers():
         for d in oldDrivers[32]:
             setLanguage(d.language)
             tell(d.chat_id, _("The ride offer has been aborted: you were expected to give a ride some time ago!"))
-            abortRideOffer(d, True)
+            ride.abortRideOffer(d, True)
             removeDriver(d)
         for d in oldDrivers[33]:
             setLanguage(d.language)
             tell(d.chat_id, _("The ride has been completed automatically: you were supposed to arrive some time ago!"))
-            endRide(d,auto_end=True)
+            ride.endRide(d,auto_end=True)
             removeDriver(d)
-            decreaseRides(d) # update counter current ride of -1
+            counter.decreaseRides(d) # update counter current ride of -1
 
 def checkExpiredPassengers():
-    for location in [FERMATA_TRENTO,FERMATA_POVO]:
+    for location in [bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO]:
         qry = Person.query(Person.location == location, Person.state.IN([21, 22]))
         oldPassengers = []
         for p in qry:
@@ -524,8 +376,12 @@ def checkExpiredPassengers():
                  _("We believe and hope you have already reached your destination, \
                    otherwise feel free to start another request")
             )
-            abortRideRequest(p, auto_end=True)
+            ride_request.abortRideRequest(p, auto_end=True)
             removePassenger(p)
+
+# ================================
+# ================================
+# ================================
 
 
 def check_available_drivers(passenger):
@@ -542,7 +398,7 @@ def check_available_drivers(passenger):
     if (qry.count() > 0):
         tell(passenger.chat_id, _("There is a driver coming!"),
               kb=[[_('List Drivers'), _('Got the Ride!')],[emoij.NOENTRY + _(' ') + _("Abort")]])
-        setState(passenger, 22)
+        person.setState(passenger, 22)
     else:
         putPassengerOnHold(passenger)
         # state = 22
@@ -553,14 +409,14 @@ def engageDriver(d, min):
     qry = Person.query(Person.location == d.location, Person.state.IN([21, 22]))
     for p in qry:
         if (p.state==21):
-            setState(p, 22)
+            person.setState(p, 22)
         setLanguage(p.language)
         tell(p.chat_id, _("A driver is coming: ") + d.name.encode('utf-8') +
              _(" expected at ") + get_time_string(d.last_seen).encode('utf-8') +
              _(" (id: ") + d.ticket_id.encode('utf-8') + _(")"),
              kb=[[_("List Drivers"), _("Got the Ride!")],[emoij.NOENTRY + _(' ') + _("Abort")]])
     setLanguage(d.language)
-    setState(d, 32)
+    person.setState(d, 32)
 
 def check_available_passenger(driver):
     # a driver is availbale for a location and we want to check if there are passengers bored or engaged
@@ -656,20 +512,23 @@ def askToSelectDriverByNameAndId(p):
             buttons.append([d.name.encode('utf-8') + _(" (id: ") + d.ticket_id + _(")")])
         buttons.append([_("Someone else")])
         tell(p.chat_id, _("Great, which driver gave you a ride?"), kb=buttons)
-        setState(p, 23)
+        person.setState(p, 23)
 
 def getDriverByLocAndNameAndId(loc, name_text):
     id_str = name_text[name_text.index("(id:")+5:-1]
     qry = Person.query().filter(Person.location==loc, Person.ticket_id==id_str)
     return qry.get()
 
-def tell_katja(msg):
-    tell(114258373, msg)
-
-
 def setLanguage(langId):
     lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
     gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
+
+# ================================
+# ================================
+# ================================
+
+def tell_katja(msg):
+    tell(114258373, msg)
 
 def tell_katja_test():
     try:
@@ -741,176 +600,26 @@ def tell(chat_id, msg, kb=None, hideKb=True):
             p.put()
             logging.info('Disabled user: ' + p.name.encode('utf-8') + _(' ') + str(chat_id))
 
-# ================================
-# ================================
-# ================================
-
-class Ride(ndb.Model):
-    driver_name = ndb.StringProperty()
-    driver_id = ndb.IntegerProperty()
-    driver_ticket_id = ndb.StringProperty()
-    start_daytime = ndb.DateTimeProperty()
-    abort_daytime = ndb.DateTimeProperty()
-    auto_abort = ndb.BooleanProperty()
-    minutes_to_pickup = ndb.IntegerProperty()
-    start_location = ndb.StringProperty()
-    passengers_ids = ndb.JsonProperty()
-    passengers_names = ndb.JsonProperty()
-    passengers_names_str = ndb.StringProperty()
-    end_daytime = ndb.DateTimeProperty()
-    auto_end = ndb.BooleanProperty()
-
-def getRideKey(driver):
-    key = str(driver.chat_id) + '_' + str(driver.last_seen)
-    return key
-
-def recordRide(driver, minutes_to_pickup):
-    key = getRideKey(driver)
-    r = Ride.get_or_insert(key)
-    r.driver_name = driver.name
-    r.driver_id = driver.chat_id
-    r.driver_ticket_id = driver.ticket_id
-    r.start_daytime = datetime.now()
-    r.minutes_to_pickup = minutes_to_pickup
-    r.start_location = driver.location
-    r.passengers_ids = [] #ids
-    r.passengers_names = [] #names
-    k = r.put()
-    #logging.debug('New ride. Key:' + str(k))
-    return r
-
-def abortRideOffer(driver, auto_end):
-#    logging.debug('aborted requested by ' + passenger.name)
-    key = getRideKey(driver)
-    r = Ride.get_or_insert(key)
-    r.abort_daytime = datetime.now()
-    r.auto_abort = auto_end
-    r.put()
-
-def addPassengerInRide(driver, passenger):
-    key = getRideKey(driver)
-    ride = ndb.Key(Ride, key).get()
-    ride.passengers_ids.append(passenger.chat_id)
-    ride.passengers_names.append(passenger.name)
-    ride.put()
-
-def endRide(driver, auto_end):
-    key = getRideKey(driver)
-    ride = ndb.Key(Ride, key).get()
-    ride.end_daytime = datetime.now()
-    ride.auto_end = auto_end
-    ride.passengers_names_str = str(ride.passengers_names)
-    ride.put()
-    if tell_completed:
-        duration_sec = (ride.end_daytime - ride.start_daytime).seconds
-        duration_min_str  = str(duration_sec/60) + ":" + str(duration_sec%60)
-        tell(key.TIRAMISU_CHAT_ID, "Passenger completed! Driver: " + driver.name +
-                     ". Passengers: " + ride.passengers_names_str + ". Duration (min): " + duration_min_str)
-
 
 # ================================
 # ================================
 # ================================
 
-class RideRequest(ndb.Model):
-    passenger_name = ndb.StringProperty()
-    passenger_id = ndb.IntegerProperty()
-    passenger_last_seen = ndb.DateTimeProperty()
-    passenger_location = ndb.StringProperty()
-    passenger_ticket_id = ndb.StringProperty()
-    driver_name = ndb.StringProperty()
-    driver_id = ndb.IntegerProperty()
-    abort_time = ndb.DateTimeProperty()
-    auto_aborted = ndb.BooleanProperty()
-
-def getRideRequestKey(passenger):
-    key = str(passenger.chat_id) + '_' + str(passenger.last_seen)
-    return key
-
-def recordRideRequest(passenger):
-    key = getRideRequestKey(passenger)
-    request = RideRequest.get_or_insert(key)
-    request.passenger_name = passenger.name
-    request.passenger_id = passenger.chat_id
-    request.passenger_last_seen = passenger.last_seen
-    request.passenger_location = passenger.location
-    request.passenger_ticket_id = passenger.ticket_id
-    k = request.put()
-    #logging.debug('New ride. Key:' + str(k))
-    return request
-
-def confirmRideRequest(passenger, driver):
-    key = getRideRequestKey(passenger)
-    request = RideRequest.get_or_insert(key)
-    request.driver_name = driver.name if driver is not None else 'Other'
-    request.driver_id = driver.chat_id if driver is not None else -1
-    request.put()
-
-def abortRideRequest(passenger, auto_end):
-#    logging.debug('aborted requested by ' + passenger.name)
-    key = getRideRequestKey(passenger)
-    request = RideRequest.get_or_insert(key)
-    request.abort_time = datetime.now()
-    request.auto_aborted = auto_end
-    request.put()
-
-# ================================
-# ================================
-# ================================
-
-class PollAnswer(ndb.Model):
-    poll_title = ndb.StringProperty()
-    user_id = ndb.IntegerProperty()
-    user_name = ndb.StringProperty()
-    user_lastname = ndb.StringProperty()
-    submission_datetime = ndb.DateTimeProperty()
-    answer = ndb.StringProperty()
-
-def submittPollAnswer(id, name, lastname, title, answer):
-    item = PollAnswer.get_or_insert(str(id))
-    item.poll_title = title
-    item.user_id = id
-    item.user_name = name
-    item.user_lastname = lastname
-    item.submission_datetime = datetime.now()
-    item.answer = answer
-    item.put()
-
-
-# ================================
-# ================================
-# ================================
-
-TOKEN_DURATION_MIN = 100
-TOKEN_DURATION_SEC = TOKEN_DURATION_MIN*60
-
-class Token(ndb.Model):
-    token_id = ndb.StringProperty()
-    start_daytime = ndb.DateTimeProperty()
-
-def createToken():
-    now = datetime.now()
-    token_id = channel.create_channel(str(now), duration_minutes=TOKEN_DURATION_MIN)
-    token = Token.get_or_insert(token_id)
-    token.start_daytime = now
-    token.token_id = token_id
-    token.put()
-    return token_id
 
 def updateDashboard():
     #logging.debug('updateDashboard')
-    data = getDashboardData()
-    qry = Token.query()
+    data = counter.getDashboardData()
+    qry = token.Token.query()
     removeKeys = []
     now = datetime.now()
     for t in qry:
         duration_sec = (now - t.start_daytime).seconds
-        if (duration_sec>TOKEN_DURATION_SEC):
+        if (duration_sec>token.TOKEN_DURATION_SEC):
             removeKeys.append(t.token_id)
         else:
             channel.send_message(t.token_id, json.dumps(data))
     for k in removeKeys:
-        ndb.Key(Token, k).delete()
+        ndb.Key(token.Token, k).delete()
 
 # ================================
 # ================================
@@ -939,7 +648,7 @@ class InfouserAllHandler(webapp2.RequestHandler):
 class DayPeopleCountHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        addPeopleCount()
+        date_counter.addPeopleCount()
 
 class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
@@ -954,13 +663,13 @@ class InfodayAllHandler(webapp2.RequestHandler):
 class ResetCountersHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        resetCounter()
+        counter.resetCounter()
 
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        data = getDashboardData()
-        token_id = createToken()
+        data = counter.getDashboardData()
+        token_id = token.createToken()
         data['token'] = token_id
         data['today_events'] = json.dumps(getTodayTimeline())
         logging.debug('Requsts: ' + str(data['today_events']))
@@ -971,7 +680,7 @@ class DashboardHandler(webapp2.RequestHandler):
 class GetTokenHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        token_id = createToken()
+        token_id = token.createToken()
         logging.debug("Token handler. Created a new token.")
         self.response.headers['Content-Type'] = 'application/json'
         self.response.write(json.dumps({'token': token_id}))
@@ -1045,20 +754,20 @@ class WebhookHandler(webapp2.RequestHandler):
 
         setLanguage(p.language if p is not None else None)
 
-        instructions =  (_("I\'m your Trento <-> Povo travelling assistant.") + _("\n\n") +
-                        _("You can press START to get or offer a ride") + _("\n") +
-                        _("You can press HELP to see this message again") + _("\n") +
-                        _("You can press SETTING to change the settings (e.g., language)") + _("\n\n") +
-                        _("You can visit our website at http://pickmeup.trentino.it\
-                        or read the pdf instructions at http://tiny.cc/pickmeup_info") + _("\n\n") +
-                        _("If you want to join the discussion about this initiative \
-                        come to the tiramisu group at the following link: \
-                        https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g")) #.encode('utf-8')
+        INSTRUCTIONS =  (_("I\'m your Trento <-> Povo travelling assistant.") + _("\n\n") +
+                         _("You can press START to get or offer a ride") + _("\n") +
+                         _("You can press HELP to see this message again") + _("\n") +
+                         _("You can press SETTING to change the settings (e.g., language)") + _("\n\n") +
+                         _("You can visit our website at http://pickmeup.trentino.it " +
+                           "or read the pdf instructions at http://tiny.cc/pickmeup_info") + _("\n\n") +
+                         _("If you want to join the discussion about this initiative " +
+                           "come to the tiramisu group at the following link: " +
+                           "https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g")) #.encode('utf-8')
 
-        disclaimer =   (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + _("\n") +
+        DISCLAIMER =   (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + _("\n") +
                         _("It is currently  under testing on the Trento-Povo route.") + _("\n\n") +
                         _("WARNINGS:") + _("\n") +
-                        _("Drivers: please offer rides before starting the ride. "
+                        _("Drivers: please offer rides before starting the ride. " +
                           "DO NOT use your phone while you drive.") + _("\n") +
                         _("Passengers: please ask for rides when you are at the bus stop. ") +
                         _("Be kind with the driver and the other passengers.") + _("\n\n") +
@@ -1067,18 +776,19 @@ class WebhookHandler(webapp2.RequestHandler):
                         _("no review system has been implemented yet and ride traceability is still limited. ") + _("\n\n") +
                         _("PickMeUp developers decline any responsibility for the use of the service."))
 
+
         if p is None:
             # new user
             tell_masters("New user: " + name)
-            p = addPerson(chat_id, name)
+            p = person.addPerson(chat_id, name)
             if text == '/help':
-                reply(instructions)
+                reply(INSTRUCTIONS)
             elif text in ['/start','START']:
                 start(p, text, name, last_name, username)
                 # state = 0
             else:
                 reply(_("Hi") + _(' ') + name + ", " + _("welcome!"))
-                reply(instructions)
+                reply(INSTRUCTIONS)
         else:
             # known user
             if text=='/state':
@@ -1086,16 +796,16 @@ class WebhookHandler(webapp2.RequestHandler):
             elif p.state == -1:
                 # INITIAL STATE
                 if text in ['/help','HELP']:
-                    reply(instructions)
+                    reply(INSTRUCTIONS)
                 elif text == _('DISCLAIMER'):
-                    reply(disclaimer)
+                    reply(DISCLAIMER)
                 elif text in ['/start','START']:
                     start(p, text, name, last_name, username)
                     # state = 0
                 elif text == _('SETTINGS'):
                     reply(_("Settings options"),
                           kb=[[_('LANGUAGE')], [_('INFO USERS'),_('DAY SUMMARY')],[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    setState(p, 90)
+                    person.setState(p, 90)
                 elif text == '/users':
                     reply(getUsers())
                 elif text == '/alldrivers':
@@ -1117,7 +827,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     elif text=='/checkenabled':
                         checkEnabled()
                     elif text == '/resetcounters':
-                        resetCounter()
+                        counter.resetCounter()
                     elif text == '/test':
                         logging.debug('test')
                         reply("/opzione1 bfdslkjfdsjaklfdj")
@@ -1164,16 +874,16 @@ class WebhookHandler(webapp2.RequestHandler):
                 #logging.debug(text, type(text))
                 if text.endswith(_("Passenger")):
                 #if text == emoij.FOOTPRINTS + _(' ') + _("Passenger"):
-                    setState(p, 20)
-                    setType(p, text)
+                    person.setState(p, 20)
+                    person.setType(p, text)
                     reply(_("Hi! I can try to help you to get a ride. Which bus stop are you at?"),
-                          kb=[[FERMATA_TRENTO, FERMATA_POVO],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                          kb=[[bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO],[emoij.NOENTRY + _(' ') + _("Abort")]])
                 elif text.endswith(_("Driver")):
                 #elif text == emoij.CAR + _(' ') + _("Driver"):
-                    setState(p, 30)
-                    setType(p, text)
+                    person.setState(p, 30)
+                    person.setType(p, text)
                     reply(_("Hi! Glad you can give a ride. Where can you pick up passengers?"),
-                          kb=[[FERMATA_TRENTO, FERMATA_POVO],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                          kb=[[bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO],[emoij.NOENTRY + _(' ') + _("Abort")]])
                 elif text.endswith(_("Abort")):
                 #elif text == emoij.NOENTRY + _(' ') + _("Abort"):
                     reply(_("Passage aborted."))
@@ -1182,13 +892,13 @@ class WebhookHandler(webapp2.RequestHandler):
                 else: reply(_("Sorry, I don't understand you"))
             elif p.state == 20:
                 # PASSANGERS, ASKED FOR LOCATION
-                if text in [FERMATA_POVO,FERMATA_TRENTO]:
-                    setLocation(p, text)
+                if text in [bus_stops.FERMATA_POVO, bus_stops.FERMATA_TRENTO]:
+                    person.setLocation(p, text)
                     updateLastSeen(p)
                     check_available_drivers(p)
                     assignNextTicketId(p)
                     reply(_("Your passenger ID is: ") + p.ticket_id.encode('utf-8'))
-                    recordRideRequest(p)
+                    ride_request.recordRideRequest(p)
                     updateDashboard()
                     # state = 21 or 22 depending if driver available
                 elif text.endswith(_("Abort")):
@@ -1196,12 +906,12 @@ class WebhookHandler(webapp2.RequestHandler):
                     restart(p);
                     # state = -1
                 else: reply(_("Sorry, I don't understand you") + _(' ') +
-                            FERMATA_TRENTO + _(' ') + _("or") + _(' ') + FERMATA_POVO + '?')
+                            bus_stops.FERMATA_TRENTO + _(' ') + _("or") + _(' ') + bus_stops.FERMATA_POVO + '?')
             elif p.state == 21:
                 # PASSENGERS IN A LOCATION WITH NO DRIVERS
                 if text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
-                    abortRideRequest(p, auto_end=False)
+                    ride_request.abortRideRequest(p, auto_end=False)
                     removePassenger(p)
                     # state = -1
                 else:
@@ -1215,7 +925,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listDrivers(p))
                 elif text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
-                    abortRideRequest(p, auto_end=False)
+                    ride_request.abortRideRequest(p, auto_end=False)
                     removePassenger(p)
                     # state = -1
                 else:
@@ -1226,47 +936,47 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Thanks, have a good ride!"))
                     #recordRide('Other',-1, p.last_seen,p.location)
                     #addPassengerInRide(None, p)
-                    increasePassengerRide(p) # increase counter tot passengers in ride of 1
-                    increaseRides(p) # update counter tot and current ride of 1
-                    confirmRideRequest(p, None)
+                    counter.increasePassengerRide(p) # increase counter tot passengers in ride of 1
+                    counter.increaseRides(p) # update counter tot and current ride of 1
+                    ride_request.confirmRideRequest(p, None)
                     removePassenger(p)
                 elif text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
-                    abortRideRequest(p, auto_end=False)
+                    ride_request.abortRideRequest(p, auto_end=False)
                     removePassenger(p)
                     # state = -1
                 else:
                     d = getDriverByLocAndNameAndId(p.location, text)
                     if d is not None:
-                        confirmRideRequest(p, d)
+                        ride_request.confirmRideRequest(p, d)
                         reply(_("Great! Many thanks to") + _(' ') + d.name.encode('utf-8') + "!")
                         setLanguage(d.language)
-                        addPassengerInRide(d, p)
+                        ride.addPassengerInRide(d, p)
                         tell(d.chat_id, p.name.encode('utf-8') + _(' ') + _("confirmed you gave him/her a ride!"),
                              kb=[[_("List Passengers"), _("Reached Destination!")]]) #[emoij.NOENTRY + _(' ') + _("Abort")]
                         setLanguage(p.language)
                         if (d.state==32):
-                            setState(d, 33)
-                            increaseRides(d) # update counter tot and current ride of 1
-                        increasePassengerRide(p)
+                            person.setState(d, 33)
+                            counter.increaseRides(d) # update counter tot and current ride of 1
+                        counter.increasePassengerRide(p)
                         removePassenger(p, driver=d)
                         # passenger state = -1
                     else:
                         reply(_("Name of driver not correct, try again."))
             elif p.state == 30:
                 # DRIVERS, ASKED FOR LOCATION
-                if text in [FERMATA_POVO,FERMATA_TRENTO]:
-                    setLocation(p, text)
+                if text in [bus_stops.FERMATA_POVO, bus_stops.FERMATA_TRENTO]:
+                    person.setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
                     reply(_("In how many minutes will you be there?"),
                           kb=[['0','2','5'],['10','15','20'],[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    setState(p, 31)
+                    person.setState(p, 31)
                     # state = 31
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
                     restart(p);
                     # state = -1
-                else: reply("Eh? " + FERMATA_TRENTO + _("or") + FERMATA_POVO + "?")
+                else: reply("Eh? " + bus_stops.FERMATA_TRENTO + _("or") + bus_stops.FERMATA_POVO + "?")
             elif p.state == 31:
                 # DRIVERS ASEKED FOR TIME
                 if text in ['0','2','5','10','15','20']:
@@ -1279,12 +989,12 @@ class WebhookHandler(webapp2.RequestHandler):
                         we will notify you and will let them know you are coming.") + _("\n") +
                         _("Have a nice trip! ") + emoij.SMILING_FACE,
                         kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    setState(p, 32)
+                    person.setState(p, 32)
                     # state = 31
                     assignNextTicketId(p)
                     reply(_("Your driver ID is: ") + p.ticket_id.encode('utf-8'))
                     engageDriver(p, int(text))
-                    recordRide(p, int(text))
+                    ride.recordRide(p, int(text))
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
                     restart(p);
@@ -1298,10 +1008,10 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif text == (_("Send Message")):
                     reply(_("Please type a short message which will be sent to all passenger waiting at your location"),
                         kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                    setState(p, 325)
+                    person.setState(p, 325)
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
-                    abortRideOffer(p, False)
+                    ride.abortRideOffer(p, False)
                     removeDriver(p)
                     # state = -1
                 else:
@@ -1317,15 +1027,15 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Oops... there are no more passengers waiting!"),
                           kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
                     # all passangers have left while driver was typing
-                setState(p, 32)
+                person.setState(p, 32)
             elif p.state == 33:
                 # DRIVER WHO HAS JUST BORDED AT LEAST A PASSANGER
                 if text == _("List Passengers"):
                     reply(listPassengers(p))
                 elif text == _("Reached Destination!"):
                     reply(_("Great, thanks!") + _(' ') + emoij.CLAPPING_HANDS)
-                    decreaseRides(p) # update counter current ride of -1
-                    endRide(p,auto_end=False)
+                    counter.decreaseRides(p) # update counter current ride of -1
+                    ride.endRide(p,auto_end=False)
                     removeDriver(p)
                     # state -1
                 else:
@@ -1340,7 +1050,7 @@ class WebhookHandler(webapp2.RequestHandler):
                               [emoij.FLAG_DE + _(' ') + "DE", emoij.FLAG_FR + _(' ') + "FR", emoij.FLAG_PL + _(' ') + "PL"],
 #                             [emoij.FLAG_NL + _(' ') + "NL"
                               [emoij.NOENTRY + _(' ') + _("Abort")]])
-                    setState(p, 91)
+                    person.setState(p, 91)
                 elif text==_('INFO USERS'):
                     reply(getInfoCount())
                     restart(p)
