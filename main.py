@@ -3,16 +3,13 @@ import json
 import logging
 import urllib
 import urllib2
-import datetime
-from datetime import datetime
-from datetime import timedelta
 from time import sleep
-import date_util
+import time_util
 # import requests
 
+import re
 import key
 import emoij
-import bus_stops
 import counter
 import person
 from person import Person
@@ -21,9 +18,10 @@ import ride
 from ride import Ride
 import ride_request
 from ride_request import RideRequest
+import itinerary
 import polls
 from polls import PollAnswer
-import token
+import token_factory
 
 # standard app engine imports
 from google.appengine.api import urlfetch
@@ -31,6 +29,7 @@ from google.appengine.ext import ndb
 from google.appengine.api import channel
 from google.appengine.api import taskqueue
 from google.appengine.ext import deferred
+from google.appengine.api import mail
 
 #from google.appengine.ext import vendor
 #vendor.add('lib')
@@ -51,19 +50,34 @@ BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
 
 STATES = {
-    -1: 'Initial',
-    0:   'Started',
-    20:  'PassengerAskedForLoc',
-    21:  'PassengerBored',
-    22:  'PassengerEngaged',
-    23:  'PassengerConfirmedRide',
-    30:  'DriverAskedForLoc',
-    31:  'DriverAskedForTime',
-    32:  'DriverWhoHasLeft',
-    315: 'DriverSendingMessage',
-    33:  'DriverTookSomeone',
-    90:  'Settings',
-    91:  'Language'
+    -2:   'Initial without Start',
+    -1:   'Initial with Start',
+    0:    'Started',
+    20:   'Passenger Asked For Location',
+    21:   'Passenger with no driver matching journey',
+    22:   'Passenger with driver(s) matching journey',
+    23:   'Passenger who has confirmed a ride',
+    30:   'Driver asked for location',
+    31:   'Driver asked for time',
+    32:   'Driver without borded passengers',
+    325:  'Driver sending message',
+    33:   'Driver with boarded passengers',
+    80:   'Info',
+    81:   'Info -> SEARCH BUS STOPS',
+    82:   'Info -> SEND FEEDBACK',
+    90:   'Settings',
+    91:   'Settings -> Language',
+    92:   'Settings -> Terms and Conditions',
+    93:   'Settings -> Itinerary',
+    931:  'Settings -> Itinerary -> Start Location',
+    9311: 'Settings -> Itinerary -> Start Location -> Check',
+    932:  'Settings -> Itinerary -> End Location',
+    9321: 'Settings -> Itinerary -> End Location -> Check',
+    933:  'Settings -> Itinerary -> Mid Points Going',
+    9331: 'Settings -> Itinerary -> Mid Points Going -> Check',
+    934:  'Settings -> Itinerary -> Mid Points Back',
+    9341: 'Settings -> Itinerary -> Mid Points Back -> Check',
+    94:   'Settings -> Notification',
 }
 
 LANGUAGES = {'IT': 'it_IT',
@@ -76,8 +90,8 @@ LANGUAGES = {'IT': 'it_IT',
 
 
 MAX_WAITING_PASSENGER_MIN = 25
-MAX_PICKUP_DRIVER_MIN = 10
-MAX_COMPLETE_DRIVER_MIN = 15
+MAX_PICKUP_DRIVER_MIN = 15
+MAX_COMPLETE_DRIVER_MIN = 20
 
 # ================================
 # ================================
@@ -85,12 +99,12 @@ MAX_COMPLETE_DRIVER_MIN = 15
 
 def getTodayTimeline():
 
-    todayEvents = {bus_stops.FERMATA_TRENTO: {}, bus_stops.FERMATA_POVO: {}}
+    todayEvents = {itinerary.FERMATA_TRENTO: {}, itinerary.FERMATA_POVO: {}}
 
-    today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    today = time_util.getToday()
     #today = today - timedelta(days=1)
 
-    for loc in [bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO]:
+    for loc in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
 
         requests = []
         qryRideRequests = RideRequest.query(RideRequest.passenger_last_seen > today)
@@ -128,8 +142,8 @@ def getTodayTimeline():
 # ================================
 # ================================
 
-
-def start(p, cmd, name, last_name, username):
+def registerUser(p, cmd, name, last_name, username):
+    logging.debug('registering user')
     #logging.debug(p.name + _(' ') + cmd + _(' ') + str(p.enabled))
     #if (p.name.decode('utf-8') != name.decode('utf-8')):
     if (p.name != name):
@@ -148,8 +162,12 @@ def start(p, cmd, name, last_name, username):
             p.put()
         else: # START when diasbled
             return
+
+
+def start(p):
     tell(p.chat_id, _("Hi") + _(' ') + p.name.encode('utf-8') + _('! ') + _("Are you a driver or a passenger?"),
     kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+    person.setNotified(p,False)
     person.setState(p,0)
 
 def getUsers():
@@ -158,24 +176,8 @@ def getUsers():
         return "No users found"
     text = ""
     for p in query.iter():
-        text = text + p.name + " (" + str(p.state) + ") " + get_date_string(p.last_mod) + _("\n")
+        text = text + p.name + " (" + str(p.state) + ") " + time_util.get_date_string(p.last_mod) + _("\n")
     return text
-
-def get_date_CET(date):
-    if date is None: return None
-    newdate = date + timedelta(hours=1)
-    return newdate
-
-def get_date_string(date):
-    newdate = get_date_CET(date)
-    time_day = str(newdate).split(" ")
-    time = time_day[1].split(".")[0]
-    day = time_day[0]
-    return day + " " + time
-
-def get_time_string(date):
-    newdate = date + timedelta(hours=1)
-    return str(newdate).split(" ")[1].split(".")[0]
 
 def restartAllUsers(msg):
     qry = Person.query()
@@ -185,28 +187,6 @@ def restartAllUsers(msg):
             tell(p.chat_id, msg)
             restart(p)
             sleep(0.100) # no more than 10 messages per second
-
-def resetNullStatesUsers():
-    qry = Person.query()
-    count = 0
-    for p in qry:
-        if (p.state is None): # or p.state>-1
-            person.setState(p,-1)
-            count+=1
-    return count
-
-
-def resetLanguages():
-    qry = Person.query()
-    for p in qry:
-        p.language = 'IT'
-        p.put()
-
-def resetEnabled():
-    qry = Person.query()
-    for p in qry:
-        p.enabled = True
-        p.put()
 
 def checkEnabled():
     qry = Person.query(Person.enabled==True)
@@ -219,14 +199,6 @@ def checkEnabled():
                 p.put()
         sleep(0.035) # no more than 30 messages per second
 
-def broadcast_driver_message(driver, msg):
-    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
-    for p in qry:
-        setLanguage(p.language)
-        tell(p.chat_id, _("Message from " + driver.name) + _(': ') + msg)
-        sleep(0.035) # no more than 30 messages per second
-    setLanguage(driver.language)
-    return qry.count()
 
 def broadcast(msg, language='ALL'):
     qry = Person.query().order(-Person.last_mod)
@@ -259,7 +231,7 @@ def getInfoAllRequestsOffers():
 
 def getInfoDay():
     setLanguage('IT')
-    today = datetime.now().replace(hour=0,minute=0,second=0,microsecond=0)
+    today = time_util.get_today()
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
     qryRide = Ride.query(Ride.start_daytime > today)
     qryRideCompleted = Ride.query(Ride.start_daytime > today and Ride.end_daytime > today)
@@ -275,7 +247,7 @@ def getInfoDay():
 
 def getInfoWeek():
     setLanguage('IT')
-    lastweek = datetime.now() - timedelta(days=7)
+    lastweek = time_util.get_last_week()
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > lastweek)
     qryRide = Ride.query(Ride.start_daytime > lastweek)
     qryRideCompleted = Ride.query(Ride.start_daytime > lastweek and Ride.end_daytime > lastweek)
@@ -292,40 +264,163 @@ def tellmyself(p, msg):
 
 
 def restart(p):
-    tell(p.chat_id, _("Press START if you want to restart"), kb=[['START','HELP'], [_('SETTINGS'),_('DISCLAIMER')]]    )
-    person.setStateLocation(p, -1, '-')
-
-
-def putPassengerOnHold(passenger):
-    tell(passenger.chat_id, _("Waiting for a driver..."), kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
-    person.setState(passenger, 21)
-
-def updateLastSeen(p):
-    p.last_seen = datetime.now()
-    p.put()
-
-# ================================
-# ================================
-# ================================
-
-
-def assignNextTicketId(p):
-    ticketId = None
-    if (p.state>29 and p.state<40):
-        #driver
-        if p.location == bus_stops.FERMATA_POVO:
-            ticketId = _('DP') + str(counter.increaseQueueCounter(counter.QUEUE_DRIVERS_COUNTER_POVO))
-        else:
-            ticketId = _('DT') + str(counter.increaseQueueCounter(counter.QUEUE_DRIVERS_COUNTER_TRENTO))
+    agree = p.agree_on_terms
+    itn = person.isItinerarySet(p)
+    if not agree and not itn:
+        tell(p.chat_id, _("In order to start, please go to SETTINGS to agree on terms and conditions and setup your default ITINERARY."),
+             kb=[['HELP'], [_('INFO'),_('SETTINGS')]])
+        person.setStateLocation(p, -2, '-')
+    elif not agree:
+        tell(p.chat_id, _("In order to start, please go to SETTINGS to agree on terms and conditions."),
+             kb=[['HELP'], [_('INFO'),_('SETTINGS')]])
+        person.setStateLocation(p, -2, '-')
+    elif not itn:
+        tell(p.chat_id, _("In order to start, please go to SETTINGS to setup your default ITINERARY."
+                          "You only need to do this once but you can always change it later."),
+             kb=[['HELP'], [_('INFO'),_('SETTINGS')],[_('INVITE A FRIEND')]])
+        person.setStateLocation(p, -2, '-')
     else:
-        #passenger
-        if p.location == bus_stops.FERMATA_POVO:
-            ticketId = _('PP') + str(counter.increaseQueueCounter(counter.QUEUE_PASSENGERS_COUNTER_POVO))
+        textEnabled = _("(You have notifications ENABLED)") if p.enabled else _("(You have notifications DISABLED)")
+        tell(p.chat_id, _("Press START if you want to start a new journey! " + textEnabled),
+             kb=[['START','HELP'], [_('INFO'),_('SETTINGS')],[_('INVITE A FRIEND')]]    )
+        person.setStateLocation(p, -1, '-')
+
+def goToInfoPanel(p):
+    tell(p.chat_id, _("This is the info panel"),
+          kb=[[_('INFO USERS'),_('DAY SUMMARY')],[_('SEARCH BUS STOPS'),_('SEND FEEDBACK')],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    person.setState(p, 80)
+
+def goToSettings(p):
+    keyboard = []
+    text = _("This is the settings panel.")
+    if not p.agree_on_terms:
+        text += _('\n') + _("You have not agreed on Terms and Conditions, please press the button below.")
+        keyboard.append([_('TERMS AND CONDITIONS')])
+        keyboard.append([_('LANGUAGE')])
+    else:
+        keyboard.append([_('ITINERARY')])
+        keyboard.append([_('NOTIFICATIONS'), _('LANGUAGE')])
+
+    keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
+
+    tell(p.chat_id, text, kb=keyboard)
+    person.setState(p, 90)
+
+def goToSettingNotification(p):
+    keyboard = []
+    if p.notification_enabled:
+        tell(p.chat_id, _("You have the notifications ENABLED: "
+                          "you will be informed when a driver going through your route inserts a new journey, "
+                          "(even though you have no active requests) and we will send you weekly statistics."),
+             kb=[[_('DISABLE NOTIFICATIONS')],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    else:
+        tell(p.chat_id, _("You have the notifications DISABLED: "
+                          "you will NOT be informed when a driver going through your route inserts a new journey, "
+                          "(unless you have an active request) and we will NOT send you weekly statistics."),
+             kb=[[_('ENABLE NOTIFICATIONS')],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    person.setState(p, 94)
+
+
+
+def goToSettingItinerary(p):
+
+    start = '?' if p.bus_stop_start is None else p.bus_stop_start
+    end = '?' if p.bus_stop_end is None else p.bus_stop_end
+    mid_going = [x.encode('UTF8') for x in p.bus_stop_mid_going]
+    mid_back = [x.encode('UTF8') for x in p.bus_stop_mid_back]
+    itn_txt = _("Itinerary: ") + _(start) + _(' <-> ') + _(end) + _('\n\n')
+
+
+    keyboard = [[_("Start Location"), _("End Location")]]
+    if start!='?' and end!='?':
+        keyboard.append([_("Mid Points Going"), _("Mid Points Back")],)
+        itn_txt += _("Drivers can optionally add intermediate points where to pick up passengers:\n\n") +\
+                   _("Mid Points Going: ") + str(mid_going) + _('\n') +\
+                   _("Mid Points Back: ") + str(mid_back) + _('\n\n')
+    keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
+
+    tell(p.chat_id, _("Your current itinerary settings:\n\n") + itn_txt, kb=keyboard)
+    person.setState(p, 93)
+
+
+def goToSettingMidPoints(p,state):
+
+    midpoints = p.bus_stop_mid_going if state==933 else p.bus_stop_mid_back
+    midpoints = [x.encode('UTF8') for x in midpoints]
+
+    text = _("Please select an intermediate point you can stop on the way FORWARD to pick-up other passangers ") \
+        if state==933 else _("Please select an intermediate point you can stop on the way BACK to pick-up other passangers ")
+
+    text += _("by 1) pressing the paper clip icon below and "
+                 "2) chosing a position in the map "
+                 "(or alternatively by asking the list of the bus stops and selecting one manually).") + "\n\n"
+
+    keyboard = [[_("List Bus Stops")]] if p.last_city else []
+    secondLineButtons = [_('Remove all')] if midpoints else []
+
+    if (p.bus_stop_mid_going != list(reversed(p.bus_stop_mid_back))):
+        if state==933:
+            if p.bus_stop_mid_back:
+                secondLineButtons.append(_('Same as other direction'))
         else:
-            ticketId = _('PT') + str(counter.increaseQueueCounter(counter.QUEUE_PASSENGERS_COUNTER_TRENTO))
+            if p.bus_stop_mid_going:
+                secondLineButtons.append(_('Same as other direction'))
+
+    keyboard.append(secondLineButtons)
+    keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
+
+    logging.debug("goToSettingMidPoints:" + str(keyboard))
+    tell(p.chat_id, text + _("Current midpoints:") + str(midpoints), kb=keyboard)
+    person.setState(p,state)
+
+
+def replyListBusStops(p,new_state):
+    bus_stops = itinerary.getOtherBusStops(p)
+    bus_stops_formatted = ['/' + re.sub(r'[^\w]','',x.encode('UTF8')) for x in bus_stops]
+    bus_stops_str = '\n'.join(bus_stops_formatted)
+    person.setTmp(p,bus_stops_formatted)
+    person.appendTmp(p,bus_stops)
+    tell(p.chat_id, _("Found the following bus stop(s) in your city:\n") + bus_stops_str)
+    person.setState(p,new_state)
+
+# ================================
+# ================================
+# ================================
+
+def askToInsertLocation(p, text_prefix, new_state):
+    if (p.last_city is None):
+        tell(p.chat_id, _("Please attach ") +  text_prefix +
+             _("by 1) pressing the paper clip icon below and "
+               "2) chosing a position in the map."),
+             kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    else:
+        tell(p.chat_id, _("Please attach ") +  text_prefix +
+             _("by 1) pressing the paper clip icon below and "
+               "2) chosing a position in the map "
+               "(or alternatevely by asking the list of the bus stops and selecting one manually)."),
+             kb=[[_("List Bus Stops")],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    person.setState(p,new_state)
+
+
+def assignNextTicketId(p, is_driver):
+    ticketId = None
+    bus_stop = person.getBusStop(p)
+    ticketId = 'D_' if is_driver else 'P_'
+    ticketId += bus_stop.short_name
+    bus_stop_label = itinerary.getKeyFromBusStop(bus_stop)
+    logging.debug(bus_stop_label)
+    number = counter.increaseQueueCounter(bus_stop_label, is_driver)
+    ticketId += str(number)
     p.ticket_id = ticketId
     p.put()
     return ticketId
+
+def putPassengerOnHold(passenger):
+    tell(passenger.chat_id, _("Currently there are no drivers matching your journey, let's wait a bit. "
+                              "If you found another solution, please abort your request."),
+         kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
+    person.setState(passenger, 21)
+
 
 # ================================
 # ================================
@@ -337,175 +432,186 @@ def checkExpiredUsers():
     checkExpiredPassengers()
 
 def checkExpiredDrivers():
-    for location in [bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO]:
-        qry = Person.query(Person.location == location, Person.state.IN([32,33]))
-        oldDrivers = {
-            32: [],
-            33: []
-        }
-        for d in qry:
-            if d.state==32: #picking up drivers
-                if (datetime.now() >= d.last_seen + timedelta(minutes=MAX_PICKUP_DRIVER_MIN)):
-                    oldDrivers[d.state].append(d)
-            else:
-                if (datetime.now() >= d.last_seen + timedelta(minutes=MAX_COMPLETE_DRIVER_MIN)):
-                    oldDrivers[d.state].append(d)
-        for d in oldDrivers[32]:
-            setLanguage(d.language)
-            tell(d.chat_id, _("The ride offer has been aborted: you were expected to give a ride some time ago!"))
-            ride.abortRideOffer(d, True)
-            removeDriver(d)
-        for d in oldDrivers[33]:
-            setLanguage(d.language)
-            tell(d.chat_id, _("The ride has been completed automatically: you were supposed to arrive some time ago!"))
-            ride.endRide(d,auto_end=True)
-            removeDriver(d)
-            counter.decreaseRides(d) # update counter current ride of -1
+    #for location in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
+    #    qry = Person.query(Person.location == location, Person.state.IN([32,33]))
+    qry = Person.query(Person.state.IN([32,33]))
+    oldDrivers = {
+        32: [],
+        33: []
+    }
+    for d in qry:
+        if d.state==32: #picking up drivers
+            if (time_util.ellapsed_min(d.last_seen) > MAX_PICKUP_DRIVER_MIN):
+                oldDrivers[d.state].append(d)
+        else:
+            if (time_util.ellapsed_min(d.last_seen) > MAX_COMPLETE_DRIVER_MIN):
+                oldDrivers[d.state].append(d)
+    for d in oldDrivers[32]:
+        setLanguage(d.language)
+        tell(d.chat_id, _("The ride offer has been aborted: you were expected to give a ride some time ago!"))
+        ride.abortRideOffer(d, True)
+        removeDriver(d)
+    for d in oldDrivers[33]:
+        setLanguage(d.language)
+        tell(d.chat_id, _("The ride has been completed automatically: you were supposed to arrive some time ago!"))
+        ride.endRide(d,auto_end=True)
+        removeDriver(d)
 
 def checkExpiredPassengers():
-    for location in [bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO]:
-        qry = Person.query(Person.location == location, Person.state.IN([21, 22]))
-        oldPassengers = []
-        for p in qry:
-            if (datetime.now() >= p.last_seen + timedelta(minutes=MAX_WAITING_PASSENGER_MIN)):
-                oldPassengers.append(p)
-        for p in oldPassengers:
-            setLanguage(p.language)
-            tell(p.chat_id, _("The ride request has been aborted: ") +
-                 _("after some time the requests automatically expire.") + _("\n") +
-                 _("We believe and hope you have already reached your destination, \
-                   otherwise feel free to start another request")
-            )
-            ride_request.abortRideRequest(p, auto_end=True)
-            removePassenger(p)
+    #for location in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
+    #    qry = Person.query(Person.location == location, Person.state.IN([21, 22]))
+    qry = Person.query(Person.state.IN([21, 22]))
+    oldPassengers = []
+    for p in qry:
+        if (time_util.ellapsed_min(p.last_seen) > MAX_WAITING_PASSENGER_MIN):
+            oldPassengers.append(p)
+    for p in oldPassengers:
+        setLanguage(p.language)
+        tell(p.chat_id, _("The ride request has been aborted: ") +
+             _("after some time the requests automatically expire.") + _("\n") +
+             _("We believe and hope you have already reached your destination, \
+               otherwise feel free to start another request")
+        )
+        ride_request.abortRideRequest(p, auto_end=True)
+        removePassenger(p)
 
 # ================================
 # ================================
 # ================================
 
+def getMatchingDrivers(passenger):
+    match = []
+    qry = Person.query(Person.last_city==passenger.last_city, Person.state.IN([32,33]))#.order(-Person.last_mod)
+    for d in qry:
+        if itinerary.matchDriverAndPassenger(d, passenger):
+            match.append(d)
+    return match
 
-def check_available_drivers(passenger):
-    # a passenger is at a certain location and we want to check if there is a driver engaged
-    qry = Person.query(Person.location == passenger.location, Person.state.IN([32,33]))
-    if (Person.query(Person.location == passenger.location, Person.state.IN([21,22])).count()==0):
-        for d in qry:
-            if (d.state==32):
-                setLanguage(d.language)
-                tell(d.chat_id, _("There is now a passenger waiting at the stop " + emoij.PEDESTRIAN),
-                    kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+def getMatchingPassengers(driver):
+    match = []
+    qry = Person.query(Person.last_city==driver.last_city, Person.state.IN([21,22]))#.order(-Person.last_mod)
+    for p in qry:
+        if itinerary.matchDriverAndPassenger(driver, p):
+            match.append(p)
+    return match
+
+def hasMatchingDrivers(passenger):
+    qry = Person.query(Person.last_city==passenger.last_city, Person.state.IN([32,33]))
+    for d in qry:
+        if itinerary.matchDriverAndPassenger(d, passenger):
+            return True
+    return False
+
+def hasMatchingPassengers(driver):
+    match = []
+    qry = Person.query(Person.last_city==driver.last_city, Person.state.IN([21,22]))
+    for p in qry:
+        if itinerary.matchDriverAndPassenger(driver, p):
+            return True
+    return False
+
+
+def connect_with_matching_drivers(passenger):
+    # a passenger is at a certain location and we want to check if there is a driver engaged matching the journey of the passenger
+    matchDrivers = getMatchingDrivers(passenger)
+    for d in matchDrivers:
+       if not d.notified:
+           setLanguage(d.language)
+           tell(d.chat_id, _("There is a passenger matching your journey " + emoij.PEDESTRIAN),
+                kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+           person.setNotified(d,True)
+
     setLanguage(passenger.language)
 
-    if (qry.count() > 0):
-        tell(passenger.chat_id, _("There is a driver coming!"),
+    if matchDrivers:
+        tell(passenger.chat_id, _("There is a driver matching your journey."),
               kb=[[_('List Drivers'), _('Got the Ride!')],[emoij.NOENTRY + _(' ') + _("Abort")]])
         person.setState(passenger, 22)
     else:
         putPassengerOnHold(passenger)
-        # state = 22
+        # state = 21
 
 
-def engageDriver(d, min):
-    d.last_seen = datetime.now() + timedelta(minutes=min)
-    qry = Person.query(Person.location == d.location, Person.state.IN([21, 22]))
-    for p in qry:
+def connect_with_matchin_passengers(driver):
+
+    matchPassengers = getMatchingPassengers(driver)
+
+    for p in matchPassengers:
         if (p.state==21):
             person.setState(p, 22)
-        setLanguage(p.language)
-        tell(p.chat_id, _("A driver is coming: ") + d.name.encode('utf-8') +
-             _(" expected at ") + get_time_string(d.last_seen).encode('utf-8') +
-             _(" (id: ") + d.ticket_id.encode('utf-8') + _(")"),
-             kb=[[_("List Drivers"), _("Got the Ride!")],[emoij.NOENTRY + _(' ') + _("Abort")]])
-    setLanguage(d.language)
-    person.setState(d, 32)
+            setLanguage(p.language)
+            tell(p.chat_id, _("The is a driver matching your journey! " + emoij.CAR),
+                 kb=[[_("List Drivers"), _("Got the Ride!")],[emoij.NOENTRY + _(' ') + _("Abort")]])
 
-def check_available_passenger(driver):
-    # a driver is availbale for a location and we want to check if there are passengers bored or engaged
-    #driver.last_seen = datetime.now()
-    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22]))
-    counter = qry.count()
-    return counter > 0
+    setLanguage(driver.language)
+
+    if matchPassengers:
+        tell(driver.chat_id, _("There is someone waiting passenger(s) matching your journey ") + emoij.PEDESTRIAN + '\n' +
+              _("Have a nice trip!") + emoij.SMILING_FACE,
+              kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+    else:
+        tell(driver.chat_id, _("There is currently nobody there but if somebody arrives "
+                "we will notify you and will let them know you are coming.") + _("\n") +
+              _("Have a nice trip! ") + emoij.SMILING_FACE,
+        kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
 
 def listDrivers(passenger):
-    qry = Person.query(Person.location == passenger.location, Person.state.IN([32,33])) #.order(-Person.last_mod)
-    if qry.get() is None:
-        return _("No drivers found in your location")
-    else:
+    matchDrivers = getMatchingDrivers(passenger)
+    if matchDrivers:
         text = ""
-        for d in qry:
-            text = text + d.name.encode('utf-8') + _(" expected at ") + get_time_string(d.last_seen) +\
-                   _(" (id: ") + d.ticket_id + _(")") + _("\n")
+        for d in matchDrivers:
+            if itinerary.matchDriverAndPassenger(d, passenger):
+                text = text + d.name.encode('utf-8') + _(" ride start: ") + time_util.get_time_string(d.last_seen) + \
+                       _(" itinerary: ") + person.getItinerary(d,driver=True) + _("\n")
         return text
+    else:
+        return _("No drivers found matching your journey")
 
 def listPassengers(driver):
-    qry = Person.query(Person.location == driver.location, Person.state.IN([21, 22, 23])) #.order(-Person.last_mod)
-    if qry.get() is None:
-        return _("No passengers needing a ride found in your location")
-    else:
+    matchPassengers = getMatchingPassengers(driver)
+    if matchPassengers:
         text = ""
-        for p in qry:
-            text = text + p.name.encode('utf-8') + _(" waiting since ") + get_time_string(p.last_seen) +\
-                   _(" (id: ") + p.ticket_id + _(")") + _("\n")
+        for p in matchPassengers:
+            if itinerary.matchDriverAndPassenger(driver, p):
+                text = text + p.name.encode('utf-8') + _(" waiting since ") + time_util.get_time_string(p.last_seen) + \
+                       _(" itinerary: ") + person.getItinerary(p,driver=False) + _(" (id: ") + p.ticket_id + _(")") + _("\n")
         return text
-
-
-def listAllDrivers():
-    qry = Person.query().filter(Person.state.IN([30, 31, 32, 33]))
-    if qry.get() is None:
-        return "No drivers found"
     else:
-        #qry = qry.order(-Person.last_mod)
-        text = ""
-        for d in qry:
-            text = text + d.name.encode('utf-8') + _(' ') + d.location + _(" (") + str(d.state) + \
-                   _(") ") + get_time_string(d.last_seen) + _("\n")
-        return text
+       return _("No passengers found matching your journey")
 
-
-def listAllPassengers():
-    qry = Person.query().filter(Person.state.IN([21, 22, 23]))
-    if qry.get() is None:
-        return _("No passangers found")
-    else:
-        #qry = qry.order(-Person.last_mod)
-        text = ""
-        for p in qry:
-            text = text + p.name.encode('utf-8') + _(' ') + p.location + " (" + str(p.state) + ") " + get_time_string(p.last_seen) + _("\n")
-        return text
 
 def removePassenger(p, driver=None):
-    loc = p.location
-    restart(p)
-    qry = Person.query().filter(Person.state.IN([21, 22]), Person.location==loc)
-    if qry.get() is None:
-        # there are no more passengers in that location
-        qry = Person.query().filter(Person.state.IN([32]), Person.location==loc)
-        for d in qry:
-            if d!=driver:
+    matchDrivers = getMatchingDrivers(p)
+    logging.debug('Found Drivers: ' + str(len(matchDrivers)))
+    for d in matchDrivers:
+        if d!=driver:
+            dMatchPass = getMatchingPassengers(d)
+            if len(dMatchPass)==1: #only this passenger
                 setLanguage(d.language)
-                tell(d.chat_id, _("Oops... there are no more passengers waiting!"))
-                #putDriverOnHold(d)
-                #restart(d)
-        setLanguage(p.language)
-    updateDashboard()
+                tell(d.chat_id, _("Oops... there are no more waiting passengers matching your journey!"))
+                person.setNotified(d, False)
+    setLanguage(p.language)
+    #updateDashboard()
+    restart(p)
 
 def removeDriver(d):
-    loc = d.location
-    restart(d)
-    qry = Person.query().filter(Person.state.IN([32,33]), Person.location==loc)
-    if qry.get() is None:
-        # there are no more drivers in that location
-        qry = Person.query().filter(Person.state == 22, Person.location==loc)
-        for p in qry:
+    matchPassengers = getMatchingPassengers(d)
+    logging.debug('Found Drivers: ' + str(len(matchPassengers)))
+    for p in matchPassengers:
+        pMatchDrivers = getMatchingDrivers(p)
+        if len(pMatchDrivers)==1:  #only this driver
             setLanguage(p.language)
-            tell(p.chat_id, _("Oops... the driver(s) is no longer available!"))
+            tell(p.chat_id, _("Oops... the are no more drivers matching your journey!"))
             putPassengerOnHold(p)
-        setLanguage(d.language)
+    setLanguage(d.language)
+    restart(d)
 
 def askToSelectDriverByNameAndId(p):
-    qry = Person.query().filter(Person.state.IN([32,33]), Person.location==p.location)
+    getMatchingDrivers(p)
+    qry = Person.query(Person.last_city==p.last_city, Person.state.IN([32,33]))
     if qry.get() is None:
         tell(p.chat_id, _("Thanks, have a good ride!")) # cannot ask you which driver cause they are all gone
-        removePassenger()
+        removePassenger(p)
     else:
         buttons = []
         for d in qry:
@@ -514,10 +620,25 @@ def askToSelectDriverByNameAndId(p):
         tell(p.chat_id, _("Great, which driver gave you a ride?"), kb=buttons)
         person.setState(p, 23)
 
-def getDriverByLocAndNameAndId(loc, name_text):
-    id_str = name_text[name_text.index("(id:")+5:-1]
-    qry = Person.query().filter(Person.location==loc, Person.ticket_id==id_str)
+def getDriverSelectionId(passenger, ticket_id):
+    id_str = ticket_id[ticket_id.index("(id:")+5:-1]
+    qry = Person.query().filter(Person.last_city==passenger.last_city, Person.ticket_id==id_str)
     return qry.get()
+
+def broadcast_driver_message(driver, msg):
+    matchPassengers = getMatchingPassengers(driver)
+    for p in matchPassengers:
+        setLanguage(p.language)
+        tell(p.chat_id, _("Message from " + driver.name) + _(': ') + msg)
+        sleep(0.035) # no more than 30 messages per second
+    setLanguage(driver.language)
+    return len(matchPassengers)
+
+
+# ================================
+# ================================
+# ================================
+
 
 def setLanguage(langId):
     lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
@@ -548,6 +669,28 @@ def tell_fede(msg):
         tell(key.FEDE_CHAT_ID, "prova " + str(i))
         sleep(0.1)
 
+def sendLocation(chat_id, loc):
+    try:
+        resp = urllib2.urlopen(BASE_URL + 'sendLocation', urllib.urlencode({
+            'chat_id': chat_id,
+            'latitude': loc.lat,
+            'longitude': loc.lon,
+            #'reply_markup': json.dumps({
+                #'one_time_keyboard': True,
+                #'resize_keyboard': True,
+                #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
+                #'reply_markup': json.dumps({'hide_keyboard': True})
+            #}),
+        })).read()
+        logging.info('send location: ')
+        logging.info(resp)
+    except urllib2.HTTPError, err:
+        if err.code == 403:
+            p = Person.query(Person.chat_id==chat_id).get()
+            p.enabled = False
+            p.put()
+            logging.info('Disabled user: ' + p.name.encode('utf-8') + _(' ') + str(chat_id))
+
 
 def tell(chat_id, msg, kb=None, hideKb=True):
     try:
@@ -569,7 +712,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
                 resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                     'chat_id': str(chat_id),
                     'text': msg, #.encode('utf-8'),
-                    #'disable_web_page_preview': 'true',
+                    'disable_web_page_preview': 'true',
                     #'reply_to_message_id': str(message_id),
                     'reply_markup': json.dumps({
                         #'one_time_keyboard': True,
@@ -582,7 +725,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
                 resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                     'chat_id': str(chat_id),
                     'text': msg, #.encode('utf-8'),
-                    #'disable_web_page_preview': 'true',
+                    'disable_web_page_preview': 'true',
                     #'reply_to_message_id': str(message_id),
                     'reply_markup': json.dumps({
                         #'one_time_keyboard': True,
@@ -609,17 +752,17 @@ def tell(chat_id, msg, kb=None, hideKb=True):
 def updateDashboard():
     #logging.debug('updateDashboard')
     data = counter.getDashboardData()
-    qry = token.Token.query()
+    qry = token_factory.Token.query()
     removeKeys = []
-    now = datetime.now()
+    now = time_util.now()
     for t in qry:
         duration_sec = (now - t.start_daytime).seconds
-        if (duration_sec>token.TOKEN_DURATION_SEC):
+        if (duration_sec>token_factory.TOKEN_DURATION_SEC):
             removeKeys.append(t.token_id)
         else:
             channel.send_message(t.token_id, json.dumps(data))
     for k in removeKeys:
-        ndb.Key(token.Token, k).delete()
+        ndb.Key(token_factory.Token, k).delete()
 
 # ================================
 # ================================
@@ -669,7 +812,7 @@ class DashboardHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         data = counter.getDashboardData()
-        token_id = token.createToken()
+        token_id = token_factory.createToken()
         data['token'] = token_id
         data['today_events'] = json.dumps(getTodayTimeline())
         logging.debug('Requsts: ' + str(data['today_events']))
@@ -680,7 +823,7 @@ class DashboardHandler(webapp2.RequestHandler):
 class GetTokenHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        token_id = token.createToken()
+        token_id = token_factory.createToken()
         logging.debug("Token handler. Created a new token.")
         self.response.headers['Content-Type'] = 'application/json'
         self.response.write(json.dumps({'token': token_id}))
@@ -733,9 +876,9 @@ class WebhookHandler(webapp2.RequestHandler):
         message = body['message']
         message_id = message.get('message_id')
         # date = message.get('date')
-        if "text" not in message:
-            return;
-        text = message.get('text').encode('utf-8')
+        #if "text" not in message:
+        #    return;
+        text = message.get('text').encode('utf-8') if "text" in message else ""
         # fr = message.get('from')
         if "chat" not in message:
             return;
@@ -746,36 +889,44 @@ class WebhookHandler(webapp2.RequestHandler):
         name = chat["first_name"].encode('utf-8')
         last_name = chat["last_name"].encode('utf-8') if "last_name" in chat else "-"
         username = chat["username"] if "username" in chat else "-"
+        text_location = message["location"] if "location" in message else None
 
         def reply(msg=None, kb=None, hideKb=True):
             tell(chat_id, msg, kb, hideKb)
+
+        def replyLocation(location):
+            sendLocation(chat_id, location)
 
         p = ndb.Key(Person, str(chat_id)).get()
 
         setLanguage(p.language if p is not None else None)
 
-        INSTRUCTIONS =  (_("I\'m your Trento <-> Povo travelling assistant.") + _("\n\n") +
-                         _("You can press START to get or offer a ride") + _("\n") +
-                         _("You can press HELP to see this message again") + _("\n") +
-                         _("You can press SETTING to change the settings (e.g., language)") + _("\n\n") +
-                         _("You can visit our website at http://pickmeup.trentino.it " +
-                           "or read the pdf instructions at http://tiny.cc/pickmeup_info") + _("\n\n") +
-                         _("If you want to join the discussion about this initiative " +
-                           "come to the tiramisu group at the following link: " +
-                           "https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g")) #.encode('utf-8')
+        INSTRUCTIONS =  (_("PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for small journeys within a city).") + _("\n\n") +
+                         _("You need to agree on terms and conditions in SETTINGS  and insert an ITINERARY to start a new journey.") + _("\n") +
+                         _("Once all is set, you can press START to get or offer a ride.") + _("\n\n") +
+                         _("Please visit our website at http://pickmeup.trentino.it " +
+                           "read the pdf instructions at http://tiny.cc/pickmeup_info " +
+                           "and if you want to promote this initiative do like us on FaceBook https://www.fb.com/321pickmeup ") + _("\n\n") +
+                         _("If you want to join our discussions come to the tiramisu group at the following link: " +
+                           "https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g") + _("\n\n") +
+                         _("Any feedback or contribution highly appreciated! :D")) #.encode('utf-8')
 
-        DISCLAIMER =   (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + _("\n") +
-                        _("It is currently  under testing on the Trento-Povo route.") + _("\n\n") +
-                        _("WARNINGS:") + _("\n") +
-                        _("Drivers: please offer rides before starting the ride. " +
-                          "DO NOT use your phone while you drive.") + _("\n") +
-                        _("Passengers: please ask for rides when you are at the bus stop. ") +
-                        _("Be kind with the driver and the other passengers.") + _("\n\n") +
-                        _("PickMeUp is a non-profit service and it is totally money-free between passengers and drivers.") + _("\n") +
-                        _("The current version is under testing: ") +
-                        _("no review system has been implemented yet and ride traceability is still limited. ") + _("\n\n") +
-                        _("PickMeUp developers decline any responsibility for the use of the service."))
+        TERMS_AND_CONDITIONS = (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + _("\n") +
+                                _("It is currently  under testing.") + _("\n\n") +
+                                _("WARNINGS:") + _("\n") +
+                                _("Drivers: please offer rides before starting the ride. " +
+                                  "DO NOT use your phone while you drive.") + _("\n") +
+                                _("Passengers: please ask for rides when you are at the bus stop. ") +
+                                _("Be kind with the driver and the other passengers.") + _("\n\n") +
+                                _("PickMeUp is a non-profit service and it is totally money-free between passengers and drivers.") + _("\n") +
+                                _("The current version is under testing: ") +
+                                _("no review system has been implemented yet and ride traceability is still limited. ") + _("\n\n") +
+                                _("PickMeUp developers decline any responsibility for the use of the service.") + _("\n") +
+                                _("If you want to use this service you have to agree on these terms by pressing the button below."))
 
+        MESSAGE_FOR_FRIENDS = _("Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! "
+                                "It's like BlaBlaCar, but for commuting within a city. "
+                                "You can use it by clicking on @PickMeUp_bot and press START! ")
 
         if p is None:
             # new user
@@ -784,7 +935,8 @@ class WebhookHandler(webapp2.RequestHandler):
             if text == '/help':
                 reply(INSTRUCTIONS)
             elif text in ['/start','START']:
-                start(p, text, name, last_name, username)
+                registerUser(p, text, name, last_name, username)
+                restart(p)
                 # state = 0
             else:
                 reply(_("Hi") + _(' ') + name + ", " + _("welcome!"))
@@ -793,29 +945,49 @@ class WebhookHandler(webapp2.RequestHandler):
             # known user
             if text=='/state':
               reply("You are in state " + str(p.state) + ": " + STATES[p.state]);
-            elif p.state == -1:
-                # INITIAL STATE
+            elif p.state == -2:
                 if text in ['/help','HELP']:
                     reply(INSTRUCTIONS)
-                elif text == _('DISCLAIMER'):
-                    reply(DISCLAIMER)
-                elif text in ['/start','START']:
-                    start(p, text, name, last_name, username)
-                    # state = 0
+                elif text == _('INFO'):
+                    goToInfoPanel(p)
+                    # state = 80
                 elif text == _('SETTINGS'):
-                    reply(_("Settings options"),
-                          kb=[[_('LANGUAGE')], [_('INFO USERS'),_('DAY SUMMARY')],[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    person.setState(p, 90)
+                    goToSettings(p)
+                    # state = 90
+                elif text == _('INVITE A FRIEND'):
+                    reply(_('Forward the following message to your friends.'))
+                    reply(MESSAGE_FOR_FRIENDS)
+                else:
+                    reply(_("Sorry, I don't understand you"))
+                    restart(p)
+            elif p.state == -1:
+                # INITIAL STATE WITH START
+                if text in ['/help','HELP']:
+                    reply(INSTRUCTIONS)
+                elif text in ['/start','START']:
+                    #start(p, text, name, last_name, username)
+                    registerUser(p, text, name, last_name, username)
+                    start(p)
+                    # state = 0
+                elif text == _('INFO'):
+                    goToInfoPanel(p)
+                    # state = 80
+                elif text == _('SETTINGS'):
+                    goToSettings(p)
+                    # state = 90
+                elif text == _('INVITE A FRIEND'):
+                    reply(_('Forward the following message to your friends.'))
+                    reply(MESSAGE_FOR_FRIENDS)
                 elif text == '/users':
                     reply(getUsers())
                 elif text == '/alldrivers':
-                    reply(listAllDrivers())
+                    reply(person.listAllDrivers())
                 elif text == '/allpassengers':
-                    reply(listAllPassengers())
+                    reply(person.listAllPassengers())
                 elif chat_id in key.MASTER_CHAT_ID:
                     if text == '/resetusers':
                         logging.debug('reset user')
-                        c = resetNullStatesUsers()
+                        c = person.resetNullStatesUsers()
                         reply("Reset states of users: " + str(c))
                         #restartAllUsers('Less spam, new interface :)')
                         #resetLastNames()
@@ -830,9 +1002,16 @@ class WebhookHandler(webapp2.RequestHandler):
                         counter.resetCounter()
                     elif text == '/test':
                         logging.debug('test')
-                        reply("/opzione1 bfdslkjfdsjaklfdj")
-                        reply("/opzione2 ju39jrkek")
-                        reply("/opzione3 349jfndkkj")
+                        #c = person.resetAllState(-2)
+                        #reply("Successfully reset all states: " + str(c))
+                        #c = person.resetTermsAndNotification()
+                        #reply("Successfully reset users terms and notification: " + str(c))
+                        #counter.resetCounter()
+                        #itinerary.initBusStops()
+                        #reply('Succeffully reinitiated bus stops')
+                        #reply("/opzione1 bfdslkjfdsjaklfdj")
+                        #reply("/opzione2 ju39jrkek")
+                        #reply("/opzione3 349jfndkkj")
                         #tell_katja_test()
                         #updateDashboard()
                         #reply('test')
@@ -871,19 +1050,17 @@ class WebhookHandler(webapp2.RequestHandler):
             #kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
             elif p.state == 0:
                 # AFTER TYPING START
-                #logging.debug(text, type(text))
                 if text.endswith(_("Passenger")):
-                #if text == emoij.FOOTPRINTS + _(' ') + _("Passenger"):
                     person.setState(p, 20)
                     person.setType(p, text)
                     reply(_("Hi! I can try to help you to get a ride. Which bus stop are you at?"),
-                          kb=[[bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                          kb=[[p.bus_stop_start, p.bus_stop_end], [emoij.NOENTRY + _(' ') + _("Abort")]])
                 elif text.endswith(_("Driver")):
                 #elif text == emoij.CAR + _(' ') + _("Driver"):
                     person.setState(p, 30)
                     person.setType(p, text)
-                    reply(_("Hi! Glad you can give a ride. Where can you pick up passengers?"),
-                          kb=[[bus_stops.FERMATA_TRENTO, bus_stops.FERMATA_POVO],[emoij.NOENTRY + _(' ') + _("Abort")]])
+                    reply(_("Hi! Glad you can give a ride. Where can you start picking up passengers?"),
+                          kb=[[p.bus_stop_start, p.bus_stop_end], [emoij.NOENTRY + _(' ') + _("Abort")]])
                 elif text.endswith(_("Abort")):
                 #elif text == emoij.NOENTRY + _(' ') + _("Abort"):
                     reply(_("Passage aborted."))
@@ -892,21 +1069,21 @@ class WebhookHandler(webapp2.RequestHandler):
                 else: reply(_("Sorry, I don't understand you"))
             elif p.state == 20:
                 # PASSANGERS, ASKED FOR LOCATION
-                if text in [bus_stops.FERMATA_POVO, bus_stops.FERMATA_TRENTO]:
-                    person.setLocation(p, text)
-                    updateLastSeen(p)
-                    check_available_drivers(p)
-                    assignNextTicketId(p)
-                    reply(_("Your passenger ID is: ") + p.ticket_id.encode('utf-8'))
-                    ride_request.recordRideRequest(p)
-                    updateDashboard()
-                    # state = 21 or 22 depending if driver available
-                elif text.endswith(_("Abort")):
+                if text.endswith(_("Abort")):
                     reply(_("Passage aborted."))
-                    restart(p);
+                    restart(p)
                     # state = -1
-                else: reply(_("Sorry, I don't understand you") + _(' ') +
-                            bus_stops.FERMATA_TRENTO + _(' ') + _("or") + _(' ') + bus_stops.FERMATA_POVO + '?')
+                elif text in [p.bus_stop_start, p.bus_stop_end]:
+                    person.setLocation(p, text)
+                    person.updateLastSeen(p)
+                    ticket_id = assignNextTicketId(p, is_driver=False)
+                    reply(_("Your passenger ID is: ") + ticket_id.encode('utf-8'))
+                    connect_with_matching_drivers(p)
+                    ride_request.recordRideRequest(p)
+                    # updateDashboard()
+                    # state = 21 or 22 depending if driver available
+                else: reply(_("Sorry, I don't understand you") + _(' '))
+                            #p.bus_stop_start + _(' ') + _("or") + _(' ') + p.bus_stop_end + '?')
             elif p.state == 21:
                 # PASSENGERS IN A LOCATION WITH NO DRIVERS
                 if text.endswith(_("Abort")):
@@ -936,8 +1113,6 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Thanks, have a good ride!"))
                     #recordRide('Other',-1, p.last_seen,p.location)
                     #addPassengerInRide(None, p)
-                    counter.increasePassengerRide(p) # increase counter tot passengers in ride of 1
-                    counter.increaseRides(p) # update counter tot and current ride of 1
                     ride_request.confirmRideRequest(p, None)
                     removePassenger(p)
                 elif text.endswith(_("Abort")):
@@ -946,7 +1121,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     removePassenger(p)
                     # state = -1
                 else:
-                    d = getDriverByLocAndNameAndId(p.location, text)
+                    d = getDriverSelectionId(p, text)
                     if d is not None:
                         ride_request.confirmRideRequest(p, d)
                         reply(_("Great! Many thanks to") + _(' ') + d.name.encode('utf-8') + "!")
@@ -957,47 +1132,39 @@ class WebhookHandler(webapp2.RequestHandler):
                         setLanguage(p.language)
                         if (d.state==32):
                             person.setState(d, 33)
-                            counter.increaseRides(d) # update counter tot and current ride of 1
-                        counter.increasePassengerRide(p)
                         removePassenger(p, driver=d)
                         # passenger state = -1
                     else:
                         reply(_("Name of driver not correct, try again."))
             elif p.state == 30:
                 # DRIVERS, ASKED FOR LOCATION
-                if text in [bus_stops.FERMATA_POVO, bus_stops.FERMATA_TRENTO]:
+                if text.endswith(_("Abort")):
+                    reply(_("Passage offer has been aborted."))
+                    restart(p)
+                    # state = -1
+                elif text in [p.bus_stop_start, p.bus_stop_end]:
                     person.setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
                     reply(_("In how many minutes will you be there?"),
                           kb=[['0','2','5'],['10','15','20'],[emoij.NOENTRY + _(' ') + _("Abort")]])
                     person.setState(p, 31)
                     # state = 31
-                elif text.endswith(_("Abort")):
-                    reply(_("Passage offer has been aborted."))
-                    restart(p);
-                    # state = -1
-                else: reply("Eh? " + bus_stops.FERMATA_TRENTO + _("or") + bus_stops.FERMATA_POVO + "?")
+                else:
+                    reply(_("Sorry, I don't understand you"))
+                    #reply("Eh? " + p.bus_stop_start + _("or") + p.bus_stop_end + "?")
             elif p.state == 31:
                 # DRIVERS ASEKED FOR TIME
                 if text in ['0','2','5','10','15','20']:
-                    if check_available_passenger(p):
-                        reply(_("There is someone waiting for you ") + emoij.PEDESTRIAN + '\n' +
-                              _("Have a nice trip!") + emoij.SMILING_FACE,
-                              kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    else:
-                        reply(_("There is currently nobody there but if somebody arrives \
-                        we will notify you and will let them know you are coming.") + _("\n") +
-                        _("Have a nice trip! ") + emoij.SMILING_FACE,
-                        kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    person.setState(p, 32)
-                    # state = 31
-                    assignNextTicketId(p)
-                    reply(_("Your driver ID is: ") + p.ticket_id.encode('utf-8'))
-                    engageDriver(p, int(text))
+                    person.setLastSeen(p, time_util.now(addMinutes=int(text)))
+                    ticket_id = assignNextTicketId(p, is_driver=True)
+                    reply(_("Your driver ID is: ") + ticket_id.encode('utf-8') + '\n')
+                    connect_with_matchin_passengers(p)
                     ride.recordRide(p, int(text))
+                    person.setState(p, 32)
+                    # state = 32
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
-                    restart(p);
+                    restart(p)
                     # state = -1
                 else:
                     reply(_("Sorry, I don't understand you"))
@@ -1006,7 +1173,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == _("List Passengers"):
                     reply(listPassengers(p))
                 elif text == (_("Send Message")):
-                    reply(_("Please type a short message which will be sent to all passenger waiting at your location"),
+                    reply(_("Please type a short message which will be sent to all waiting passengers matching your journey"),
                         kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                     person.setState(p, 325)
                 elif text.endswith(_("Abort")):
@@ -1020,11 +1187,11 @@ class WebhookHandler(webapp2.RequestHandler):
                 if not text.endswith(_("Back")):
                     count = broadcast_driver_message(p, text)
                     reply(_("Sent message to ") + str(count) + _(" people"))
-                if check_available_passenger(p):
-                    reply(_("There is someone waiting for you ") + emoij.PEDESTRIAN,
+                if hasMatchingPassengers(p):
+                    reply(_("There is some waiting passenger(s) matching your journing ") + emoij.PEDESTRIAN,
                           kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
                 else:
-                    reply(_("Oops... there are no more passengers waiting!"),
+                    reply(_("Oops... there are no more waiting passengers matching your journing!"),
                           kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
                     # all passangers have left while driver was typing
                 person.setState(p, 32)
@@ -1034,43 +1201,351 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(listPassengers(p))
                 elif text == _("Reached Destination!"):
                     reply(_("Great, thanks!") + _(' ') + emoij.CLAPPING_HANDS)
-                    counter.decreaseRides(p) # update counter current ride of -1
                     ride.endRide(p,auto_end=False)
                     removeDriver(p)
                     # state -1
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 90:
-                if text.endswith(_("Abort")):
-                    restart(p)
+            elif p.state == 80:
+                # INFO PANEL
+                if text==_('INFO USERS'):
+                    reply(getInfoCount())
+                    # restart(p)
                     # state = -1
+                elif text==_('DAY SUMMARY'):
+                    reply(getInfoDay())
+                    # restart(p)
+                    # state = -1
+                elif text==_('SEARCH BUS STOPS'):
+                    reply(_("Please attach a location by 1) pressing the paper clip icon below and 2) chosing a position in the map, "
+                            "and I will give you a lis of bus stops within a radius of 10 km from the given location. "),
+                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.clearTmp(p)
+                    person.setState(p, 81)
+                elif text==_('SEND FEEDBACK'):
+                    reply(_("Please send us any feedback, e.g., new bus stops, bugs, suggestions. "),
+                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.setState(p, 82)
+                elif text.endswith(_("Back")):
+                    restart(p)
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 81:
+                if text_location!=None:
+                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
+                    bus_stops = itinerary.getClosestBusStops(loc_point, [], p, max_distance=10, trim=False)
+                    #.replace(' ', '-')
+                    if len(bus_stops)>0:
+                        bus_stops_formatted = ['/' + re.sub(r'[^\w]','',x.encode('UTF8')) for x in bus_stops]
+                        bus_stops_str = ' - '.join(bus_stops_formatted)
+                        person.setTmp(p,bus_stops_formatted)
+                        person.appendTmp(p,bus_stops)
+                        reply(_("Found the following bus stop(s) near the location: ") + bus_stops_str + "\n\n" +
+                              _("By pressing in any of the names, the location will be presented to you."),
+                              kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                        person.setState(p,81)
+                    else:
+                        reply(_("No bus stop found near location, try again. ") +
+                              _("Please attach a location by 1) pressing the paper clip icon below and 2) chosing a position in the map."))
+                elif text.startswith('/') and text in p.tmp:
+                    if (text in p.tmp):
+                        i = p.tmp.index(text)
+                        j = len(p.tmp)/2+i
+                        bus_stop = p.tmp[j]
+                        replyLocation(itinerary.getBusStopLocation(bus_stop))
+                        #reply("Found: " + p.tmp[j])
+                    else:
+                        reply("Sorry, I don't understand you")
+                    #logging.debug('getBusStopFromCommand')
+                    #getBusStopFromCommand(text,p)
+                elif text.endswith(_("Back")):
+                    goToInfoPanel(p)
+                    # state = 80
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 82:
+                if text.endswith(_("Back")):
+                    goToInfoPanel(p)
+                    # state = 80
+                else:
+                    mail.send_mail(sender="Federico Sangati <federico.sangati@gmail.com>",
+                                   to="PickMeUp <pickmeupbot@gmail.com>",
+                                   subject="[Feedback] from user " + p.name + ' (' + str(p.chat_id) + ')',body=text)
+                    reply(_("Thanks for your feedback!"))
+                    goToInfoPanel(p)
+            elif p.state == 90:
+                #SETTINGS
+                if text==_('TERMS AND CONDITIONS'):
+                    reply(TERMS_AND_CONDITIONS, kb=[[_("I AGREE")],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.setState(p, 92)
+                elif text==_('ITINERARY'):
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text==_('NOTIFICATIONS'):
+                    goToSettingNotification(p)
+                    # state = 94
                 elif text==_('LANGUAGE'):
                     reply(_("Choose the language"),
                           kb=[[emoij.FLAG_IT + _(' ') + "IT", emoij.FLAG_EN + _(' ') + "EN", emoij.FLAG_RU + _(' ') + "RU"],
                               [emoij.FLAG_DE + _(' ') + "DE", emoij.FLAG_FR + _(' ') + "FR", emoij.FLAG_PL + _(' ') + "PL"],
 #                             [emoij.FLAG_NL + _(' ') + "NL"
-                              [emoij.NOENTRY + _(' ') + _("Abort")]])
+                              [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                     person.setState(p, 91)
-                elif text==_('INFO USERS'):
-                    reply(getInfoCount())
-                    restart(p)
-                    # state = -1
-                elif text==_('DAY SUMMARY'):
-                    reply(getInfoDay())
+                elif text.endswith(_("Back")):
                     restart(p)
                     # state = -1
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 91:
-                if text.endswith(_("Abort")):
-                    restart(p)
-                    # state = -1
-                elif len(text)>2 and text[-2:] in ['IT','EN','FR','DE','RU','NL','PL']:
+                #LANGUAGE
+                if len(text)>2 and text[-2:] in ['IT','EN','FR','DE','RU','NL','PL']:
                     l = text[-2:]
                     p.language = l
                     p.put()
                     gettext.translation('PickMeUp', localedir='locale', languages=[LANGUAGES[l]]).install()
                     restart(p)
+                elif text.endswith(_("Back")):
+                    goToSettings(p)
+                    # state = 90
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 92:
+                #AGREE ON TERMS
+                if text==_('I AGREE'):
+                    person.setAgreeOnTerms(p)
+                    reply("Thanks for agreeing on terms!")
+                    goToSettings(p)
+                    # state = 90
+                elif text.endswith(_("Back")):
+                    goToSettings(p)
+                    # state = 90
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 93:
+                #ITINERARY
+                if text==_('Start Location'):
+                    askToInsertLocation(p, _('the START location '), 931)
+                    # state = 931
+                elif text==_('End Location'):
+                    askToInsertLocation(p, _('the END location '), 932)
+                    # state = 932
+                elif text==_('Mid Points Going'):
+                    goToSettingMidPoints(p,933)
+                    # state = 933
+                elif text==_('Mid Points Back'):
+                    goToSettingMidPoints(p,934)
+                    # state = 934
+                elif text.endswith(_("Back")):
+                    goToSettings(p)
+                    # state = 90
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 931:
+                #START LOCATION
+                if text == _("List Bus Stops"):
+                    replyListBusStops(p, 9311)
+                elif text_location!=None:
+                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
+                    bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_end], p)
+                    if len(bus_stops)>0:
+                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
+                              kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                        person.setTmp(p,bus_stops)
+                        person.setState(p,9311)
+                    else:
+                        reply(_("No bus stop found near location, try again. ") +
+                              _("Please attach the START location by 1) pressing the paper clip icon below and "
+                                "2) chosing a position in the map."))
+                elif text.endswith(_("Back")):
+                    goToSettingItinerary(p)
+                    # state = 93
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 9311:
+                #CHECK START LOCATION
+                logging.debug("text: " + text)
+                logging.debug("tmp: " + str(p.tmp))
+                if text in p.tmp:
+                    if text.startswith('/'):
+                        if (text in p.tmp):
+                            i = p.tmp.index(text)
+                            j = len(p.tmp)/2+i
+                            text = p.tmp[j]
+                        else:
+                            reply("Sorry, I don't understand you")
+                            return
+                    person.setBusStopStart(p,text)
+                    reply(_("Thanks for setting the START location!"))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text.endswith(_("Back")):
+                    reply(_("Please attach the START location by 1) pressing the paper clip icon below and "
+                            "2) chosing a position in the map."),
+                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.setState(p,931)
+                    # state = 931
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 932:
+                #END LOCATION
+                if text == _("List Bus Stops"):
+                    replyListBusStops(p, 9321)
+                if text_location!=None:
+                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
+                    bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start], p)
+                    if len(bus_stops)>0:
+                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
+                              kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                        person.setTmp(p,bus_stops)
+                        person.setState(p,9321)
+                    else:
+                        reply(_("No bus stop found near location, try again. ") +
+                              _("Please attach the END location by 1) pressing the paper clip icon below and "
+                                "2) chosing a position in the map."))
+                elif text.endswith(_("Back")):
+                    goToSettingItinerary(p)
+                    # state = 93
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 9321:
+                #CHECK END LOCATION
+                if text in p.tmp:
+                    if text.startswith('/'):
+                        if (text in p.tmp):
+                            i = p.tmp.index(text)
+                            j = len(p.tmp)/2+i
+                            text = p.tmp[j]
+                        else:
+                            reply("Sorry, I don't understand you")
+                            return
+                    person.setBusStopEnd(p,text)
+                    reply(_("Thanks for setting the END location!"))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text.endswith(_("Back")):
+                    reply(_("Please attach the END location by 1) pressing the paper clip icon below and "
+                            "2) chosing a position in the map."),
+                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.setState(p,932)
+                    # state = 932
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 933:
+                #MID POINT GOING
+                if text == _("List Bus Stops"):
+                    replyListBusStops(p, 9331)
+                elif text == _("Remove all"):
+                    person.emptyBusStopMidGoing(p)
+                    reply(_("All mid points on the way FORWARD have been removed."))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text == _('Same as other direction'):
+                    p.bus_stop_mid_going = list(reversed(p.bus_stop_mid_back))
+                    p.put()
+                    reply(_("Successfully set mid points way FORWARD as in way BACK!"))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text_location!=None:
+                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
+                    bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start, p.bus_stop_end], p)
+                    if len(bus_stops)>0:
+                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
+                              kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                        person.setTmp(p,bus_stops)
+                        person.setState(p,9331)
+                    else:
+                        reply(_("No bus stop found near location, try again. ") +
+                              _("Please attach a new intermediate location by 1) pressing the paper clip icon below and "
+                                "2) chosing a position in the map."))
+                elif text.endswith(_("Back")):
+                    goToSettingItinerary(p)
+                    # state = 93
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 9331:
+                #CHECK MID POINT GOING
+                if text in p.tmp:
+                    if text.startswith('/'):
+                        if (text in p.tmp):
+                            i = p.tmp.index(text)
+                            j = len(p.tmp)/2+i
+                            text = p.tmp[j]
+                        else:
+                            reply("Sorry, I don't understand you")
+                            return
+                    person.appendBusStopMidGoing(p,text)
+                    reply(_("Thanks for adding a new mid point!"))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text.endswith(_("Back")):
+                    goToSettingMidPoints(p,933)
+                    # state = 933
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 934:
+                #MID POINT BACK
+                if text == _("List Bus Stops"):
+                    replyListBusStops(p, 9341)
+                elif text == _("Remove all"):
+                    person.emptyBusStopMidBack(p)
+                    reply(_("All mid points on the way BACK have been removed."))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text == _('Same as other direction'):
+                    p.bus_stop_mid_back = list(reversed(p.bus_stop_mid_going))
+                    p.put()
+                    reply(_("Successfully set mid points way BACK as in way FORWARD!"))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text_location!=None:
+                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
+                    bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start, p.bus_stop_end], p)
+                    if len(bus_stops)>0:
+                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
+                              kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                        person.setTmp(p,bus_stops)
+                        person.setState(p,9341)
+                    else:
+                        reply(_("No bus stop found near location, try again. ") +
+                              _("Please attach a new intermediate location by pressing the clip and chosing a position in the map."))
+                elif text.endswith(_("Back")):
+                    goToSettingItinerary(p)
+                    # state = 93
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 9341:
+                #CHECK MID POINT BACK
+                if text in p.tmp:
+                    if text.startswith('/'):
+                        if (text in p.tmp):
+                            i = p.tmp.index(text)
+                            j = len(p.tmp)/2+i
+                            text = p.tmp[j]
+                        else:
+                            reply("Sorry, I don't understand you")
+                            return
+                    person.appendBusStopMidBack(p,text)
+                    reply(_("Thanks for adding a new mid point!"))
+                    goToSettingItinerary(p)
+                    # state = 93
+                elif text.endswith(_("Back")):
+                    goToSettingMidPoints(p,934)
+                    # state = 934
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 94:
+                #NOTIFICATIONS
+                if text==_("ENABLE NOTIFICATIONS"):
+                    person.setNotifications(p,True)
+                    goToSettingNotification(p)
+                    # state = 94
+                elif text==_("DISABLE NOTIFICATIONS"):
+                    person.setNotifications(p,False)
+                    goToSettingNotification(p)
+                    # state = 94
+                elif text.endswith(_("Back")):
+                    goToSettings(p)
+                    # state = 90
                 else:
                     reply(_("Sorry, I don't understand you"))
             else:

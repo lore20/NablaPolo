@@ -1,4 +1,3 @@
-
 from google.appengine.ext import ndb
 from datetime import datetime
 from google.appengine.api import channel
@@ -18,3 +17,4 @@ def createToken():
     token.token_id = token_id
     token.put()
     return token_id
+
