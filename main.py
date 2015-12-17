@@ -101,7 +101,7 @@ def getTodayTimeline():
 
     todayEvents = {itinerary.FERMATA_TRENTO: {}, itinerary.FERMATA_POVO: {}}
 
-    today = time_util.getToday()
+    today = time_util.get_today()
     #today = today - timedelta(days=1)
 
     for loc in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
@@ -142,26 +142,27 @@ def getTodayTimeline():
 # ================================
 # ================================
 
-def registerUser(p, cmd, name, last_name, username):
-    logging.debug('registering user')
+def registerUser(p, name, last_name, username):
+    #logging.debug('registering user')
     #logging.debug(p.name + _(' ') + cmd + _(' ') + str(p.enabled))
     #if (p.name.decode('utf-8') != name.decode('utf-8')):
-    if (p.name != name):
+    modified = False
+    if p.name != name:
         p.name = name
-        p.put()
+        modified = True
     #if (p.last_name.decode('utf-8') != last_name.decode('utf-8')):
-    if (p.last_name != last_name):
+    if p.last_name != last_name:
         p.last_name = last_name
-        p.put()
-    if (p.username != username):
+        modified = True
+    if p.username != username:
         p.username = username
-        p.put()
+        modified = True
     if not p.enabled:
-        if cmd=='/start':
-            p.enabled = True
-            p.put()
-        else: # START when diasbled
-            return
+        p.enabled = True
+        modified = True
+    if modified:
+        p.put()
+
 
 
 def start(p):
@@ -171,7 +172,7 @@ def start(p):
     person.setState(p,0)
 
 def getUsers():
-    query = Person.query().order(-Person.last_mod)
+    query = Person.query() #.order(-Person.last_mod)
     if query.get() is None:
         return "No users found"
     text = ""
@@ -181,12 +182,18 @@ def getUsers():
 
 def restartAllUsers(msg):
     qry = Person.query()
+    count = 0
     for p in qry:
         #if (p.state is None): # or p.state>-1
         if (p.enabled): # or p.state>-1
-            tell(p.chat_id, msg)
-            restart(p)
-            sleep(0.100) # no more than 10 messages per second
+            if (time_util.ellapsed_min(p.last_mod)>60):
+                count +=1
+                if msg:
+                    tell(p.chat_id, msg)
+                restart(p)
+                sleep(0.100) # no more than 10 messages per second
+    logging.debug("Succeffully restarted users: " + str(count))
+    return count
 
 def checkEnabled():
     qry = Person.query(Person.enabled==True)
@@ -201,7 +208,7 @@ def checkEnabled():
 
 
 def broadcast(msg, language='ALL'):
-    qry = Person.query().order(-Person.last_mod)
+    qry = Person.query() #.order(-Person.last_mod)
     count = 0
     for p in qry:
         if (p.enabled):
@@ -212,8 +219,8 @@ def broadcast(msg, language='ALL'):
                 sleep(0.100) # no more than 10 messages per second
     logging.debug('broadcasted to people ' + str(count))
 
-def getInfoCount():
-    setLanguage('IT')
+def getInfoCount(lang='EN'):
+    setLanguage(lang)
     c = Person.query().count()
     msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!") + _(' ') +\
           _("We want to get bigger and bigger!") + _(' ') + _("Invite more people to join us!")
@@ -229,8 +236,9 @@ def getInfoAllRequestsOffers():
           str(qryRideCompletedCount) + _(" successfully completed!") + _("\n")
     return msg
 
-def getInfoDay():
-    setLanguage('IT')
+def getInfoDay(language=None):
+    if language:
+        setLanguage(language)
     today = time_util.get_today()
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
     qryRide = Ride.query(Ride.start_daytime > today)
@@ -242,7 +250,7 @@ def getInfoDay():
     if qryRideCompletedCount>0:
         msg += _("Many thanks to all of you! " + emoij.CLAPPING_HANDS)
     else:
-        msg += _("Let's make it happen! " + emoij.SMILING_FACE)
+        msg += _("Let's make it happen! ") + emoij.SMILING_FACE
     return msg
 
 def getInfoWeek():
@@ -268,25 +276,25 @@ def restart(p):
     itn = person.isItinerarySet(p)
     if not agree and not itn:
         tell(p.chat_id, _("In order to start, please go to SETTINGS to agree on terms and conditions and setup your default ITINERARY."),
-             kb=[['HELP'], [_('INFO'),_('SETTINGS')]])
+             kb=[['HELP'], [_('SETTINGS'),_('INFO')]])
         person.setStateLocation(p, -2, '-')
     elif not agree:
         tell(p.chat_id, _("In order to start, please go to SETTINGS to agree on terms and conditions."),
-             kb=[['HELP'], [_('INFO'),_('SETTINGS')]])
+             kb=[['HELP'], [_('SETTINGS'),_('INFO')]])
         person.setStateLocation(p, -2, '-')
     elif not itn:
-        tell(p.chat_id, _("In order to start, please go to SETTINGS to setup your default ITINERARY."
+        tell(p.chat_id, _("In order to start, please go to SETTINGS to setup your default ITINERARY. " +
                           "You only need to do this once but you can always change it later."),
-             kb=[['HELP'], [_('INFO'),_('SETTINGS')],[_('INVITE A FRIEND')]])
+             kb=[['HELP'], [_('SETTINGS'),_('INFO')],[_('INVITE A FRIEND')]])
         person.setStateLocation(p, -2, '-')
     else:
-        textEnabled = _("(You have notifications ENABLED)") if p.enabled else _("(You have notifications DISABLED)")
-        tell(p.chat_id, _("Press START if you want to start a new journey! " + textEnabled),
-             kb=[['START','HELP'], [_('INFO'),_('SETTINGS')],[_('INVITE A FRIEND')]]    )
+        textEnabled = _("(You have notifications ENABLED)") if p.notification_enabled else _("(You have notifications DISABLED)")
+        tell(p.chat_id, _("Press START if you want to start a new journey! ") + textEnabled,
+             kb=[['START','HELP'], [_('SETTINGS'),_('INFO')],[_('INVITE A FRIEND')]]    )
         person.setStateLocation(p, -1, '-')
 
 def goToInfoPanel(p):
-    tell(p.chat_id, _("This is the info panel"),
+    tell(p.chat_id, _("This is the info panel."),
           kb=[[_('INFO USERS'),_('DAY SUMMARY')],[_('SEARCH BUS STOPS'),_('SEND FEEDBACK')],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
     person.setState(p, 80)
 
@@ -330,20 +338,41 @@ def goToSettingItinerary(p):
     mid_back = [x.encode('UTF8') for x in p.bus_stop_mid_back]
     itn_txt = _("Itinerary: ") + _(start) + _(' <-> ') + _(end) + _('\n\n')
 
+    firstRowButtons = [
+        _("Change Start Location") if p.bus_stop_start else _("Set Start Location"),
+        _("Change End Location") if p.bus_stop_end else _("Set End Location")
+    ]
 
-    keyboard = [[_("Start Location"), _("End Location")]]
+    keyboard = [firstRowButtons]
     if start!='?' and end!='?':
-        keyboard.append([_("Mid Points Going"), _("Mid Points Back")],)
-        itn_txt += _("Drivers can optionally add intermediate points where to pick up passengers:\n\n") +\
+        keyboard.append([_("Change Mid Points Going"), _("Change Mid Points Back")],)
+        itn_txt += _("Drivers can optionally add intermediate points where to pick up passengers:") + _("\n\n") +\
                    _("Mid Points Going: ") + str(mid_going) + _('\n') +\
                    _("Mid Points Back: ") + str(mid_back) + _('\n\n')
     keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
 
-    tell(p.chat_id, _("Your current itinerary settings:\n\n") + itn_txt, kb=keyboard)
+    tell(p.chat_id, _("Your current itinerary settings:") + _("\n\n") + itn_txt, kb=keyboard)
     person.setState(p, 93)
 
+def askToInsertLocation(p, text_prefix, new_state, PAPER_CLIP_INSTRUCTIONS):
+    if (p.last_city is None):
+        tell(p.chat_id, _("Please insert ") +  text_prefix + '. ' + PAPER_CLIP_INSTRUCTIONS,
+             kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    else:
+        tell(p.chat_id, _("Please insert ") +  text_prefix + '. ' + PAPER_CLIP_INSTRUCTIONS + ' ' +
+               _("Alternatevely you can press on 'LIST BUS STOPS' and select one manually."),
+             kb=[[_("List Bus Stops")],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    person.setState(p,new_state)
 
-def goToSettingMidPoints(p,state):
+def askGeoLocationOrListBusStops(p, intro_text, new_state):
+    # p.last_city but exist
+    tell(p.chat_id,
+         intro_text + _("You can enter a location using GEOLOCATION or ask for a LIST of bus stops in your city"),
+         kb = [[_('Geolocation'),_("List Bus Stops")],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+    person.setState(p,new_state)
+
+
+def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
 
     midpoints = p.bus_stop_mid_going if state==933 else p.bus_stop_mid_back
     midpoints = [x.encode('UTF8') for x in midpoints]
@@ -351,9 +380,11 @@ def goToSettingMidPoints(p,state):
     text = _("Please select an intermediate point you can stop on the way FORWARD to pick-up other passangers ") \
         if state==933 else _("Please select an intermediate point you can stop on the way BACK to pick-up other passangers ")
 
-    text += _("by 1) pressing the paper clip icon below and "
-                 "2) chosing a position in the map "
-                 "(or alternatively by asking the list of the bus stops and selecting one manually).") + "\n\n"
+    text += PAPER_CLIP_INSTRUCTIONS
+
+    if p.last_city:
+        text += _("(or alternatively by asking the list of the bus stops and selecting one manually).")
+    text += "\n\n"
 
     keyboard = [[_("List Bus Stops")]] if p.last_city else []
     secondLineButtons = [_('Remove all')] if midpoints else []
@@ -369,7 +400,7 @@ def goToSettingMidPoints(p,state):
     keyboard.append(secondLineButtons)
     keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
 
-    logging.debug("goToSettingMidPoints:" + str(keyboard))
+    #logging.debug("goToSettingMidPoints:" + str(keyboard))
     tell(p.chat_id, text + _("Current midpoints:") + str(midpoints), kb=keyboard)
     person.setState(p,state)
 
@@ -380,27 +411,14 @@ def replyListBusStops(p,new_state):
     bus_stops_str = '\n'.join(bus_stops_formatted)
     person.setTmp(p,bus_stops_formatted)
     person.appendTmp(p,bus_stops)
-    tell(p.chat_id, _("Found the following bus stop(s) in your city:\n") + bus_stops_str)
+    tell(p.chat_id, _("Found the following bus stop(s) in your city:") + _("\n") + bus_stops_str)
     person.setState(p,new_state)
 
-# ================================
-# ================================
-# ================================
 
-def askToInsertLocation(p, text_prefix, new_state):
-    if (p.last_city is None):
-        tell(p.chat_id, _("Please attach ") +  text_prefix +
-             _("by 1) pressing the paper clip icon below and "
-               "2) chosing a position in the map."),
-             kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-    else:
-        tell(p.chat_id, _("Please attach ") +  text_prefix +
-             _("by 1) pressing the paper clip icon below and "
-               "2) chosing a position in the map "
-               "(or alternatevely by asking the list of the bus stops and selecting one manually)."),
-             kb=[[_("List Bus Stops")],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-    person.setState(p,new_state)
 
+# ================================
+# ================================
+# ================================
 
 def assignNextTicketId(p, is_driver):
     ticketId = None
@@ -408,7 +426,7 @@ def assignNextTicketId(p, is_driver):
     ticketId = 'D_' if is_driver else 'P_'
     ticketId += bus_stop.short_name
     bus_stop_label = itinerary.getKeyFromBusStop(bus_stop)
-    logging.debug(bus_stop_label)
+    #logging.debug(bus_stop_label)
     number = counter.increaseQueueCounter(bus_stop_label, is_driver)
     ticketId += str(number)
     p.ticket_id = ticketId
@@ -416,8 +434,9 @@ def assignNextTicketId(p, is_driver):
     return ticketId
 
 def putPassengerOnHold(passenger):
-    tell(passenger.chat_id, _("Currently there are no drivers matching your journey, let's wait a bit. "
-                              "If you found another solution, please abort your request."),
+    tell(passenger.chat_id, _("Currently there are no drivers matching your journey.") + ' '
+         + _("You will be notified as soon as one is available.") + ' '
+         + _("If you find another solution, please abort your request."),
          kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
     person.setState(passenger, 21)
 
@@ -495,6 +514,15 @@ def getMatchingPassengers(driver):
             match.append(p)
     return match
 
+def getMatchingPotentialPassengers(driver):
+    match = []
+    qry = Person.query(Person.last_city==driver.last_city, Person.state==-1)#.order(-Person.last_mod)
+    for p in qry:
+        if itinerary.matchDriverAndPotentialPassenger(driver, p):
+            match.append(p)
+    return match
+
+
 def hasMatchingDrivers(passenger):
     qry = Person.query(Person.last_city==passenger.last_city, Person.state.IN([32,33]))
     for d in qry:
@@ -546,14 +574,47 @@ def connect_with_matchin_passengers(driver):
     setLanguage(driver.language)
 
     if matchPassengers:
-        tell(driver.chat_id, _("There is someone waiting passenger(s) matching your journey ") + emoij.PEDESTRIAN + '\n' +
+        tell(driver.chat_id, _("There is some passenger(s) matching your journey ") + emoij.PEDESTRIAN + '\n' +
               _("Have a nice trip!") + emoij.SMILING_FACE,
               kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
     else:
-        tell(driver.chat_id, _("There is currently nobody there but if somebody arrives "
-                "we will notify you and will let them know you are coming.") + _("\n") +
-              _("Have a nice trip! ") + emoij.SMILING_FACE,
+        tell(driver.chat_id, _("There is currently no passenger matching your journey.") +
+             _("If a new passege request matches your journey we will notify you.") + _("\n") +
+             _("Have a nice trip! ") + emoij.SMILING_FACE,
         kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
+
+def notify_potential_passengers(driver):
+    matchPassengers = getMatchingPotentialPassengers(driver)
+    if not matchPassengers:
+        return
+    text = _("Notification " + emoij.CAR + ": There is a driver matching your default route!") + '\n\n' +\
+           getDriverRideDetails(driver).encode('utf-8')
+    count = 0
+    for p in matchPassengers:
+        if p.notification_enabled:
+            count+=1
+            setLanguage(p.language)
+            tell(p.chat_id,text)
+            #logging.debug(getDriverRideDetails(driver))
+            sleep(0.035) # no more than 30 messages per second
+    setLanguage(driver.language)
+    logging.debug("Notified potential passengers: " + str(count))
+
+def getDriverRideDetails(driver, id=True):
+    text = driver.name.encode('utf-8') + _(" ride start: ") + \
+           time_util.get_time_string(driver.last_seen) + \
+           _(" itinerary: ") + person.getItinerary(driver,driver=True)
+    if id:
+        text += _(" (id: ") + driver.ticket_id + _(")")
+    return text
+
+def getPassengerRideDetails(passenger, id = True):
+    text = passenger.name.encode('utf-8') +\
+           _(" waiting since ") + time_util.get_time_string(passenger.last_seen) +\
+           _(" itinerary: ") + person.getItinerary(passenger,driver=False)
+    if id:
+        text += _(" (id: ") + passenger.ticket_id + _(")")
+    return text
 
 def listDrivers(passenger):
     matchDrivers = getMatchingDrivers(passenger)
@@ -561,8 +622,7 @@ def listDrivers(passenger):
         text = ""
         for d in matchDrivers:
             if itinerary.matchDriverAndPassenger(d, passenger):
-                text = text + d.name.encode('utf-8') + _(" ride start: ") + time_util.get_time_string(d.last_seen) + \
-                       _(" itinerary: ") + person.getItinerary(d,driver=True) + _("\n")
+                text = text + getDriverRideDetails(d) + '\n'
         return text
     else:
         return _("No drivers found matching your journey")
@@ -573,8 +633,7 @@ def listPassengers(driver):
         text = ""
         for p in matchPassengers:
             if itinerary.matchDriverAndPassenger(driver, p):
-                text = text + p.name.encode('utf-8') + _(" waiting since ") + time_util.get_time_string(p.last_seen) + \
-                       _(" itinerary: ") + person.getItinerary(p,driver=False) + _(" (id: ") + p.ticket_id + _(")") + _("\n")
+                text = text + getPassengerRideDetails(p) + '\n'
         return text
     else:
        return _("No passengers found matching your journey")
@@ -588,7 +647,7 @@ def removePassenger(p, driver=None):
             dMatchPass = getMatchingPassengers(d)
             if len(dMatchPass)==1: #only this passenger
                 setLanguage(d.language)
-                tell(d.chat_id, _("Oops... there are no more waiting passengers matching your journey!"))
+                tell(d.chat_id, _("Oops... there are no more passage requests matching your journey!"))
                 person.setNotified(d, False)
     setLanguage(p.language)
     #updateDashboard()
@@ -596,7 +655,7 @@ def removePassenger(p, driver=None):
 
 def removeDriver(d):
     matchPassengers = getMatchingPassengers(d)
-    logging.debug('Found Drivers: ' + str(len(matchPassengers)))
+    #logging.debug('Found Drivers: ' + str(len(matchPassengers)))
     for p in matchPassengers:
         pMatchDrivers = getMatchingDrivers(p)
         if len(pMatchDrivers)==1:  #only this driver
@@ -650,6 +709,13 @@ def setLanguage(langId):
 
 def tell_katja(msg):
     tell(114258373, msg)
+
+def tell_person(chat_id, msg):
+    tell(chat_id, msg)
+    p = ndb.Key(Person, str(chat_id)).get()
+    if p and p.enabled:
+        return True
+    return False
 
 def tell_katja_test():
     try:
@@ -786,7 +852,8 @@ class InfouserTiramisuHandler(webapp2.RequestHandler):
 class InfouserAllHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        broadcast(getInfoCount())
+        broadcast(getInfoCount('IT'), language='IT')
+        broadcast(getInfoCount('EN'), language='EN')
 
 class DayPeopleCountHandler(webapp2.RequestHandler):
     def get(self):
@@ -796,7 +863,7 @@ class DayPeopleCountHandler(webapp2.RequestHandler):
 class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        tell(key.TIRAMISU_CHAT_ID, getInfoDay())
+        tell(key.TIRAMISU_CHAT_ID, getInfoDay('IT'))
 
 class InfodayAllHandler(webapp2.RequestHandler):
     def get(self):
@@ -807,6 +874,28 @@ class ResetCountersHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         counter.resetCounter()
+
+class NewVersionBroadcastHandler(webapp2.RequestHandler):
+
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        return
+
+        text_it = "Da oggi @PickMeUp_bot ha una marcia in più!" + '\n' + \
+                  "- Nuove tratte e nuove fermate completamente flessibili (welcome to Sanba, Mesiano & Pergine!)" + '\n' +\
+                  "- Geolocalizzazione: trova automaticamente la fermata più vicina a te!" + '\n' +\
+                  "- Col nuovo sistema di notifiche, ricevi le offerte di passaggi in tempo reale anche se non hai nessuna richiesta attiva." + '\n\n' + \
+                  "Scopri tutte le novità e diffondi @PickMeUp_bot a tutti i tuoi amici!"
+
+        text_en = "Today @PickMeUp_bot is much more powerful!" + '\n' + \
+                  "- New routes and pickup locations (welcome to Sanba, Mesiano & Pergine!)" + '\n' +\
+                  "- Geolocalization: automatically find pickup locations near you!" + '\n' +\
+                  "- New notification system: get ride offers in real time even when you don't have active requests." + '\n\n' + \
+                  "Find out what's new and tell about @PickMeUp_bot to all your friends!"
+
+        broadcast(text_it, 'IT')
+        broadcast(text_en, 'EN')
+
 
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
@@ -903,13 +992,13 @@ class WebhookHandler(webapp2.RequestHandler):
 
         INSTRUCTIONS =  (_("PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for small journeys within a city).") + _("\n\n") +
                          _("You need to agree on terms and conditions in SETTINGS  and insert an ITINERARY to start a new journey.") + _("\n") +
-                         _("Once all is set, you can press START to get or offer a ride.") + _("\n\n") +
+                         _("Once all is set, you can press START to request or offer a ride.") + _("\n\n") +
                          _("Please visit our website at http://pickmeup.trentino.it " +
                            "read the pdf instructions at http://tiny.cc/pickmeup_info " +
                            "and if you want to promote this initiative do like us on FaceBook https://www.fb.com/321pickmeup ") + _("\n\n") +
                          _("If you want to join our discussions come to the tiramisu group at the following link: " +
                            "https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g") + _("\n\n") +
-                         _("Any feedback or contribution highly appreciated! :D")) #.encode('utf-8')
+                         _("Any feedback or contribution is highly appreciated (go to INFO -> SEND FEEDBACK)! :D")) #.encode('utf-8')
 
         TERMS_AND_CONDITIONS = (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + _("\n") +
                                 _("It is currently  under testing.") + _("\n\n") +
@@ -924,27 +1013,34 @@ class WebhookHandler(webapp2.RequestHandler):
                                 _("PickMeUp developers decline any responsibility for the use of the service.") + _("\n") +
                                 _("If you want to use this service you have to agree on these terms by pressing the button below."))
 
-        MESSAGE_FOR_FRIENDS = _("Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! "
-                                "It's like BlaBlaCar, but for commuting within a city. "
-                                "You can use it by clicking on @PickMeUp_bot and press START! ")
+        MESSAGE_FOR_FRIENDS = _("Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! ") +\
+                              _("It's like BlaBlaCar, but for commuting within a city. ") + \
+                              _("The system is currently under testing but the community is getting larger every day. ") + \
+                              _("You can try it by clicking on @PickMeUp_bot and press START! ")
+
+        PAPER_CLIP_INSTRUCTIONS = _("Please attach a location by 1) pressing the ") + emoij.PAPER_CLIP +\
+                                  _(" icon below and 2) chosing a position in the map.")
 
         if p is None:
             # new user
             tell_masters("New user: " + name)
             p = person.addPerson(chat_id, name)
-            if text == '/help':
-                reply(INSTRUCTIONS)
-            elif text in ['/start','START']:
-                registerUser(p, text, name, last_name, username)
+            #if text == '/help':
+            #    reply(INSTRUCTIONS)
+            if text in ['/start','START']:
+                registerUser(p, name, last_name, username)
                 restart(p)
                 # state = 0
             else:
-                reply(_("Hi") + _(' ') + name + ", " + _("welcome!"))
+                reply(_("Hi") + ' ' + name + ", " + _("welcome!"))
                 reply(INSTRUCTIONS)
         else:
             # known user
             if text=='/state':
-              reply("You are in state " + str(p.state) + ": " + STATES[p.state]);
+                if p.state in STATES:
+                    reply("You are in state " + str(p.state) + ": " + STATES[p.state]);
+                else:
+                    reply("You are in state " + str(p.state));
             elif p.state == -2:
                 if text in ['/help','HELP']:
                     reply(INSTRUCTIONS)
@@ -966,7 +1062,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(INSTRUCTIONS)
                 elif text in ['/start','START']:
                     #start(p, text, name, last_name, username)
-                    registerUser(p, text, name, last_name, username)
+                    registerUser(p, name, last_name, username)
                     start(p)
                     # state = 0
                 elif text == _('INFO'):
@@ -987,9 +1083,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif chat_id in key.MASTER_CHAT_ID:
                     if text == '/resetusers':
                         logging.debug('reset user')
-                        c = person.resetNullStatesUsers()
-                        reply("Reset states of users: " + str(c))
-                        #restartAllUsers('Less spam, new interface :)')
+                        #c = person.resetNullStatesUsers()
+                        #reply("Reset states of users: " + str(c))
+                        deferred.defer(restartAllUsers,None) #'New interface :)')
                         #resetLastNames()
                         #resetEnabled()
                         #resetLanguages()
@@ -1000,6 +1096,15 @@ class WebhookHandler(webapp2.RequestHandler):
                         checkEnabled()
                     elif text == '/resetcounters':
                         counter.resetCounter()
+                    elif text == '/sendText':
+                        id = -1
+                        text = "Ciao Anna, ci dispiace che vuoi disabilitare PickMeUp, spero che tornerai a trovarci. " \
+                               "per disabilitare un bot devi bloccarlo così come bloccheresti qualsiasi utente. " \
+                               "La procedura esatta varia dal dispositivo che usi, puoi contattarmi su @kercos per maggiori informazioni."
+                        if tell_person(id, text):
+                            reply('Successfully sent text')
+                        else:
+                            reply('Problems in sending text')
                     elif text == '/test':
                         logging.debug('test')
                         #c = person.resetAllState(-2)
@@ -1159,6 +1264,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     ticket_id = assignNextTicketId(p, is_driver=True)
                     reply(_("Your driver ID is: ") + ticket_id.encode('utf-8') + '\n')
                     connect_with_matchin_passengers(p)
+                    deferred.defer(notify_potential_passengers,p)
                     ride.recordRide(p, int(text))
                     person.setState(p, 32)
                     # state = 32
@@ -1173,7 +1279,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == _("List Passengers"):
                     reply(listPassengers(p))
                 elif text == (_("Send Message")):
-                    reply(_("Please type a short message which will be sent to all waiting passengers matching your journey"),
+                    reply(_("Please type a short message which will be sent to all passengers matching your journey"),
                         kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                     person.setState(p, 325)
                 elif text.endswith(_("Abort")):
@@ -1188,10 +1294,10 @@ class WebhookHandler(webapp2.RequestHandler):
                     count = broadcast_driver_message(p, text)
                     reply(_("Sent message to ") + str(count) + _(" people"))
                 if hasMatchingPassengers(p):
-                    reply(_("There is some waiting passenger(s) matching your journing ") + emoij.PEDESTRIAN,
+                    reply(_("There is some passenger(s) matching your journing ") + emoij.PEDESTRIAN,
                           kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
                 else:
-                    reply(_("Oops... there are no more waiting passengers matching your journing!"),
+                    reply(_("Oops... there are no more passengers matching your journing!"),
                           kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
                     # all passangers have left while driver was typing
                 person.setState(p, 32)
@@ -1217,8 +1323,8 @@ class WebhookHandler(webapp2.RequestHandler):
                     # restart(p)
                     # state = -1
                 elif text==_('SEARCH BUS STOPS'):
-                    reply(_("Please attach a location by 1) pressing the paper clip icon below and 2) chosing a position in the map, "
-                            "and I will give you a lis of bus stops within a radius of 10 km from the given location. "),
+                    reply(PAPER_CLIP_INSTRUCTIONS + ' ' +
+                          _("I will give you a list of bus stops within a radius of 10 km from the given location."),
                           kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                     person.clearTmp(p)
                     person.setState(p, 81)
@@ -1241,18 +1347,17 @@ class WebhookHandler(webapp2.RequestHandler):
                         person.setTmp(p,bus_stops_formatted)
                         person.appendTmp(p,bus_stops)
                         reply(_("Found the following bus stop(s) near the location: ") + bus_stops_str + "\n\n" +
-                              _("By pressing in any of the names, the location will be presented to you."),
+                              _("By pressing on any of the names, the location will be presented to you."),
                               kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                         person.setState(p,81)
                     else:
-                        reply(_("No bus stop found near location, try again. ") +
-                              _("Please attach a location by 1) pressing the paper clip icon below and 2) chosing a position in the map."))
+                        reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
                 elif text.startswith('/') and text in p.tmp:
                     if (text in p.tmp):
                         i = p.tmp.index(text)
                         j = len(p.tmp)/2+i
                         bus_stop = p.tmp[j]
-                        replyLocation(itinerary.getBusStopLocation(bus_stop))
+                        replyLocation(itinerary.getBusStopLocation(p.last_city, bus_stop))
                         #reply("Found: " + p.tmp[j])
                     else:
                         reply("Sorry, I don't understand you")
@@ -1323,17 +1428,17 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 93:
                 #ITINERARY
-                if text==_('Start Location'):
-                    askToInsertLocation(p, _('the START location '), 931)
+                if text in [_("Set Start Location"),_("Change Start Location")]:
+                    askToInsertLocation(p, _('the START location'), 931, PAPER_CLIP_INSTRUCTIONS)
                     # state = 931
-                elif text==_('End Location'):
-                    askToInsertLocation(p, _('the END location '), 932)
+                elif text in [_("Set End Location"),_("Change End Location")]:
+                    askToInsertLocation(p, _('the END location'), 932, PAPER_CLIP_INSTRUCTIONS)
                     # state = 932
-                elif text==_('Mid Points Going'):
-                    goToSettingMidPoints(p,933)
+                elif text==_("Change Mid Points Going"):
+                    goToSettingMidPoints(p,933,PAPER_CLIP_INSTRUCTIONS)
                     # state = 933
-                elif text==_('Mid Points Back'):
-                    goToSettingMidPoints(p,934)
+                elif text==_("Change Mid Points Back"):
+                    goToSettingMidPoints(p,934,PAPER_CLIP_INSTRUCTIONS)
                     # state = 934
                 elif text.endswith(_("Back")):
                     goToSettings(p)
@@ -1353,9 +1458,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         person.setTmp(p,bus_stops)
                         person.setState(p,9311)
                     else:
-                        reply(_("No bus stop found near location, try again. ") +
-                              _("Please attach the START location by 1) pressing the paper clip icon below and "
-                                "2) chosing a position in the map."))
+                        reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItinerary(p)
                     # state = 93
@@ -1363,9 +1466,14 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 9311:
                 #CHECK START LOCATION
-                logging.debug("text: " + text)
-                logging.debug("tmp: " + str(p.tmp))
-                if text in p.tmp:
+                #logging.debug("text: " + text)
+                #logging.debug("tmp: " + str(p.tmp))
+                if text.endswith(_("Back")):
+                    reply(PAPER_CLIP_INSTRUCTIONS,
+                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.setState(p,931)
+                    # state = 931
+                elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
                             i = p.tmp.index(text)
@@ -1376,21 +1484,16 @@ class WebhookHandler(webapp2.RequestHandler):
                             return
                     person.setBusStopStart(p,text)
                     reply(_("Thanks for setting the START location!"))
+                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItinerary(p)
                     # state = 93
-                elif text.endswith(_("Back")):
-                    reply(_("Please attach the START location by 1) pressing the paper clip icon below and "
-                            "2) chosing a position in the map."),
-                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                    person.setState(p,931)
-                    # state = 931
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 932:
                 #END LOCATION
                 if text == _("List Bus Stops"):
                     replyListBusStops(p, 9321)
-                if text_location!=None:
+                elif text_location!=None:
                     loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
                     bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start], p)
                     if len(bus_stops)>0:
@@ -1399,9 +1502,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         person.setTmp(p,bus_stops)
                         person.setState(p,9321)
                     else:
-                        reply(_("No bus stop found near location, try again. ") +
-                              _("Please attach the END location by 1) pressing the paper clip icon below and "
-                                "2) chosing a position in the map."))
+                        reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItinerary(p)
                     # state = 93
@@ -1409,7 +1510,12 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 9321:
                 #CHECK END LOCATION
-                if text in p.tmp:
+                if text.endswith(_("Back")):
+                    reply(PAPER_CLIP_INSTRUCTIONS,
+                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
+                    person.setState(p,932)
+                    # state = 932
+                elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
                             i = p.tmp.index(text)
@@ -1420,14 +1526,9 @@ class WebhookHandler(webapp2.RequestHandler):
                             return
                     person.setBusStopEnd(p,text)
                     reply(_("Thanks for setting the END location!"))
+                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItinerary(p)
                     # state = 93
-                elif text.endswith(_("Back")):
-                    reply(_("Please attach the END location by 1) pressing the paper clip icon below and "
-                            "2) chosing a position in the map."),
-                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                    person.setState(p,932)
-                    # state = 932
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 933:
@@ -1455,8 +1556,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         person.setState(p,9331)
                     else:
                         reply(_("No bus stop found near location, try again. ") +
-                              _("Please attach a new intermediate location by 1) pressing the paper clip icon below and "
-                                "2) chosing a position in the map."))
+                              PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItinerary(p)
                     # state = 93
@@ -1464,7 +1564,10 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 9331:
                 #CHECK MID POINT GOING
-                if text in p.tmp:
+                if text.endswith(_("Back")):
+                    goToSettingMidPoints(p,933,PAPER_CLIP_INSTRUCTIONS)
+                    # state = 933
+                elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
                             i = p.tmp.index(text)
@@ -1475,11 +1578,9 @@ class WebhookHandler(webapp2.RequestHandler):
                             return
                     person.appendBusStopMidGoing(p,text)
                     reply(_("Thanks for adding a new mid point!"))
+                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItinerary(p)
                     # state = 93
-                elif text.endswith(_("Back")):
-                    goToSettingMidPoints(p,933)
-                    # state = 933
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 934:
@@ -1507,7 +1608,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         person.setState(p,9341)
                     else:
                         reply(_("No bus stop found near location, try again. ") +
-                              _("Please attach a new intermediate location by pressing the clip and chosing a position in the map."))
+                              PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItinerary(p)
                     # state = 93
@@ -1515,7 +1616,10 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 9341:
                 #CHECK MID POINT BACK
-                if text in p.tmp:
+                if text.endswith(_("Back")):
+                    goToSettingMidPoints(p,934, PAPER_CLIP_INSTRUCTIONS)
+                    # state = 934
+                elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
                             i = p.tmp.index(text)
@@ -1526,11 +1630,9 @@ class WebhookHandler(webapp2.RequestHandler):
                             return
                     person.appendBusStopMidBack(p,text)
                     reply(_("Thanks for adding a new mid point!"))
+                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItinerary(p)
                     # state = 93
-                elif text.endswith(_("Back")):
-                    goToSettingMidPoints(p,934)
-                    # state = 934
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 94:
@@ -1569,4 +1671,5 @@ app = webapp2.WSGIApplication([
     ('/checkExpiredUsers', CheckExpiredUsersHandler),
     ('/tiramisulottery', TiramisuHandler),
     ('/dayPeopleCount', DayPeopleCountHandler),
+    ('/newVersionBroadcast', NewVersionBroadcastHandler),
 ], debug=True)

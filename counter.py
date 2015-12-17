@@ -85,15 +85,15 @@ def getDashboardData():
     p_wait_trento = Person.query().filter(Person.location == itinerary.FERMATA_TRENTO, Person.state.IN([21, 22])).count()
     p_wait_povo = Person.query().filter(Person.location == itinerary.FERMATA_POVO, Person.state.IN([21, 22])).count()
 
-    r_cur_tn_pv = ndb.Key('tn_pv_current_rides').get().counter
+    r_cur_tn_pv = ndb.Key(Counter, 'tn_pv_current_rides').get().counter
     #p_cur_tn_pv = 0
-    r_tot_tn_pv = ndb.Key('tn_pv_total_rides').get().counter
-    p_tot_tn_pv = ndb.Key('tn_pv_total_passengers').get().counter
+    r_tot_tn_pv = ndb.Key(Counter, 'tn_pv_total_rides').get().counter
+    p_tot_tn_pv = ndb.Key(Counter, 'tn_pv_total_passengers').get().counter
 
-    r_cur_pv_tn = ndb.Key('pv_tn_current_rides').get().counter
+    r_cur_pv_tn = ndb.Key(Counter, 'pv_tn_current_rides').get().counter
     #p_cur_pv_tn = 0
-    r_tot_pv_tn = ndb.Key('pv_tn_total_rides').get().counter
-    p_tot_pv_tn = ndb.Key('pv_tn_total_passengers').get().counter
+    r_tot_pv_tn = ndb.Key(Counter, 'pv_tn_total_rides').get().counter
+    p_tot_pv_tn = ndb.Key(Counter, 'pv_tn_total_passengers').get().counter
 
     data = {
         "passenger": {

@@ -25,6 +25,7 @@ class Person(ndb.Model):
     tmp = ndb.StringProperty(repeated=True)
     last_city = ndb.StringProperty()
     notified = ndb.BooleanProperty(default=False)
+    prev_state = ndb.IntegerProperty()
 
 def addPerson(chat_id, name):
     p = Person.get_or_insert(str(chat_id))
@@ -41,6 +42,7 @@ def setType(p, type):
     p.put()
 
 def setState(p, state):
+    p.prev_state = p.state
     p.state = state
     p.put()
 

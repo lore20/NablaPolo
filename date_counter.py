@@ -1,6 +1,6 @@
 
 from google.appengine.ext import ndb
-import date_util
+import time_util
 import person
 
 class DateCounter(ndb.Model):
@@ -8,7 +8,7 @@ class DateCounter(ndb.Model):
     people_counter = ndb.IntegerProperty()
 
 def addPeopleCount():
-    p = DateCounter.get_or_insert(str(date_util.now()))
+    p = DateCounter.get_or_insert(str(time_util.now()))
     p.people_counter = person.Person.query().count()
     p.put()
     return p

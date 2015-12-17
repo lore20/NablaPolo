@@ -29,6 +29,8 @@ TN_Questura = ("Verona Questura", 46.0457542, 11.1309265, 'QSTR')
 
 #new entry
 TN_Pergine_FS = ("Pergine FS", 46.0634661, 11.2315599, 'PER_FS')
+# mattarello 46.0114635 / 11.1303024
+#Trento Nord - Zona Commerciale 46.090066,11.113395
 
 FERMATA_TRENTO = TN_Aquila[0]
 FERMATA_POVO = TN_Povo_PoloScientifico[0]
@@ -124,42 +126,46 @@ def HaversineDistance(loc1, loc2):
 
 MAX_DISTANCE = 1.0 #km
 
-def getBusStopLocation(bs_name):
-    bs = BusStop.query(BusStop.name==bs_name).get()
+def getBusStopLocation(city, bs_name):
+    bs = BusStop.query(BusStop.city==city, BusStop.name==bs_name).get()
     return bs.location
 
-def matchDriverAndPassengerEnd(driver, passenger):
+def matchDriverAndPassengerEnd(driver, passenger, usePassengerLocation=True):
     bs_end_d = getBusStop(driver.last_city, person.getDestination(driver))
-    bs_end_p = getBusStop(passenger.last_city, person.getDestination(passenger))
+    passengerEnd = person.getDestination(passenger) if usePassengerLocation else passenger.bus_stop_end
+    bs_end_p = getBusStop(passenger.last_city, passengerEnd)
     if (bs_end_d is None or bs_end_p is None):
         return False
     return matchClusterLocation(bs_end_d, bs_end_p)
 
-def matchDriverAndPassengerStart(driver, passenger):
+def matchDriverAndPassengerStart(driver, passenger, usePassengerLocation=True):
     bs_start_d = getBusStop(driver.last_city, driver.location)
-    bs_start_p = getBusStop(passenger.last_city, passenger.location)
+    passengerStart = passenger.location if usePassengerLocation else passenger.bus_stop_start
+    bs_start_p = getBusStop(passenger.last_city, passengerStart)
     if (bs_start_d is None or bs_start_p is None):
         return False
     return matchClusterLocation(bs_start_d, bs_start_p)
 
-def matchDriverMidPointsAndPassengerStart(driver, passenger):
+def matchDriverMidPointsAndPassengerStart(driver, passenger, usePassengerLocation=True):
     midPoints = person.getMidPoints(driver)
     if not midPoints:
         return False
+    passengerStart = passenger.location if usePassengerLocation else passenger.bus_stop_start
+    bs_start_p = getBusStop(passenger.last_city, passengerStart)
     for md in midPoints:
         bs_start_d = getBusStop(driver.last_city, md)
-        bs_start_p = getBusStop(passenger.last_city, passenger.location)
         if bs_start_d is not None and bs_start_p is not None and matchClusterLocation(bs_start_d, bs_start_p):
             return True
     return False
 
-def matchDriverMidPointsAndPassengerEnd(driver, passenger):
+def matchDriverMidPointsAndPassengerEnd(driver, passenger, usePassengerLocation=True):
     midPoints = person.getMidPoints(driver)
     if not midPoints:
         return False
+    passengerEnd = person.getDestination(passenger) if usePassengerLocation else passenger.bus_stop_end
+    bs_end_p = getBusStop(passenger.last_city, passengerEnd)
     for md in midPoints:
         bs_end_d = getBusStop(driver.last_city, md)
-        bs_end_p = getBusStop(passenger.last_city, person.getDestination(passenger))
         if bs_end_d is not None and bs_end_p is not None and matchClusterLocation(bs_end_d, bs_end_p):
             return True
     return False
@@ -170,6 +176,13 @@ def matchDriverAndPassenger(driver, passenger):
              matchDriverMidPointsAndPassengerStart(driver, passenger)) and\
            (matchDriverAndPassengerEnd(driver, passenger) or
             matchDriverMidPointsAndPassengerEnd(driver, passenger))
+
+def matchDriverAndPotentialPassenger(driver, passenger):
+    return ( matchDriverAndPassengerStart(driver, passenger, False) or
+             matchDriverMidPointsAndPassengerStart(driver, passenger, False)) and\
+           (matchDriverAndPassengerEnd(driver, passenger, False) or
+            matchDriverMidPointsAndPassengerEnd(driver, passenger, False))
+
 
 def matchClusterLocation(loc1, loc2):
     #return loc1.name == loc2.name or loc2.name in loc1.cluster
