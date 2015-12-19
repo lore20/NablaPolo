@@ -3,6 +3,18 @@ from google.appengine.ext import ndb
 import itinerary
 import time_util
 
+"""
+class ActivePerson(ndb.Model):
+    state = ndb.IntegerProperty()
+    last_seen = ndb.DateTimeProperty()
+
+def addActivePerson(person):
+    ap = ActivePerson.get_or_insert(str(person.chat_id))
+    ap.state = person.state
+    ap.last_seen = person.last_seen
+    ap.put()
+"""
+
 class Person(ndb.Model):
     name = ndb.StringProperty()
     last_name = ndb.StringProperty(default='-')

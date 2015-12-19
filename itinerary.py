@@ -29,8 +29,9 @@ TN_Questura = ("Verona Questura", 46.0457542, 11.1309265, 'QSTR')
 
 #new entry
 TN_Pergine_FS = ("Pergine FS", 46.0634661, 11.2315599, 'PER_FS')
-# mattarello 46.0114635 / 11.1303024
-#Trento Nord - Zona Commerciale 46.090066,11.113395
+TN_Mattarello_Catorni = ("Mattarello Catoni", 46.009173, 11.128193, 'MAT_CA')
+TN_NORD_ZONA_COMMERCIALE = ("Trento Nord Zona Commerciale", 46.090066, 11.113395, 'NZC')
+
 
 FERMATA_TRENTO = TN_Aquila[0]
 FERMATA_POVO = TN_Povo_PoloScientifico[0]
@@ -53,7 +54,9 @@ CITY_BUS_STOPS = {
         TN_Travai,
         TN_Cavallegggeri,
         TN_Questura,
-        TN_Pergine_FS
+        TN_Pergine_FS,
+        TN_Mattarello_Catorni,
+        TN_NORD_ZONA_COMMERCIALE
     ),
     CITY_CALTANISSETTA: (
         CL_FS,

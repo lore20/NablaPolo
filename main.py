@@ -13,6 +13,7 @@ import emoij
 import counter
 import person
 from person import Person
+#from person import ActivePerson
 import date_counter
 import ride
 from ride import Ride
@@ -30,6 +31,8 @@ from google.appengine.api import channel
 from google.appengine.api import taskqueue
 from google.appengine.ext import deferred
 from google.appengine.api import mail
+from google.appengine.ext.db import datastore_errors
+
 
 #from google.appengine.ext import vendor
 #vendor.add('lib')
@@ -206,18 +209,24 @@ def checkEnabled():
                 p.put()
         sleep(0.035) # no more than 30 messages per second
 
-
-def broadcast(msg, language='ALL'):
-    qry = Person.query() #.order(-Person.last_mod)
-    count = 0
-    for p in qry:
-        if (p.enabled):
-            if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
-                count += 1
-                setLanguage(p.language)
-                tell(p.chat_id, _("Listen listen...") + _(' ') + _(msg))
-                sleep(0.100) # no more than 10 messages per second
-    logging.debug('broadcasted to people ' + str(count))
+def broadcast(msg, language='ALL', curs=None, count = 0):
+    users, next_curs, more = Person.query().fetch_page(50, start_cursor=curs) #.order(-Person.last_mod)
+    try:
+        for p in users:
+            if (p.enabled):
+                if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
+                    setLanguage(p.language)
+                    tell(p.chat_id, _("Listen listen...") + _(' ') + _(msg))
+                    count += 1
+                    sleep(0.050) # no more than 20 messages per second
+    except datastore_errors.Timeout:
+        sleep(1)
+        deferred.defer(broadcast, msg, language, curs, count)
+        return
+    if more:
+        deferred.defer(broadcast, msg, language, next_curs, count, _queue='default')
+    else:
+        logging.debug('broadcasted to people ' + str(count))
 
 def getInfoCount(lang='EN'):
     setLanguage(lang)
@@ -411,7 +420,10 @@ def replyListBusStops(p,new_state):
     bus_stops_str = '\n'.join(bus_stops_formatted)
     person.setTmp(p,bus_stops_formatted)
     person.appendTmp(p,bus_stops)
-    tell(p.chat_id, _("Found the following bus stop(s) in your city:") + _("\n") + bus_stops_str)
+    tell(p.chat_id,
+         _("Found the following bus stop(s) in your city:") + _("\n")
+         + bus_stops_str + _("\n\n") + _("Press on one of them to set it."),
+         kb = [[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
     person.setState(p,new_state)
 
 
@@ -433,14 +445,6 @@ def assignNextTicketId(p, is_driver):
     p.put()
     return ticketId
 
-def putPassengerOnHold(passenger):
-    tell(passenger.chat_id, _("Currently there are no drivers matching your journey.") + ' '
-         + _("You will be notified as soon as one is available.") + ' '
-         + _("If you find another solution, please abort your request."),
-         kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
-    person.setState(passenger, 21)
-
-
 # ================================
 # ================================
 # ================================
@@ -451,9 +455,8 @@ def checkExpiredUsers():
     checkExpiredPassengers()
 
 def checkExpiredDrivers():
-    #for location in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
-    #    qry = Person.query(Person.location == location, Person.state.IN([32,33]))
     qry = Person.query(Person.state.IN([32,33]))
+    #qry = Person.query(ActivePerson.state.IN([32,33]))
     oldDrivers = {
         32: [],
         33: []
@@ -497,6 +500,15 @@ def checkExpiredPassengers():
 # ================================
 # ================================
 # ================================
+
+def putPassengerOnHold(passenger):
+    tell(passenger.chat_id, _("Currently there are no drivers matching your journey.") + ' '
+         + _("You will be notified as soon as one is available.") + ' '
+         + _("If you find another solution, please abort your request."),
+         kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
+    person.setState(passenger, 21)
+    #person.addActivePerson(passenger)
+
 
 def getMatchingDrivers(passenger):
     match = []
@@ -640,6 +652,7 @@ def listPassengers(driver):
 
 
 def removePassenger(p, driver=None):
+    #ndb.Key(ActivePerson, p.chat_id).delete()
     matchDrivers = getMatchingDrivers(p)
     logging.debug('Found Drivers: ' + str(len(matchDrivers)))
     for d in matchDrivers:
@@ -654,6 +667,7 @@ def removePassenger(p, driver=None):
     restart(p)
 
 def removeDriver(d):
+    #ndb.Key(ActivePerson, d.chat_id).delete()
     matchPassengers = getMatchingPassengers(d)
     #logging.debug('Found Drivers: ' + str(len(matchPassengers)))
     for p in matchPassengers:
@@ -1106,14 +1120,15 @@ class WebhookHandler(webapp2.RequestHandler):
                         else:
                             reply('Problems in sending text')
                     elif text == '/test':
+                        #return
                         logging.debug('test')
                         #c = person.resetAllState(-2)
                         #reply("Successfully reset all states: " + str(c))
                         #c = person.resetTermsAndNotification()
                         #reply("Successfully reset users terms and notification: " + str(c))
-                        #counter.resetCounter()
                         #itinerary.initBusStops()
-                        #reply('Succeffully reinitiated bus stops')
+                        #counter.resetCounter()
+                        #reply('Succeffully reinitiated bus stops and counters')
                         #reply("/opzione1 bfdslkjfdsjaklfdj")
                         #reply("/opzione2 ju39jrkek")
                         #reply("/opzione3 349jfndkkj")
@@ -1128,8 +1143,8 @@ class WebhookHandler(webapp2.RequestHandler):
                         #      "Se lo ricevi una sola volta vuol dire che da ora in poi funziona :D (se no cerchiamo di risolverlo)\n\n" + \
                         #      "Broadcasting test.\n" + \
                         #      "If you receive it only once it means that now it works correctly :D (if not we will try to fix it)"
-                        #msg = "Last  broadcast test for today :P"
-                        #broadcastQueue(msg)
+                        msg = "test"
+                        deferred.defer(broadcast, msg)
                         #deferred.defer(tell_fede, "Hello, world!")
                     elif text == '/getAllInfo':
                         reply(getInfoAllRequestsOffers())
@@ -1469,9 +1484,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 #logging.debug("text: " + text)
                 #logging.debug("tmp: " + str(p.tmp))
                 if text.endswith(_("Back")):
-                    reply(PAPER_CLIP_INSTRUCTIONS,
-                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                    person.setState(p,931)
+                    askToInsertLocation(p, _('the START location'), 931, PAPER_CLIP_INSTRUCTIONS)
                     # state = 931
                 elif text in p.tmp:
                     if text.startswith('/'):
@@ -1511,9 +1524,7 @@ class WebhookHandler(webapp2.RequestHandler):
             elif p.state == 9321:
                 #CHECK END LOCATION
                 if text.endswith(_("Back")):
-                    reply(PAPER_CLIP_INSTRUCTIONS,
-                          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                    person.setState(p,932)
+                    askToInsertLocation(p, _('the END location'), 932, PAPER_CLIP_INSTRUCTIONS)
                     # state = 932
                 elif text in p.tmp:
                     if text.startswith('/'):
@@ -1565,7 +1576,7 @@ class WebhookHandler(webapp2.RequestHandler):
             elif p.state == 9331:
                 #CHECK MID POINT GOING
                 if text.endswith(_("Back")):
-                    goToSettingMidPoints(p,933,PAPER_CLIP_INSTRUCTIONS)
+                     goToSettingMidPoints(p,933,PAPER_CLIP_INSTRUCTIONS)
                     # state = 933
                 elif text in p.tmp:
                     if text.startswith('/'):
@@ -1617,7 +1628,7 @@ class WebhookHandler(webapp2.RequestHandler):
             elif p.state == 9341:
                 #CHECK MID POINT BACK
                 if text.endswith(_("Back")):
-                    goToSettingMidPoints(p,934, PAPER_CLIP_INSTRUCTIONS)
+                    goToSettingMidPoints(p,934,PAPER_CLIP_INSTRUCTIONS)
                     # state = 934
                 elif text in p.tmp:
                     if text.startswith('/'):
