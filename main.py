@@ -345,7 +345,7 @@ def goToSettingItinerary(p):
     end = '?' if p.bus_stop_end is None else p.bus_stop_end
     mid_going = [x.encode('UTF8') for x in p.bus_stop_mid_going]
     mid_back = [x.encode('UTF8') for x in p.bus_stop_mid_back]
-    itn_txt = _("Itinerary: ") + _(start) + _(' <-> ') + _(end) + _('\n\n')
+    itn_txt = _("Itinerary: ") + _(start.encode('UTF8')) + _(' <-> ') + _(end.encode('UTF8')) + _('\n\n')
 
     firstRowButtons = [
         _("Change Start Location") if p.bus_stop_start else _("Set Start Location"),
@@ -414,9 +414,13 @@ def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
     person.setState(p,state)
 
 
+def removeSpaces(str):
+    #return re.sub(r'[^\w]','',str,re.UNICODE)
+    return re.sub(r"[\s'.]",'',str,re.UNICODE)
+
 def replyListBusStops(p,new_state):
     bus_stops = itinerary.getOtherBusStops(p)
-    bus_stops_formatted = ['/' + re.sub(r'[^\w]','',x.encode('UTF8')) for x in bus_stops]
+    bus_stops_formatted = ['/' + removeSpaces(x.encode('UTF8')) for x in bus_stops]
     bus_stops_str = '\n'.join(bus_stops_formatted)
     person.setTmp(p,bus_stops_formatted)
     person.appendTmp(p,bus_stops)
@@ -590,7 +594,7 @@ def connect_with_matchin_passengers(driver):
               _("Have a nice trip!") + emoij.SMILING_FACE,
               kb=[[_("List Passengers"), _("Send Message")],[emoij.NOENTRY + _(' ') + _("Abort")]])
     else:
-        tell(driver.chat_id, _("There is currently no passenger matching your journey.") +
+        tell(driver.chat_id, _("There is currently no passenger matching your journey.") + _(" ") +
              _("If a new passege request matches your journey we will notify you.") + _("\n") +
              _("Have a nice trip! ") + emoij.SMILING_FACE,
         kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
@@ -1119,6 +1123,10 @@ class WebhookHandler(webapp2.RequestHandler):
                             reply('Successfully sent text')
                         else:
                             reply('Problems in sending text')
+                    elif text == '/resetBusStopsAndCounters':
+                        itinerary.initBusStops()
+                        counter.resetCounter()
+                        reply('Succeffully reinitiated bus stops and counters')
                     elif text == '/test':
                         #return
                         logging.debug('test')
@@ -1126,9 +1134,6 @@ class WebhookHandler(webapp2.RequestHandler):
                         #reply("Successfully reset all states: " + str(c))
                         #c = person.resetTermsAndNotification()
                         #reply("Successfully reset users terms and notification: " + str(c))
-                        #itinerary.initBusStops()
-                        #counter.resetCounter()
-                        #reply('Succeffully reinitiated bus stops and counters')
                         #reply("/opzione1 bfdslkjfdsjaklfdj")
                         #reply("/opzione2 ju39jrkek")
                         #reply("/opzione3 349jfndkkj")
@@ -1143,8 +1148,8 @@ class WebhookHandler(webapp2.RequestHandler):
                         #      "Se lo ricevi una sola volta vuol dire che da ora in poi funziona :D (se no cerchiamo di risolverlo)\n\n" + \
                         #      "Broadcasting test.\n" + \
                         #      "If you receive it only once it means that now it works correctly :D (if not we will try to fix it)"
-                        msg = "test"
-                        deferred.defer(broadcast, msg)
+                        #msg = "test"
+                        #deferred.defer(broadcast, msg)
                         #deferred.defer(tell_fede, "Hello, world!")
                     elif text == '/getAllInfo':
                         reply(getInfoAllRequestsOffers())
@@ -1357,7 +1362,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     bus_stops = itinerary.getClosestBusStops(loc_point, [], p, max_distance=10, trim=False)
                     #.replace(' ', '-')
                     if len(bus_stops)>0:
-                        bus_stops_formatted = ['/' + re.sub(r'[^\w]','',x.encode('UTF8')) for x in bus_stops]
+                        bus_stops_formatted = ['/' + removeSpaces(x.encode('UTF8')) for x in bus_stops]
                         bus_stops_str = ' - '.join(bus_stops_formatted)
                         person.setTmp(p,bus_stops_formatted)
                         person.appendTmp(p,bus_stops)

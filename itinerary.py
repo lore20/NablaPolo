@@ -32,6 +32,9 @@ TN_Pergine_FS = ("Pergine FS", 46.0634661, 11.2315599, 'PER_FS')
 TN_Mattarello_Catorni = ("Mattarello Catoni", 46.009173, 11.128193, 'MAT_CA')
 TN_NORD_ZONA_COMMERCIALE = ("Trento Nord Zona Commerciale", 46.090066, 11.113395, 'NZC')
 
+TN_RIVA_INVIOLATA = ("Riva Inviolata", 45.889042, 10.843240, 'RDG_INV')
+TN_ARCO_CASINO = ("Arco Casinò", 45.917813, 10.885141, 'ARC_CAS')
+TN_ARCO_S_CAT_POLI = ("Arco S.Caterina Poli", 45.909959, 10.870948, 'ARC_CAS')
 
 FERMATA_TRENTO = TN_Aquila[0]
 FERMATA_POVO = TN_Povo_PoloScientifico[0]
@@ -56,7 +59,10 @@ CITY_BUS_STOPS = {
         TN_Questura,
         TN_Pergine_FS,
         TN_Mattarello_Catorni,
-        TN_NORD_ZONA_COMMERCIALE
+        TN_NORD_ZONA_COMMERCIALE,
+        TN_RIVA_INVIOLATA,
+        TN_ARCO_CASINO,
+        TN_ARCO_S_CAT_POLI
     ),
     CITY_CALTANISSETTA: (
         CL_FS,
@@ -216,8 +222,8 @@ def getOtherBusStops(person):
     first = True
     for bs in BusStop.query(BusStop.city==person.last_city):
         if (bs.name not in [person.bus_stop_start,person.bus_stop_end] and
-            bs.name not in [person.bus_stop_mid_going] and
-            bs.name not in [person.bus_stop_mid_back]):
+            bs.name not in person.bus_stop_mid_going and
+            bs.name not in person.bus_stop_mid_back):
             result.append(bs.name)
     return result
 
