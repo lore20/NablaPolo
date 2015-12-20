@@ -25,7 +25,7 @@ class Person(ndb.Model):
     state = ndb.IntegerProperty()
     ticket_id = ndb.StringProperty()
     last_type = ndb.StringProperty(default='-1')
-    location = ndb.StringProperty(default='-') # to be removed
+    location = ndb.StringProperty(default='-')
     language = ndb.StringProperty(default='IT')
     enabled = ndb.BooleanProperty(default=True)
     agree_on_terms = ndb.BooleanProperty(default=False)

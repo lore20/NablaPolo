@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-12-12 21:07+0100\n"
-"PO-Revision-Date: 2015-12-12 21:07+0100\n"
+"POT-Creation-Date: 2015-12-20 23:08+0100\n"
+"PO-Revision-Date: 2015-12-20 23:08+0100\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: en\n"
@@ -17,107 +17,108 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../main.py:169 ../main.py:998
+#: ../main.py:173 ../main.py:1068
 msgid "Hi"
 msgstr "Hi"
 
-#: ../main.py:169 ../main.py:170 ../main.py:212 ../main.py:219 ../main.py:220
-#: ../main.py:291 ../main.py:305 ../main.py:316 ../main.py:321 ../main.py:345
-#: ../main.py:353 ../main.py:357 ../main.py:364 ../main.py:394 ../main.py:433
-#: ../main.py:542 ../main.py:549 ../main.py:565 ../main.py:572 ../main.py:577
-#: ../main.py:744 ../main.py:796 ../main.py:1116 ../main.py:1122
-#: ../main.py:1144 ../main.py:1186 ../main.py:1189 ../main.py:1208
-#: ../main.py:1237 ../main.py:1252 ../main.py:1255 ../main.py:1263
-#: ../main.py:1282 ../main.py:1287 ../main.py:1305 ../main.py:1338
-#: ../main.py:1348 ../main.py:1349 ../main.py:1351 ../main.py:1411
-#: ../main.py:1441 ../main.py:1455 ../main.py:1483 ../main.py:1508
-#: ../main.py:1560
+#: ../main.py:173 ../main.py:174 ../main.py:220 ../main.py:235 ../main.py:236
+#: ../main.py:308 ../main.py:322 ../main.py:333 ../main.py:338 ../main.py:346
+#: ../main.py:368 ../main.py:376 ../main.py:380 ../main.py:387 ../main.py:417
+#: ../main.py:439 ../main.py:521 ../main.py:574 ../main.py:581 ../main.py:597
+#: ../main.py:604 ../main.py:606 ../main.py:609 ../main.py:785 ../main.py:839
+#: ../main.py:1200 ../main.py:1206 ../main.py:1228 ../main.py:1270
+#: ../main.py:1273 ../main.py:1295 ../main.py:1324 ../main.py:1339
+#: ../main.py:1342 ../main.py:1350 ../main.py:1369 ../main.py:1374
+#: ../main.py:1392 ../main.py:1425 ../main.py:1438 ../main.py:1439
+#: ../main.py:1441 ../main.py:1501 ../main.py:1543 ../main.py:1594
+#: ../main.py:1646
 msgid " "
 msgstr " "
 
-#: ../main.py:169
+#: ../main.py:173
 msgid "! "
 msgstr "! "
 
-#: ../main.py:169
+#: ../main.py:173
 msgid "Are you a driver or a passenger?"
 msgstr "Are you a driver or a passenger?"
 
-#: ../main.py:170 ../main.py:1117
+#: ../main.py:174 ../main.py:1201
 msgid "Driver"
 msgstr "Driver"
 
-#: ../main.py:170 ../main.py:1112
+#: ../main.py:174 ../main.py:1196
 msgid "Passenger"
 msgstr "Passenger"
 
-#: ../main.py:170 ../main.py:433 ../main.py:542 ../main.py:549 ../main.py:565
-#: ../main.py:572 ../main.py:577 ../main.py:1116 ../main.py:1122
-#: ../main.py:1123 ../main.py:1131 ../main.py:1148 ../main.py:1162
-#: ../main.py:1177 ../main.py:1200 ../main.py:1208 ../main.py:1225
-#: ../main.py:1239 ../main.py:1252 ../main.py:1255
+#: ../main.py:174 ../main.py:521 ../main.py:574 ../main.py:581 ../main.py:597
+#: ../main.py:604 ../main.py:609 ../main.py:1200 ../main.py:1206
+#: ../main.py:1207 ../main.py:1215 ../main.py:1232 ../main.py:1246
+#: ../main.py:1261 ../main.py:1287 ../main.py:1295 ../main.py:1312
+#: ../main.py:1326 ../main.py:1339 ../main.py:1342
 msgid "Abort"
 msgstr "Abort"
 
-#: ../main.py:180 ../main.py:230 ../main.py:242 ../main.py:258 ../main.py:298
-#: ../main.py:343 ../main.py:407 ../main.py:483 ../main.py:575 ../main.py:957
-#: ../main.py:966 ../main.py:968 ../main.py:970 ../main.py:973 ../main.py:976
+#: ../main.py:184 ../main.py:246 ../main.py:259 ../main.py:275 ../main.py:315
+#: ../main.py:366 ../main.py:437 ../main.py:506 ../main.py:607 ../main.py:1027
+#: ../main.py:1036 ../main.py:1038 ../main.py:1040 ../main.py:1043
+#: ../main.py:1046
 msgid "\n"
 msgstr "\n"
 
-#: ../main.py:212
+#: ../main.py:220
 msgid "Listen listen..."
 msgstr "Listen listen..."
 
-#: ../main.py:219
+#: ../main.py:235
 msgid "We are now"
 msgstr "We are now"
 
-#: ../main.py:219
+#: ../main.py:235
 msgid "people subscribed to PickMeUp!"
 msgstr "people subscribed to PickMeUp!"
 
-#: ../main.py:220
+#: ../main.py:236
 msgid "We want to get bigger and bigger!"
 msgstr "We want to get bigger and bigger!"
 
-#: ../main.py:220
+#: ../main.py:236
 msgid "Invite more people to join us!"
 msgstr "Invite more people to join us!"
 
-#: ../main.py:228
+#: ../main.py:244
 msgid "Since the beginiing of time there were a total of "
 msgstr "Since the beginiing of time there were a total of "
 
-#: ../main.py:229 ../main.py:241 ../main.py:257
+#: ../main.py:245 ../main.py:258 ../main.py:274
 msgid " ride requests and "
 msgstr " ride requests and "
 
-#: ../main.py:229 ../main.py:241 ../main.py:257
+#: ../main.py:245 ../main.py:258 ../main.py:274
 msgid " ride offers, of which "
 msgstr " ride offers, of which "
 
-#: ../main.py:230 ../main.py:242 ../main.py:258
+#: ../main.py:246 ../main.py:259 ../main.py:275
 msgid " successfully completed!"
 msgstr " successfully completed!"
 
-#: ../main.py:240
+#: ../main.py:257
 msgid "Today there were a total of "
 msgstr "Today there were a total of "
 
-#: ../main.py:244 ../main.py:259
+#: ../main.py:261 ../main.py:276
 msgid "Many thanks to all of you! "
 msgstr "Many thanks to all of you! "
 
-#: ../main.py:246
+#: ../main.py:263
 msgid "Let's make it happen! "
 msgstr "Let's make it happen! "
 
-#: ../main.py:256
+#: ../main.py:273
 msgid "This week there were a total of "
 msgstr "This week there were a total of "
 
-#: ../main.py:271
+#: ../main.py:288
 msgid ""
 "In order to start, please go to SETTINGS to agree on terms and conditions "
 "and setup your default ITINERARY."
@@ -125,23 +126,23 @@ msgstr ""
 "In order to start, please go to SETTINGS to agree on terms and conditions "
 "and setup your default ITINERARY."
 
-#: ../main.py:272 ../main.py:276 ../main.py:281 ../main.py:286 ../main.py:1013
-#: ../main.py:1034
+#: ../main.py:289 ../main.py:293 ../main.py:298 ../main.py:303 ../main.py:1083
+#: ../main.py:1104
 msgid "SETTINGS"
 msgstr "SETTINGS"
 
-#: ../main.py:272 ../main.py:276 ../main.py:281 ../main.py:286 ../main.py:1010
-#: ../main.py:1031
+#: ../main.py:289 ../main.py:293 ../main.py:298 ../main.py:303 ../main.py:1080
+#: ../main.py:1101
 msgid "INFO"
 msgstr "INFO"
 
-#: ../main.py:275
+#: ../main.py:292
 msgid ""
 "In order to start, please go to SETTINGS to agree on terms and conditions."
 msgstr ""
 "In order to start, please go to SETTINGS to agree on terms and conditions."
 
-#: ../main.py:279
+#: ../main.py:296
 msgid ""
 "In order to start, please go to SETTINGS to setup your default ITINERARY. "
 "You only need to do this once but you can always change it later."
@@ -149,81 +150,86 @@ msgstr ""
 "In order to start, please go to SETTINGS to setup your default ITINERARY. "
 "You only need to do this once but you can always change it later."
 
-#: ../main.py:281 ../main.py:286 ../main.py:1016 ../main.py:1037
+#: ../main.py:298 ../main.py:303 ../main.py:1086 ../main.py:1107
 msgid "INVITE A FRIEND"
 msgstr "INVITE A FRIEND"
 
-#: ../main.py:284
+#: ../main.py:301
 msgid "(You have notifications ENABLED)"
 msgstr "(You have notifications ENABLED)"
 
-#: ../main.py:284
+#: ../main.py:301
 msgid "(You have notifications DISABLED)"
 msgstr "(You have notifications DISABLED)"
 
-#: ../main.py:285
+#: ../main.py:302
 msgid "Press START if you want to start a new journey! "
 msgstr "Press START if you want to start a new journey! "
 
-#: ../main.py:290
+#: ../main.py:307
 msgid "This is the info panel."
 msgstr "This is the info panel."
 
-#: ../main.py:291 ../main.py:1271
+#: ../main.py:308 ../main.py:1358
 msgid "INFO USERS"
 msgstr "INFO USERS"
 
-#: ../main.py:291 ../main.py:1275
+#: ../main.py:308 ../main.py:1362
 msgid "DAY SUMMARY"
 msgstr "DAY SUMMARY"
 
-#: ../main.py:291 ../main.py:1279
+#: ../main.py:308 ../main.py:1366
 msgid "SEARCH BUS STOPS"
 msgstr "SEARCH BUS STOPS"
 
-#: ../main.py:291 ../main.py:1285
+#: ../main.py:308 ../main.py:1372
 msgid "SEND FEEDBACK"
 msgstr "SEND FEEDBACK"
 
-#: ../main.py:291 ../main.py:305 ../main.py:316 ../main.py:321 ../main.py:345
-#: ../main.py:353 ../main.py:357 ../main.py:364 ../main.py:394 ../main.py:1237
-#: ../main.py:1247 ../main.py:1282 ../main.py:1287 ../main.py:1289
-#: ../main.py:1305 ../main.py:1320 ../main.py:1326 ../main.py:1338
-#: ../main.py:1351 ../main.py:1353 ../main.py:1366 ../main.py:1378
-#: ../main.py:1397 ../main.py:1411 ../main.py:1416 ../main.py:1439
-#: ../main.py:1441 ../main.py:1455 ../main.py:1460 ../main.py:1481
-#: ../main.py:1483 ../main.py:1508 ../main.py:1514 ../main.py:1535
-#: ../main.py:1560 ../main.py:1566 ../main.py:1587 ../main.py:1602
+#: ../main.py:308 ../main.py:322 ../main.py:333 ../main.py:338 ../main.py:346
+#: ../main.py:368 ../main.py:376 ../main.py:380 ../main.py:387 ../main.py:417
+#: ../main.py:439 ../main.py:1324 ../main.py:1334 ../main.py:1369
+#: ../main.py:1374 ../main.py:1376 ../main.py:1392 ../main.py:1407
+#: ../main.py:1413 ../main.py:1425 ../main.py:1441 ../main.py:1443
+#: ../main.py:1456 ../main.py:1468 ../main.py:1487 ../main.py:1501
+#: ../main.py:1506 ../main.py:1515 ../main.py:1543 ../main.py:1548
+#: ../main.py:1555 ../main.py:1594 ../main.py:1600 ../main.py:1607
+#: ../main.py:1646 ../main.py:1652 ../main.py:1659 ../main.py:1684
+#: ../main.py:1699
 msgid "Back"
 msgstr "Back"
 
-#: ../main.py:296
+#: ../main.py:313
 msgid "This is the settings panel."
 msgstr "This is the settings panel."
 
-#: ../main.py:298
+#: ../main.py:315
 msgid ""
 "You have not agreed on Terms and Conditions, please press the button below."
 msgstr ""
 "You have not agreed on Terms and Conditions, please press the button below."
 
-#: ../main.py:299 ../main.py:1337
+#: ../main.py:316 ../main.py:1424
 msgid "TERMS AND CONDITIONS"
 msgstr "TERMS AND CONDITIONS"
 
-#: ../main.py:300 ../main.py:303 ../main.py:1346
+#: ../main.py:317 ../main.py:320 ../main.py:1436
 msgid "LANGUAGE"
 msgstr "LANGUAGE"
 
-#: ../main.py:302 ../main.py:1340
-msgid "ITINERARY"
-msgstr "ITINERARY"
+#: ../main.py:319 ../main.py:1430
+msgid "ITINERARY (basic)"
+msgstr "ITINERARY (basic)"
 
-#: ../main.py:303 ../main.py:1343
+#: ../main.py:319 ../main.py:1427
+msgid "ITINERARY (advanced)"
+msgstr "ITINERARY (advanced)"
+
+#: ../main.py:320 ../main.py:1433
 msgid "NOTIFICATIONS"
 msgstr "NOTIFICATIONS"
 
-#: ../main.py:313
+#: ../main.py:330
 msgid ""
 "You have the notifications ENABLED: you will be informed when a driver going "
 "through your route inserts a new journey, (even though you have no active "
@@ -233,11 +239,11 @@ msgstr ""
 "through your route inserts a new journey, (even though you have no active "
 "requests) and we will send you weekly statistics."
 
-#: ../main.py:316 ../main.py:1598
+#: ../main.py:333 ../main.py:1695
 msgid "DISABLE NOTIFICATIONS"
 msgstr "DISABLE NOTIFICATIONS"
 
-#: ../main.py:318
+#: ../main.py:335
 msgid ""
 "You have the notifications DISABLED: you will NOT be informed when a driver "
 "going through your route inserts a new journey, (unless you have an active "
@@ -247,86 +253,90 @@ msgstr ""
 "going through your route inserts a new journey, (unless you have an active "
 "request) and we will NOT send you weekly statistics."
 
-#: ../main.py:321 ../main.py:1594
+#: ../main.py:338 ../main.py:1691
 msgid "ENABLE NOTIFICATIONS"
 msgstr "ENABLE NOTIFICATIONS"
 
-#: ../main.py:332
+#: ../main.py:345
+msgid "Click on one of the following routes: "
+msgstr "Click on one of the following routes: "
+
+#: ../main.py:345 ../main.py:355 ../main.py:365 ../main.py:367 ../main.py:370
+#: ../main.py:438 ../main.py:1026 ../main.py:1028 ../main.py:1031
+#: ../main.py:1033 ../main.py:1037 ../main.py:1042 ../main.py:1045
+msgid ""
+"\n"
+"\n"
+msgstr ""
+"\n"
+"\n"
+
+#: ../main.py:355
 msgid "Itinerary: "
 msgstr "Itinerary: "
 
-#: ../main.py:332
+#: ../main.py:355
 msgid " <-> "
 msgstr " <-> "
 
-#: ../main.py:332 ../main.py:342 ../main.py:344 ../main.py:347 ../main.py:956
-#: ../main.py:958 ../main.py:961 ../main.py:963 ../main.py:967 ../main.py:972
-#: ../main.py:975
-msgid ""
-"\n"
-"\n"
-msgstr ""
-"\n"
-"\n"
-
-#: ../main.py:335 ../main.py:1385
+#: ../main.py:358 ../main.py:1475
 msgid "Change Start Location"
 msgstr "Change Start Location"
 
-#: ../main.py:335 ../main.py:1385
+#: ../main.py:358 ../main.py:1475
 msgid "Set Start Location"
 msgstr "Set Start Location"
 
-#: ../main.py:336 ../main.py:1388
+#: ../main.py:359 ../main.py:1478
 msgid "Change End Location"
 msgstr "Change End Location"
 
-#: ../main.py:336 ../main.py:1388
+#: ../main.py:359 ../main.py:1478
 msgid "Set End Location"
 msgstr "Set End Location"
 
-#: ../main.py:341 ../main.py:1391
+#: ../main.py:364 ../main.py:1481
 msgid "Change Mid Points Going"
 msgstr "Change Mid Points Going"
 
-#: ../main.py:341 ../main.py:1394
+#: ../main.py:364 ../main.py:1484
 msgid "Change Mid Points Back"
 msgstr "Change Mid Points Back"
 
-#: ../main.py:342
+#: ../main.py:365
 msgid ""
 "Drivers can optionally add intermediate points where to pick up passengers:"
 msgstr ""
 "Drivers can optionally add intermediate points where to pick up passengers:"
 
-#: ../main.py:343
+#: ../main.py:366
 msgid "Mid Points Going: "
 msgstr "Mid Points Going: "
 
-#: ../main.py:344
+#: ../main.py:367
 msgid "Mid Points Back: "
 msgstr "Mid Points Back: "
 
-#: ../main.py:347
+#: ../main.py:370
 msgid "Your current itinerary settings:"
 msgstr "Your current itinerary settings:"
 
-#: ../main.py:352 ../main.py:355
+#: ../main.py:375 ../main.py:378
 msgid "Please insert "
 msgstr "Please insert "
 
-#: ../main.py:356
+#: ../main.py:379
 msgid ""
 "Alternatevely you can press on 'LIST BUS STOPS' and select one manually."
 msgstr ""
 "Alternatevely you can press on 'LIST BUS STOPS' and select one manually."
 
-#: ../main.py:357 ../main.py:364 ../main.py:382 ../main.py:1404 ../main.py:1448
-#: ../main.py:1490 ../main.py:1542
+#: ../main.py:380 ../main.py:387 ../main.py:405 ../main.py:1494 ../main.py:1536
+#: ../main.py:1576 ../main.py:1628
 msgid "List Bus Stops"
 msgstr "List Bus Stops"
 
-#: ../main.py:363
+#: ../main.py:386
 msgid ""
 "You can enter a location using GEOLOCATION or ask for a LIST of bus stops in "
 "your city"
@@ -334,11 +344,11 @@ msgstr ""
 "You can enter a location using GEOLOCATION or ask for a LIST of bus stops in "
 "your city"
 
-#: ../main.py:364
+#: ../main.py:387
 msgid "Geolocation"
 msgstr "Geolocation"
 
-#: ../main.py:373
+#: ../main.py:396
 msgid ""
 "Please select an intermediate point you can stop on the way FORWARD to pick-"
 "up other passangers "
@@ -346,7 +356,7 @@ msgstr ""
 "Please select an intermediate point you can stop on the way FORWARD to pick-"
 "up other passangers "
 
-#: ../main.py:374
+#: ../main.py:397
 msgid ""
 "Please select an intermediate point you can stop on the way BACK to pick-up "
 "other passangers "
@@ -354,7 +364,7 @@ msgstr ""
 "Please select an intermediate point you can stop on the way BACK to pick-up "
 "other passangers "
 
-#: ../main.py:379
+#: ../main.py:402
 msgid ""
 "(or alternatively by asking the list of the bus stops and selecting one "
 "manually)."
@@ -362,35 +372,27 @@ msgstr ""
 "(or alternatively by asking the list of the bus stops and selecting one "
 "manually)."
 
-#: ../main.py:383 ../main.py:1492 ../main.py:1544
+#: ../main.py:406 ../main.py:1578 ../main.py:1630
 msgid "Remove all"
 msgstr "Remove all"
 
-#: ../main.py:388 ../main.py:391 ../main.py:1497 ../main.py:1549
+#: ../main.py:411 ../main.py:414 ../main.py:1583 ../main.py:1635
 msgid "Same as other direction"
 msgstr "Same as other direction"
 
-#: ../main.py:397
+#: ../main.py:420
 msgid "Current midpoints:"
 msgstr "Current midpoints:"
 
-#: ../main.py:407
+#: ../main.py:437
 msgid "Found the following bus stop(s) in your city:"
 msgstr "Found the following bus stop(s) in your city:"
 
-#: ../main.py:430
-msgid "Currently there are no drivers matching your journey."
-msgstr "Currently there are no drivers matching your journey."
+#: ../main.py:438
+msgid "Press on one of them to set it."
+msgstr "Press on one of them to set it."
 
-#: ../main.py:431
-msgid "You will be notified as soon as one is available."
-msgstr "You will be notified as soon as one is available."
-
-#: ../main.py:432
-msgid "If you find another solution, please abort your request."
-msgstr "If you find another solution, please abort your request."
-
-#: ../main.py:463
+#: ../main.py:486
 msgid ""
 "The ride offer has been aborted: you were expected to give a ride some time "
 "ago!"
@@ -398,7 +400,7 @@ msgstr ""
 "The ride offer has been aborted: you were expected to give a ride some time "
 "ago!"
 
-#: ../main.py:468
+#: ../main.py:491
 msgid ""
 "The ride has been completed automatically: you were supposed to arrive some "
 "time ago!"
@@ -406,15 +408,15 @@ msgstr ""
 "The ride has been completed automatically: you were supposed to arrive some "
 "time ago!"
 
-#: ../main.py:482
+#: ../main.py:505
 msgid "The ride request has been aborted: "
 msgstr "The ride request has been aborted: "
 
-#: ../main.py:483
+#: ../main.py:506
 msgid "after some time the requests automatically expire."
 msgstr "after some time the requests automatically expire."
 
-#: ../main.py:484
+#: ../main.py:507
 msgid ""
 "We believe and hope you have already reached your "
 "destination,                otherwise feel free to start another request"
@@ -422,116 +424,128 @@ msgstr ""
 "We believe and hope you have already reached your "
 "destination,                otherwise feel free to start another request"
 
-#: ../main.py:541
+#: ../main.py:518
+msgid "Currently there are no drivers matching your journey."
+msgstr "Currently there are no drivers matching your journey."
+
+#: ../main.py:519
+msgid "You will be notified as soon as one is available."
+msgstr "You will be notified as soon as one is available."
+
+#: ../main.py:520
+msgid "If you find another solution, please abort your request."
+msgstr "If you find another solution, please abort your request."
+
+#: ../main.py:573
 msgid "There is a passenger matching your journey "
 msgstr "There is a passenger matching your journey "
 
-#: ../main.py:542 ../main.py:572 ../main.py:1190 ../main.py:1233
-#: ../main.py:1252 ../main.py:1260
+#: ../main.py:574 ../main.py:604 ../main.py:1274 ../main.py:1320
+#: ../main.py:1339 ../main.py:1347
 msgid "List Passengers"
 msgstr "List Passengers"
 
-#: ../main.py:542 ../main.py:572 ../main.py:1235 ../main.py:1252
+#: ../main.py:574 ../main.py:604 ../main.py:1322 ../main.py:1339
 msgid "Send Message"
 msgstr "Send Message"
 
-#: ../main.py:548
+#: ../main.py:580
 msgid "There is a driver matching your journey."
 msgstr "There is a driver matching your journey."
 
-#: ../main.py:549 ../main.py:565 ../main.py:1160
+#: ../main.py:581 ../main.py:597 ../main.py:1244
 msgid "List Drivers"
 msgstr "List Drivers"
 
-#: ../main.py:549 ../main.py:565 ../main.py:1157
+#: ../main.py:581 ../main.py:597 ../main.py:1241
 msgid "Got the Ride!"
 msgstr "Got the Ride!"
 
-#: ../main.py:564
+#: ../main.py:596
 msgid "The is a driver matching your journey! "
 msgstr "The is a driver matching your journey! "
 
-#: ../main.py:570
+#: ../main.py:602
 msgid "There is some passenger(s) matching your journey "
 msgstr "There is some passenger(s) matching your journey "
 
-#: ../main.py:571
+#: ../main.py:603
 msgid "Have a nice trip!"
 msgstr "Have a nice trip!"
 
-#: ../main.py:574
+#: ../main.py:606
 msgid "There is currently no passenger matching your journey."
 msgstr "There is currently no passenger matching your journey."
 
-#: ../main.py:575
+#: ../main.py:607
 msgid "If a new passege request matches your journey we will notify you."
 msgstr "If a new passege request matches your journey we will notify you."
 
-#: ../main.py:576
+#: ../main.py:608
 msgid "Have a nice trip! "
 msgstr "Have a nice trip! "
 
-#: ../main.py:583
+#: ../main.py:620
 msgid "Notification "
 msgstr "Notification "
 
-#: ../main.py:597
+#: ../main.py:629
 msgid " ride start: "
 msgstr " ride start: "
 
-#: ../main.py:599 ../main.py:607
+#: ../main.py:631 ../main.py:639
 msgid " itinerary: "
 msgstr " itinerary: "
 
-#: ../main.py:601 ../main.py:609 ../main.py:670
+#: ../main.py:633 ../main.py:641 ../main.py:704
 msgid " (id: "
 msgstr " (id: "
 
-#: ../main.py:601 ../main.py:609 ../main.py:670
+#: ../main.py:633 ../main.py:641 ../main.py:704
 msgid ")"
 msgstr ")"
 
-#: ../main.py:606
+#: ../main.py:638
 msgid " waiting since "
 msgstr " waiting since "
 
-#: ../main.py:621
+#: ../main.py:653
 msgid "No drivers found matching your journey"
 msgstr "No drivers found matching your journey"
 
-#: ../main.py:632
+#: ../main.py:664
 msgid "No passengers found matching your journey"
 msgstr "No passengers found matching your journey"
 
-#: ../main.py:643
+#: ../main.py:676
 msgid "Oops... there are no more passage requests matching your journey!"
 msgstr "Oops... there are no more passage requests matching your journey!"
 
-#: ../main.py:656
+#: ../main.py:690
 msgid "Oops... the are no more drivers matching your journey!"
 msgstr "Oops... the are no more drivers matching your journey!"
 
-#: ../main.py:665 ../main.py:1172
+#: ../main.py:699 ../main.py:1256
 msgid "Thanks, have a good ride!"
 msgstr "Thanks, have a good ride!"
 
-#: ../main.py:671 ../main.py:1171
+#: ../main.py:705 ../main.py:1255
 msgid "Someone else"
 msgstr "Someone else"
 
-#: ../main.py:672
+#: ../main.py:706
 msgid "Great, which driver gave you a ride?"
 msgstr "Great, which driver gave you a ride?"
 
-#: ../main.py:684
+#: ../main.py:718
 msgid "Message from "
 msgstr "Message from "
 
-#: ../main.py:684
+#: ../main.py:718
 msgid ": "
 msgstr ": "
 
-#: ../main.py:956
+#: ../main.py:1026
 msgid ""
 "PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for "
 "small journeys within a city)."
@@ -539,7 +553,7 @@ msgstr ""
 "PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for "
 "small journeys within a city)."
 
-#: ../main.py:957
+#: ../main.py:1027
 msgid ""
 "You need to agree on terms and conditions in SETTINGS  and insert an "
 "ITINERARY to start a new journey."
@@ -547,11 +561,11 @@ msgstr ""
 "You need to agree on terms and conditions in SETTINGS  and insert an "
 "ITINERARY to start a new journey."
 
-#: ../main.py:958
+#: ../main.py:1028
 msgid "Once all is set, you can press START to request or offer a ride."
 msgstr "Once all is set, you can press START to request or offer a ride."
 
-#: ../main.py:959
+#: ../main.py:1029
 msgid ""
 "Please visit our website at http://pickmeup.trentino.it read the pdf "
 "instructions at http://tiny.cc/pickmeup_info and if you want to promote this "
@@ -561,7 +575,7 @@ msgstr ""
 "instructions at http://tiny.cc/pickmeup_info and if you want to promote this "
 "initiative do like us on FaceBook https://www.fb.com/321pickmeup "
 
-#: ../main.py:962
+#: ../main.py:1032
 msgid ""
 "If you want to join our discussions come to the tiramisu group at the "
 "following link: https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g"
@@ -569,7 +583,7 @@ msgstr ""
 "If you want to join our discussions come to the tiramisu group at the "
 "following link: https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g"
 
-#: ../main.py:964
+#: ../main.py:1034
 msgid ""
 "Any feedback or contribution is highly appreciated (go to INFO -> SEND "
 "FEEDBACK)! :D"
@@ -577,21 +591,21 @@ msgstr ""
 "Any feedback or contribution is highly appreciated (go to INFO -> SEND "
 "FEEDBACK)! :D"
 
-#: ../main.py:966
+#: ../main.py:1036
 msgid ""
 "PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city."
 msgstr ""
 "PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city."
 
-#: ../main.py:967
+#: ../main.py:1037
 msgid "It is currently  under testing."
 msgstr "It is currently  under testing."
 
-#: ../main.py:968
+#: ../main.py:1038
 msgid "WARNINGS:"
 msgstr "WARNINGS:"
 
-#: ../main.py:969
+#: ../main.py:1039
 msgid ""
 "Drivers: please offer rides before starting the ride. DO NOT use your phone "
 "while you drive."
@@ -599,15 +613,15 @@ msgstr ""
 "Drivers: please offer rides before starting the ride. DO NOT use your phone "
 "while you drive."
 
-#: ../main.py:971
+#: ../main.py:1041
 msgid "Passengers: please ask for rides when you are at the bus stop. "
 msgstr "Passengers: please ask for rides when you are at the bus stop. "
 
-#: ../main.py:972
+#: ../main.py:1042
 msgid "Be kind with the driver and the other passengers."
 msgstr "Be kind with the driver and the other passengers."
 
-#: ../main.py:973
+#: ../main.py:1043
 msgid ""
 "PickMeUp is a non-profit service and it is totally money-free between "
 "passengers and drivers."
@@ -615,11 +629,11 @@ msgstr ""
 "PickMeUp is a non-profit service and it is totally money-free between "
 "passengers and drivers."
 
-#: ../main.py:974
+#: ../main.py:1044
 msgid "The current version is under testing: "
 msgstr "The current version is under testing: "
 
-#: ../main.py:975
+#: ../main.py:1045
 msgid ""
 "no review system has been implemented yet and ride traceability is still "
 "limited. "
@@ -627,13 +641,13 @@ msgstr ""
 "no review system has been implemented yet and ride traceability is still "
 "limited. "
 
-#: ../main.py:976
+#: ../main.py:1046
 msgid ""
 "PickMeUp developers decline any responsibility for the use of the service."
 msgstr ""
 "PickMeUp developers decline any responsibility for the use of the service."
 
-#: ../main.py:977
+#: ../main.py:1047
 msgid ""
 "If you want to use this service you have to agree on these terms by pressing "
 "the button below."
@@ -641,17 +655,17 @@ msgstr ""
 "If you want to use this service you have to agree on these terms by pressing "
 "the button below."
 
-#: ../main.py:979
+#: ../main.py:1049
 msgid ""
 "Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! "
 msgstr ""
 "Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! "
 
-#: ../main.py:980
+#: ../main.py:1050
 msgid "It's like BlaBlaCar, but for commuting within a city. "
 msgstr "It's like BlaBlaCar, but for commuting within a city. "
 
-#: ../main.py:981
+#: ../main.py:1051
 msgid ""
 "The system is currently under testing but the community is getting larger "
 "every day. "
@@ -659,84 +673,84 @@ msgstr ""
 "The system is currently under testing but the community is getting larger "
 "every day. "
 
-#: ../main.py:982
+#: ../main.py:1052
 msgid "You can try it by clicking on @PickMeUp_bot and press START! "
 msgstr "You can try it by clicking on @PickMeUp_bot and press START! "
 
-#: ../main.py:984
+#: ../main.py:1054
 msgid "Please attach a location by 1) pressing the "
 msgstr "Please attach a location by 1) pressing the "
 
-#: ../main.py:985
+#: ../main.py:1055
 msgid " icon below and 2) chosing a position in the map."
 msgstr " icon below and 2) chosing a position in the map."
 
-#: ../main.py:998
+#: ../main.py:1068
 msgid "welcome!"
 msgstr "welcome!"
 
-#: ../main.py:1017 ../main.py:1038
+#: ../main.py:1087 ../main.py:1108
 msgid "Forward the following message to your friends."
 msgstr "Forward the following message to your friends."
 
-#: ../main.py:1020 ../main.py:1107 ../main.py:1128 ../main.py:1144
-#: ../main.py:1154 ../main.py:1168 ../main.py:1212 ../main.py:1230
-#: ../main.py:1245 ../main.py:1268 ../main.py:1292 ../main.py:1324
-#: ../main.py:1357 ../main.py:1370 ../main.py:1382 ../main.py:1401
-#: ../main.py:1420 ../main.py:1445 ../main.py:1464 ../main.py:1487
-#: ../main.py:1518 ../main.py:1539 ../main.py:1570 ../main.py:1591
-#: ../main.py:1606
+#: ../main.py:1090 ../main.py:1191 ../main.py:1212 ../main.py:1228
+#: ../main.py:1238 ../main.py:1252 ../main.py:1299 ../main.py:1317
+#: ../main.py:1332 ../main.py:1355 ../main.py:1379 ../main.py:1411
+#: ../main.py:1447 ../main.py:1460 ../main.py:1472 ../main.py:1491
+#: ../main.py:1510 ../main.py:1533 ../main.py:1552 ../main.py:1573
+#: ../main.py:1604 ../main.py:1625 ../main.py:1656 ../main.py:1677
+#: ../main.py:1688 ../main.py:1703
 msgid "Sorry, I don't understand you"
 msgstr "Sorry, I don't understand you"
 
-#: ../main.py:1115
+#: ../main.py:1199
 msgid "Hi! I can try to help you to get a ride. Which bus stop are you at?"
 msgstr "Hi! I can try to help you to get a ride. Which bus stop are you at?"
 
-#: ../main.py:1121
+#: ../main.py:1205
 msgid ""
 "Hi! Glad you can give a ride. Where can you start picking up passengers?"
 msgstr ""
 "Hi! Glad you can give a ride. Where can you start picking up passengers?"
 
-#: ../main.py:1125 ../main.py:1132 ../main.py:1149 ../main.py:1163
-#: ../main.py:1178
+#: ../main.py:1209 ../main.py:1216 ../main.py:1233 ../main.py:1247
+#: ../main.py:1262
 msgid "Passage aborted."
 msgstr "Passage aborted."
 
-#: ../main.py:1139
+#: ../main.py:1223
 msgid "Your passenger ID is: "
 msgstr "Your passenger ID is: "
 
-#: ../main.py:1186
+#: ../main.py:1270
 msgid "Great! Many thanks to"
 msgstr "Great! Many thanks to"
 
-#: ../main.py:1189
+#: ../main.py:1273
 msgid "confirmed you gave him/her a ride!"
 msgstr "confirmed you gave him/her a ride!"
 
-#: ../main.py:1190 ../main.py:1262
+#: ../main.py:1274 ../main.py:1349
 msgid "Reached Destination!"
 msgstr "Reached Destination!"
 
-#: ../main.py:1197
+#: ../main.py:1281
 msgid "Name of driver not correct, try again."
 msgstr "Name of driver not correct, try again."
 
-#: ../main.py:1201 ../main.py:1226 ../main.py:1240
+#: ../main.py:1288 ../main.py:1313 ../main.py:1327
 msgid "Passage offer has been aborted."
 msgstr "Passage offer has been aborted."
 
-#: ../main.py:1207
+#: ../main.py:1294
 msgid "In how many minutes will you be there?"
 msgstr "In how many minutes will you be there?"
 
-#: ../main.py:1219
+#: ../main.py:1306
 msgid "Your driver ID is: "
 msgstr "Your driver ID is: "
 
-#: ../main.py:1236
+#: ../main.py:1323
 msgid ""
 "Please type a short message which will be sent to all passengers matching "
 "your journey"
@@ -744,27 +758,27 @@ msgstr ""
 "Please type a short message which will be sent to all passengers matching "
 "your journey"
 
-#: ../main.py:1249
+#: ../main.py:1336
 msgid "Sent message to "
 msgstr "Sent message to "
 
-#: ../main.py:1249
+#: ../main.py:1336
 msgid " people"
 msgstr " people"
 
-#: ../main.py:1251
+#: ../main.py:1338
 msgid "There is some passenger(s) matching your journing "
 msgstr "There is some passenger(s) matching your journing "
 
-#: ../main.py:1254
+#: ../main.py:1341
 msgid "Oops... there are no more passengers matching your journing!"
 msgstr "Oops... there are no more passengers matching your journing!"
 
-#: ../main.py:1263
+#: ../main.py:1350
 msgid "Great, thanks!"
 msgstr "Great, thanks!"
 
-#: ../main.py:1281
+#: ../main.py:1368
 msgid ""
 "I will give you a list of bus stops within a radius of 10 km from the given "
 "location."
@@ -772,82 +786,86 @@ msgstr ""
 "I will give you a list of bus stops within a radius of 10 km from the given "
 "location."
 
-#: ../main.py:1286
+#: ../main.py:1373
 msgid "Please send us any feedback, e.g., new bus stops, bugs, suggestions. "
 msgstr "Please send us any feedback, e.g., new bus stops, bugs, suggestions. "
 
-#: ../main.py:1303
+#: ../main.py:1390
 msgid "Found the following bus stop(s) near the location: "
 msgstr "Found the following bus stop(s) near the location: "
 
-#: ../main.py:1304
+#: ../main.py:1391
 msgid "By pressing on any of the names, the location will be presented to you."
 msgstr ""
 "By pressing on any of the names, the location will be presented to you."
 
-#: ../main.py:1308 ../main.py:1415 ../main.py:1459 ../main.py:1512
-#: ../main.py:1564
+#: ../main.py:1395 ../main.py:1505 ../main.py:1547 ../main.py:1598
+#: ../main.py:1650
 msgid "No bus stop found near location, try again. "
 msgstr "No bus stop found near location, try again. "
 
-#: ../main.py:1333
+#: ../main.py:1420
 msgid "Thanks for your feedback!"
 msgstr "Thanks for your feedback!"
 
-#: ../main.py:1338 ../main.py:1373
+#: ../main.py:1425 ../main.py:1463
 msgid "I AGREE"
 msgstr "I AGREE"
 
-#: ../main.py:1347
+#: ../main.py:1437
 msgid "Choose the language"
 msgstr "Choose the language"
 
-#: ../main.py:1386
+#: ../main.py:1476 ../main.py:1516
 msgid "the START location"
 msgstr "the START location"
 
-#: ../main.py:1389
+#: ../main.py:1479 ../main.py:1556
 msgid "the END location"
 msgstr "the END location"
 
-#: ../main.py:1410 ../main.py:1454 ../main.py:1507 ../main.py:1559
+#: ../main.py:1500 ../main.py:1542 ../main.py:1593 ../main.py:1645
 msgid ""
 "Found the following bus stop(s) near the location, please make one selection."
 msgstr ""
 "Found the following bus stop(s) near the location, please make one selection."
 
-#: ../main.py:1435
+#: ../main.py:1528
 msgid "Thanks for setting the START location!"
 msgstr "Thanks for setting the START location!"
 
-#: ../main.py:1477
+#: ../main.py:1568
 msgid "Thanks for setting the END location!"
 msgstr "Thanks for setting the END location!"
 
-#: ../main.py:1494
+#: ../main.py:1580
 msgid "All mid points on the way FORWARD have been removed."
 msgstr "All mid points on the way FORWARD have been removed."
 
-#: ../main.py:1500
+#: ../main.py:1586
 msgid "Successfully set mid points way FORWARD as in way BACK!"
 msgstr "Successfully set mid points way FORWARD as in way BACK!"
 
-#: ../main.py:1531 ../main.py:1583
+#: ../main.py:1620 ../main.py:1672
 msgid "Thanks for adding a new mid point!"
 msgstr "Thanks for adding a new mid point!"
 
-#: ../main.py:1546
+#: ../main.py:1632
 msgid "All mid points on the way BACK have been removed."
 msgstr "All mid points on the way BACK have been removed."
 
-#: ../main.py:1552
+#: ../main.py:1638
 msgid "Successfully set mid points way BACK as in way FORWARD!"
 msgstr "Successfully set mid points way BACK as in way FORWARD!"
 
-#: ../main.py:1608
+#: ../main.py:1682
+msgid "Successfully set the route: "
+msgstr "Successfully set the route: "
+
+#: ../main.py:1705
 msgid "Something is wrong with your state ("
 msgstr "Something is wrong with your state ("
 
-#: ../main.py:1609
+#: ../main.py:1706
 msgid "). Please contact the admin at pickmeupbot@gmail.com"
 msgstr "). Please contact the admin at pickmeupbot@gmail.com"

@@ -70,6 +70,23 @@ CITY_BUS_STOPS = {
     )
 }
 
+BASIC_ROUTES = {
+    "/Trento_Povo_Bus_5": (
+        CITY_TRENTO, #city
+        TN_Aquila[0], #start
+        TN_Povo_PoloScientifico[0], #end
+        [TN_MesianoIng[0]], #mid_going
+        [TN_MesianoIng[0]], #mid_back
+    ),
+    "/Riva_Arco": (
+        CITY_TRENTO, #city
+        TN_RIVA_INVIOLATA[0], #start
+        TN_ARCO_CASINO[0], #end
+        [TN_ARCO_S_CAT_POLI[0]], #mid_going
+        [TN_ARCO_S_CAT_POLI[0]], #mid_back
+    ),
+}
+
 MAX_CLUSTER_DISTANCE = 0.5 #km
 
 class BusStop(ndb.Model):
@@ -116,6 +133,36 @@ def initBusStops():
                     bs_i.cluster.append(stop_j_name)
                     bs_i.put()
 
+class BasicRoutes(ndb.Model):
+    city = ndb.StringProperty()
+    bus_stop_start = ndb.StringProperty()
+    bus_stop_end = ndb.StringProperty()
+    bus_stop_mid_going = ndb.StringProperty(repeated=True)
+    bus_stop_mid_back = ndb.StringProperty(repeated=True)
+
+def initBasicRoutes():
+    for route_cmd in BASIC_ROUTES:
+        route = BasicRoutes.get_or_insert(route_cmd)
+        route_data = BASIC_ROUTES[route_cmd]
+        logging.debug(str(route_data))
+        route.populate(
+            city=route_data[0],
+            bus_stop_start=route_data[1],
+            bus_stop_end=route_data[2],
+            bus_stop_mid_going=route_data[3],
+            bus_stop_mid_back=route_data[4]
+        )
+        route.put()
+
+def setBasicRoute(p, route_cmd):
+    route = ndb.Key(BasicRoutes, route_cmd).get()
+    p.populate(last_city = route.city,
+        bus_stop_start = route.bus_stop_start,
+        bus_stop_end = route.bus_stop_end,
+        bus_stop_mid_going=route.bus_stop_mid_going,
+        bus_stop_mid_back=route.bus_stop_mid_back
+    )
+    p.put()
 
 def HaversineDistance(loc1, loc2):
     """Method to calculate Distance between two sets of Lat/Lon."""
@@ -139,40 +186,36 @@ def getBusStopLocation(city, bs_name):
     bs = BusStop.query(BusStop.city==city, BusStop.name==bs_name).get()
     return bs.location
 
-def matchDriverAndPassengerEnd(driver, passenger, usePassengerLocation=True):
-    bs_end_d = getBusStop(driver.last_city, person.getDestination(driver))
-    passengerEnd = person.getDestination(passenger) if usePassengerLocation else passenger.bus_stop_end
-    bs_end_p = getBusStop(passenger.last_city, passengerEnd)
-    if (bs_end_d is None or bs_end_p is None):
-        return False
-    return matchClusterLocation(bs_end_d, bs_end_p)
-
-def matchDriverAndPassengerStart(driver, passenger, usePassengerLocation=True):
+def matchDriverStartWithLocation(driver, bus_stop_name):
     bs_start_d = getBusStop(driver.last_city, driver.location)
-    passengerStart = passenger.location if usePassengerLocation else passenger.bus_stop_start
-    bs_start_p = getBusStop(passenger.last_city, passengerStart)
+    bs_start_p = getBusStop(driver.last_city, bus_stop_name)
     if (bs_start_d is None or bs_start_p is None):
         return False
     return matchClusterLocation(bs_start_d, bs_start_p)
 
-def matchDriverMidPointsAndPassengerStart(driver, passenger, usePassengerLocation=True):
+def matchDriverEndWithLocation(driver, bus_stop_name):
+    bs_end_d = getBusStop(driver.last_city, person.getDestination(driver))
+    bs_end_p = getBusStop(driver.last_city, bus_stop_name)
+    if (bs_end_d is None or bs_end_p is None):
+        return False
+    return matchClusterLocation(bs_end_d, bs_end_p)
+
+def matchDriverMidPointsGoingWithLocation(driver, bus_stop_name):
     midPoints = person.getMidPoints(driver)
     if not midPoints:
         return False
-    passengerStart = passenger.location if usePassengerLocation else passenger.bus_stop_start
-    bs_start_p = getBusStop(passenger.last_city, passengerStart)
+    bs_start_p = getBusStop(driver.last_city, bus_stop_name)
     for md in midPoints:
         bs_start_d = getBusStop(driver.last_city, md)
         if bs_start_d is not None and bs_start_p is not None and matchClusterLocation(bs_start_d, bs_start_p):
             return True
     return False
 
-def matchDriverMidPointsAndPassengerEnd(driver, passenger, usePassengerLocation=True):
+def matchDriverMidPointsBackWithLocation(driver, bus_stop_name):
     midPoints = person.getMidPoints(driver)
     if not midPoints:
         return False
-    passengerEnd = person.getDestination(passenger) if usePassengerLocation else passenger.bus_stop_end
-    bs_end_p = getBusStop(passenger.last_city, passengerEnd)
+    bs_end_p = getBusStop(driver.last_city, bus_stop_name)
     for md in midPoints:
         bs_end_d = getBusStop(driver.last_city, md)
         if bs_end_d is not None and bs_end_p is not None and matchClusterLocation(bs_end_d, bs_end_p):
@@ -180,17 +223,33 @@ def matchDriverMidPointsAndPassengerEnd(driver, passenger, usePassengerLocation=
     return False
 
 
+# match only if driver passes through their exact location
 def matchDriverAndPassenger(driver, passenger):
-    return ( matchDriverAndPassengerStart(driver, passenger) or
-             matchDriverMidPointsAndPassengerStart(driver, passenger)) and\
-           (matchDriverAndPassengerEnd(driver, passenger) or
-            matchDriverMidPointsAndPassengerEnd(driver, passenger))
+    bus_stop_passenger = passenger.location
+    return ( matchDriverStartWithLocation(driver, bus_stop_passenger) or
+             matchDriverMidPointsGoingWithLocation(driver, bus_stop_passenger)) and\
+           (matchDriverStartWithLocation(driver, bus_stop_passenger) or
+            matchDriverMidPointsBackWithLocation(driver, bus_stop_passenger))
 
+# passengers get notified even if driver doesn't pass through their exact location
 def matchDriverAndPotentialPassenger(driver, passenger):
-    return ( matchDriverAndPassengerStart(driver, passenger, False) or
-             matchDriverMidPointsAndPassengerStart(driver, passenger, False)) and\
-           (matchDriverAndPassengerEnd(driver, passenger, False) or
-            matchDriverMidPointsAndPassengerEnd(driver, passenger, False))
+    bus_stop_passenger = [passenger.bus_stop_start, passenger.bus_stop_end]
+    bus_stop_driver = [driver.bus_stop_start, driver.bus_stop_end]
+    for i in [0,1]:
+        if passenger.chat_id == 130870321:
+            logging.debug(str(bus_stop_driver))
+            logging.debug(str(bus_stop_passenger))
+            logging.debug(str(matchDriverStartWithLocation(driver, bus_stop_passenger[i])) + ' ' +
+                          str(matchDriverMidPointsGoingWithLocation(driver, bus_stop_passenger[i])) + ' ' +
+                          str(matchDriverEndWithLocation(driver, bus_stop_passenger[1-i])) + ' ' +
+                          str(matchDriverMidPointsBackWithLocation(driver, bus_stop_passenger[1-i]))
+                          )
+        if (matchDriverStartWithLocation(driver, bus_stop_passenger[i]) or
+            matchDriverMidPointsGoingWithLocation(driver, bus_stop_passenger[i])) and \
+            (matchDriverEndWithLocation(driver, bus_stop_passenger[1-i]) or
+            matchDriverMidPointsBackWithLocation(driver, bus_stop_passenger[1-i])):
+            return True
+    return False
 
 
 def matchClusterLocation(loc1, loc2):
