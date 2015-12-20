@@ -416,7 +416,9 @@ def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
 
 def removeSpaces(str):
     #return re.sub(r'[^\w]','',str,re.UNICODE)
-    return re.sub(r"[\s'.]",'',str,re.UNICODE)
+    str = re.sub(r"[\s'.]",'',str,re.UNICODE)
+    str = str.replace('ò','o')
+    return str
 
 def replyListBusStops(p,new_state):
     bus_stops = itinerary.getOtherBusStops(p)
@@ -603,13 +605,13 @@ def notify_potential_passengers(driver):
     matchPassengers = getMatchingPotentialPassengers(driver)
     if not matchPassengers:
         return
-    text = _("Notification " + emoij.CAR + ": There is a driver matching your default route!") + '\n\n' +\
-           getDriverRideDetails(driver).encode('utf-8')
     count = 0
     for p in matchPassengers:
         if p.notification_enabled:
             count+=1
             setLanguage(p.language)
+            text = _("Notification " + emoij.CAR + ": There is a driver matching your default route!") + '\n\n' +\
+                   getDriverRideDetails(driver).encode('utf-8')
             tell(p.chat_id,text)
             #logging.debug(getDriverRideDetails(driver))
             sleep(0.035) # no more than 30 messages per second
@@ -777,11 +779,13 @@ def sendLocation(chat_id, loc):
 
 
 def tell(chat_id, msg, kb=None, hideKb=True):
+    #logging.debug('msg: ' + str(type(msg)))
+    msg = msg if isinstance(msg, str) else msg.encode('utf-8')
     try:
         if kb:
             resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                 'chat_id': chat_id,
-                'text': msg, #.encode('utf-8'),
+                'text': msg, #msg.encode('utf-8'),
                 'disable_web_page_preview': 'true',
                 #'reply_to_message_id': str(message_id),
                 'reply_markup': json.dumps({
@@ -795,7 +799,7 @@ def tell(chat_id, msg, kb=None, hideKb=True):
             if hideKb:
                 resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
                     'chat_id': str(chat_id),
-                    'text': msg, #.encode('utf-8'),
+                    'text': msg, #msg.encode('utf-8'),
                     'disable_web_page_preview': 'true',
                     #'reply_to_message_id': str(message_id),
                     'reply_markup': json.dumps({
@@ -985,7 +989,11 @@ class WebhookHandler(webapp2.RequestHandler):
         # date = message.get('date')
         #if "text" not in message:
         #    return;
-        text = message.get('text').encode('utf-8') if "text" in message else ""
+
+        #text = message.get('text').encode('utf-8') if "text" in message else ""
+        text = message.get('text') if "text" in message else ""
+
+
         # fr = message.get('from')
         if "chat" not in message:
             return;
@@ -1263,6 +1271,9 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply(_("Name of driver not correct, try again."))
             elif p.state == 30:
                 # DRIVERS, ASKED FOR LOCATION
+                #logging.debug('input: ' + text + ' ' + str(type(text)))
+                #logging.debug('start: ' + p.bus_stop_start + ' ' + str(type(p.bus_stop_start)))
+                #logging.debug('destination: ' + p.bus_stop_end + ' ' + str(type(p.bus_stop_end)))
                 if text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
                     restart(p)
