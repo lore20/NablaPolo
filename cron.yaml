@@ -20,6 +20,9 @@ cron:
 - description: checking drivers and passengers that are expired
   url: /checkExpiredUsers
   schedule: every 1 minutes
+- description: restart users in non-start states for over a week
+  url: /restartOldUsers
+  schedule: every sunday 12:00
 - description: info dayly ride
   url: /infoday_tiramisu
   schedule: every mon,tue,wed,thu 22:00

@@ -86,11 +86,22 @@ STATES = {
 
 LANGUAGES = {'IT': 'it_IT',
              'EN': 'en',
-             'FR': 'fr_FR',
-             'DE': 'de',
-             'NL': 'nl',
-             'PL': 'pl',
-             'RU': 'ru'}
+             #'FR': 'fr_FR',
+             #'DE': 'de',
+             #'NL': 'nl',
+             #'PL': 'pl',
+             #'RU': 'ru'
+             }
+
+LANGUAGE_FLAGS = {
+    "IT": emoij.FLAG_IT,
+    "EN": emoij.FLAG_EN,
+    #"RU", emoij.FLAG_RU,
+    #"DE", emoij.FLAG_DE,
+    #"FR", emoij.FLAG_FR,
+    #"PL", emoij.FLAG_PL
+}
+
 
 
 MAX_WAITING_PASSENGER_MIN = 25
@@ -199,6 +210,20 @@ def restartAllUsers(msg):
     logging.debug("Succeffully restarted users: " + str(count))
     return count
 
+def restartLanguages():
+    qry = Person.query(ndb.AND(Person.language != 'IT', Person.language != 'EN'))
+    count = 0
+    for p in qry:
+        p.language = 'IT'
+        p.put()
+        if (p.enabled):
+            count +=1
+            tell(p.chat_id, 'Risettata lingua in italiano (solo italiano e inglese attualmente supportate).')
+            restart(p)
+            sleep(0.50) # no more than 10 messages per second
+    logging.debug("Succeffully reset languages for users: " + str(count))
+    return count
+
 def checkEnabled():
     qry = Person.query(Person.enabled==True)
     for p in qry:
@@ -217,7 +242,9 @@ def broadcast(msg, language='ALL', curs=None, count = 0):
             if (p.enabled):
                 if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
                     setLanguage(p.language)
+                    logging.debug("Sending message to chat id " + str(p.chat_id))
                     tell(p.chat_id, _("Listen listen...") + _(' ') + _(msg))
+                    #tell(p.chat_id, msg)
                     count += 1
                     sleep(0.050) # no more than 20 messages per second
     except datastore_errors.Timeout:
@@ -461,6 +488,20 @@ def assignNextTicketId(p, is_driver):
 # ================================
 # ================================
 # ================================
+
+MAX_MIN_IN_NON_START_STATE = 60 * 24 * 7
+
+def restartOldUsers():
+    past_date = time_util.now(-MAX_MIN_IN_NON_START_STATE)
+    qry = Person.query(Person.state>=0)
+    count = 0
+    for p in qry:
+        if (p.last_mod<past_date):
+            tell(p.chat_id, _('Resetting interface to initial state'))
+            restart(p)
+            sleep(0.035)
+            count += 1
+    logging.debug('Restatered old users: ' + str(count))
 
 
 def checkExpiredUsers():
@@ -960,7 +1001,11 @@ class DashboardDisconnectedHandler(webapp2.RequestHandler):
 
 class CheckExpiredUsersHandler(webapp2.RequestHandler):
     def get(self):
-        checkExpiredUsers();
+        checkExpiredUsers()
+
+class RestartOldUsersHandler(webapp2.RequestHandler):
+    def get(self):
+        restartOldUsers()
 
 class GetUpdatesHandler(webapp2.RequestHandler):
     def get(self):
@@ -1148,6 +1193,8 @@ class WebhookHandler(webapp2.RequestHandler):
                     elif text == '/test':
                         #return
                         logging.debug('test')
+                        deferred.defer(restartOldUsers)
+                        #c = deferred.defer(restartLanguages)
                         #c = person.resetAllState(-2)
                         #reply("Successfully reset all states: " + str(c))
                         #c = person.resetTermsAndNotification()
@@ -1178,6 +1225,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         msg = text[14:] #.encode('utf-8')
                         deferred.defer(broadcast, msg, 'IT')
                     elif text.startswith('/broadcast_en ') and len(text)>14:
+                        return
                         msg = text[14:] #.encode('utf-8')
                         deferred.defer(broadcast, msg, 'EN')
                     elif text.startswith('/self ') and len(text)>6:
@@ -1435,9 +1483,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = 94
                 elif text==_('LANGUAGE'):
                     reply(_("Choose the language"),
-                          kb=[[emoij.FLAG_IT + _(' ') + "IT", emoij.FLAG_EN + _(' ') + "EN", emoij.FLAG_RU + _(' ') + "RU"],
-                              [emoij.FLAG_DE + _(' ') + "DE", emoij.FLAG_FR + _(' ') + "FR", emoij.FLAG_PL + _(' ') + "PL"],
-#                             [emoij.FLAG_NL + _(' ') + "NL"
+                          kb=[[flag + _(' ') + name for (name,flag) in LANGUAGE_FLAGS.iteritems()],
                               [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                     person.setState(p, 91)
                 elif text.endswith(_("Back")):
@@ -1447,7 +1493,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 91:
                 #LANGUAGE
-                if len(text)>2 and text[-2:] in ['IT','EN','FR','DE','RU','NL','PL']:
+                if len(text)>2 and text[-2:] in LANGUAGES.keys(): #['IT','EN','FR','DE','RU','NL','PL']:
                     l = text[-2:]
                     p.language = l
                     p.put()
@@ -1721,6 +1767,7 @@ app = webapp2.WSGIApplication([
     ('/infoweek_all', InfodayAllHandler),
     ('/resetcounters', ResetCountersHandler),
     ('/checkExpiredUsers', CheckExpiredUsersHandler),
+    ('/restartOldUsers', RestartOldUsersHandler),
     ('/tiramisulottery', TiramisuHandler),
     ('/dayPeopleCount', DayPeopleCountHandler),
     ('/newVersionBroadcast', NewVersionBroadcastHandler),

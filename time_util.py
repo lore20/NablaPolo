@@ -13,9 +13,9 @@ def delta_min(date1, date2):
     min_sec = divmod(diff.days * 86400 + diff.seconds, 60) # (min,sec)
     return min_sec[0]
 
+
 def ellapsed_min(date):
     return delta_min(date, now())
-
 
 def get_last_week():
     return datetime.now() - timedelta(days=7)
