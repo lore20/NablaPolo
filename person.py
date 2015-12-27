@@ -5,14 +5,44 @@ import time_util
 
 """
 class ActivePerson(ndb.Model):
+    person = ndb.StructuredProperty(Person)
     state = ndb.IntegerProperty()
+    last_city = ndb.StringProperty()
     last_seen = ndb.DateTimeProperty()
 
 def addActivePerson(person):
     ap = ActivePerson.get_or_insert(str(person.chat_id))
+    ap.person = person
     ap.state = person.state
+    ap.last_city = person.last_city
     ap.last_seen = person.last_seen
     ap.put()
+
+def updateStateActivePerson(person, state):
+    ap = ActivePerson.get_or_insert(str(person.chat_id))
+    ap.state = state
+    ap.person.state = state
+    ap.person.put()
+    ap.put()
+
+def updateLastSeenActivePerson(person, lastSeen):
+    ap = ActivePerson.get_or_insert(str(person.chat_id))
+    ap.lastSeen = lastSeen
+    ap.person.lastSeen = lastSeen
+    ap.person.put()
+    ap.put()
+
+def updateStateLastSeenActivePerson(person, state, lastSeen):
+    ap = ActivePerson.get_or_insert(str(person.chat_id))
+    ap.state = state
+    ap.person.state = state
+    ap.lastSeen = lastSeen
+    ap.person.lastSeen = lastSeen
+    ap.person.put()
+    ap.put()
+
+def removeActivePerson(person):
+    ndb.Key(ActivePerson, str(person.chat_id)).delete()
 """
 
 class Person(ndb.Model):
