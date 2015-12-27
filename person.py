@@ -3,50 +3,9 @@ from google.appengine.ext import ndb
 import itinerary
 import time_util
 
-"""
-class ActivePerson(ndb.Model):
-    person = ndb.StructuredProperty(Person)
-    state = ndb.IntegerProperty()
-    last_city = ndb.StringProperty()
-    last_seen = ndb.DateTimeProperty()
-
-def addActivePerson(person):
-    ap = ActivePerson.get_or_insert(str(person.chat_id))
-    ap.person = person
-    ap.state = person.state
-    ap.last_city = person.last_city
-    ap.last_seen = person.last_seen
-    ap.put()
-
-def updateStateActivePerson(person, state):
-    ap = ActivePerson.get_or_insert(str(person.chat_id))
-    ap.state = state
-    ap.person.state = state
-    ap.person.put()
-    ap.put()
-
-def updateLastSeenActivePerson(person, lastSeen):
-    ap = ActivePerson.get_or_insert(str(person.chat_id))
-    ap.lastSeen = lastSeen
-    ap.person.lastSeen = lastSeen
-    ap.person.put()
-    ap.put()
-
-def updateStateLastSeenActivePerson(person, state, lastSeen):
-    ap = ActivePerson.get_or_insert(str(person.chat_id))
-    ap.state = state
-    ap.person.state = state
-    ap.lastSeen = lastSeen
-    ap.person.lastSeen = lastSeen
-    ap.person.put()
-    ap.put()
-
-def removeActivePerson(person):
-    ndb.Key(ActivePerson, str(person.chat_id)).delete()
-"""
-
 class Person(ndb.Model):
     name = ndb.StringProperty()
+    active = ndb.BooleanProperty(default=False) # if active driver, passenger
     last_name = ndb.StringProperty(default='-')
     username = ndb.StringProperty(default='-')
     last_mod = ndb.DateTimeProperty(auto_now=True)
@@ -78,6 +37,10 @@ def addPerson(chat_id, name):
     #p.language = 'IT'
     p.put()
     return p
+
+def setActive(p, active):
+    p.active = active
+    p.put()
 
 def setType(p, type):
     p.last_type = type
@@ -205,6 +168,15 @@ def resetTermsAndNotification():
         count+=1
     return count
 
+def resetActive():
+    qry = Person.query()
+    count = 0
+    for p in qry:
+        p.active = False
+        p.put()
+        count+=1
+    return count
+
 def resetAllState(s):
     qry = Person.query()
     count = 0
@@ -262,3 +234,34 @@ def listAllPassengers():
         for p in qry:
             text = text + p.name.encode('utf-8') + _(' ') + p.location + " (" + str(p.state) + ") " + time_util.get_time_string(p.last_seen) + _("\n")
         return text
+
+"""
+ACTIVE PERSON
+"""
+"""
+class ActivePerson(ndb.Model):
+    #person = ndb.StructuredProperty(Person)
+    state = ndb.IntegerProperty()
+    last_city = ndb.StringProperty()
+    last_type = ndb.StringProperty()
+    last_seen = ndb.DateTimeProperty()
+
+def addActivePerson(p):
+    #ap.key = ndb.Key(ActivePerson, str(person.chat_id))
+    ap = ActivePerson(id=str(p.chat_id), state=p.state, last_city=p.last_city,
+                      last_type=p.last_type, last_seen=p.last_seen)
+    #person=p,
+    ap.put()
+    #return ap
+
+def setStateActivePerson(person, state):
+    ap = ndb.Key(ActivePerson, str(person.chat_id)).get()
+    ap.state = state
+    ap.put()
+    person.state = state
+    person.put()
+
+def removeActivePerson(person):
+    ndb.Key(ActivePerson, str(person.chat_id)).delete()
+
+"""

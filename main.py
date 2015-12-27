@@ -13,7 +13,6 @@ import emoij
 import counter
 import person
 from person import Person
-#from person import ActivePerson
 import date_counter
 import ride
 from ride import Ride
@@ -509,8 +508,7 @@ def checkExpiredUsers():
     checkExpiredPassengers()
 
 def checkExpiredDrivers():
-    qry = Person.query(Person.state.IN([32,33]))
-    #qry = Person.query(ActivePerson.state.IN([32,33]))
+    qry = Person.query(Person.active==True, Person.state.IN([32,33]))
     oldDrivers = {
         32: [],
         33: []
@@ -534,9 +532,7 @@ def checkExpiredDrivers():
         removeDriver(d)
 
 def checkExpiredPassengers():
-    #for location in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
-    #    qry = Person.query(Person.location == location, Person.state.IN([21, 22]))
-    qry = Person.query(Person.state.IN([21, 22]))
+    qry = Person.query(Person.active==True, Person.state.IN([21, 22]))
     oldPassengers = []
     for p in qry:
         if (time_util.ellapsed_min(p.last_seen) > MAX_WAITING_PASSENGER_MIN):
@@ -561,12 +557,11 @@ def putPassengerOnHold(passenger):
          + _("If you find another solution, please abort your request."),
          kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
     person.setState(passenger, 21)
-    #person.addActivePerson(passenger)
 
 
 def getMatchingDrivers(passenger):
     match = []
-    qry = Person.query(Person.last_city==passenger.last_city, Person.state.IN([32,33]))#.order(-Person.last_mod)
+    qry = Person.query(Person.active==True, Person.last_city==passenger.last_city, Person.state.IN([32,33]))#.order(-Person.last_mod)
     for d in qry:
         if itinerary.matchDriverAndPassenger(d, passenger):
             match.append(d)
@@ -574,7 +569,7 @@ def getMatchingDrivers(passenger):
 
 def getMatchingPassengers(driver):
     match = []
-    qry = Person.query(Person.last_city==driver.last_city, Person.state.IN([21,22]))#.order(-Person.last_mod)
+    qry = Person.query(Person.active==True, Person.last_city==driver.last_city, Person.state.IN([21,22]))#.order(-Person.last_mod)
     for p in qry:
         if itinerary.matchDriverAndPassenger(driver, p):
             match.append(p)
@@ -582,23 +577,21 @@ def getMatchingPassengers(driver):
 
 def getMatchingPotentialPassengers(driver):
     match = []
-    qry = Person.query(Person.last_city==driver.last_city, Person.state==-1)#.order(-Person.last_mod)
+    qry = Person.query(Person.active==False, Person.last_city==driver.last_city, Person.state==-1)#.order(-Person.last_mod)
     for p in qry:
         if itinerary.matchDriverAndPotentialPassenger(driver, p):
             match.append(p)
     return match
 
-
 def hasMatchingDrivers(passenger):
-    qry = Person.query(Person.last_city==passenger.last_city, Person.state.IN([32,33]))
+    qry = Person.query(Person.active==True, Person.last_city==passenger.last_city, Person.state.IN([32,33]))
     for d in qry:
         if itinerary.matchDriverAndPassenger(d, passenger):
             return True
     return False
 
 def hasMatchingPassengers(driver):
-    match = []
-    qry = Person.query(Person.last_city==driver.last_city, Person.state.IN([21,22]))
+    qry = Person.query(Person.active==True, Person.last_city==driver.last_city, Person.state.IN([21,22]))
     for p in qry:
         if itinerary.matchDriverAndPassenger(driver, p):
             return True
@@ -616,6 +609,7 @@ def connect_with_matching_drivers(passenger):
            person.setNotified(d,True)
 
     setLanguage(passenger.language)
+    person.setActive(passenger, True)
 
     if matchDrivers:
         tell(passenger.chat_id, _("There is a driver matching your journey."),
@@ -706,7 +700,7 @@ def listPassengers(driver):
 
 
 def removePassenger(p, driver=None):
-    #ndb.Key(ActivePerson, p.chat_id).delete()
+    person.setActive(p, False)
     matchDrivers = getMatchingDrivers(p)
     logging.debug('Found Drivers: ' + str(len(matchDrivers)))
     for d in matchDrivers:
@@ -721,7 +715,7 @@ def removePassenger(p, driver=None):
     restart(p)
 
 def removeDriver(d):
-    #ndb.Key(ActivePerson, d.chat_id).delete()
+    person.setActive(d, False)
     matchPassengers = getMatchingPassengers(d)
     #logging.debug('Found Drivers: ' + str(len(matchPassengers)))
     for p in matchPassengers:
@@ -734,18 +728,17 @@ def removeDriver(d):
     restart(d)
 
 def askToSelectDriverByNameAndId(p):
-    getMatchingDrivers(p)
-    qry = Person.query(Person.last_city==p.last_city, Person.state.IN([32,33]))
-    if qry.get() is None:
-        tell(p.chat_id, _("Thanks, have a good ride!")) # cannot ask you which driver cause they are all gone
-        removePassenger(p)
-    else:
+    match = getMatchingDrivers(p)
+    if match:
         buttons = []
-        for d in qry:
+        for d in match:
             buttons.append([d.name.encode('utf-8') + _(" (id: ") + d.ticket_id + _(")")])
         buttons.append([_("Someone else")])
         tell(p.chat_id, _("Great, which driver gave you a ride?"), kb=buttons)
         person.setState(p, 23)
+    else: # no matching drivers
+        tell(p.chat_id, _("Thanks, have a good ride!")) # cannot ask you which driver cause they are all gone
+        removePassenger(p)
 
 def getDriverSelectionId(passenger, ticket_id):
     id_str = ticket_id[ticket_id.index("(id:")+5:-1]
@@ -951,6 +944,7 @@ class NewVersionBroadcastHandler(webapp2.RequestHandler):
         urlfetch.set_default_fetch_deadline(60)
         return
 
+"""
         text_it = "Da oggi @PickMeUp_bot ha una marcia in più!" + '\n' + \
                   "- Nuove tratte e nuove fermate completamente flessibili (welcome to Sanba, Mesiano & Pergine!)" + '\n' +\
                   "- Geolocalizzazione: trova automaticamente la fermata più vicina a te!" + '\n' +\
@@ -965,7 +959,7 @@ class NewVersionBroadcastHandler(webapp2.RequestHandler):
 
         broadcast(text_it, 'IT')
         broadcast(text_en, 'EN')
-
+"""
 
 class DashboardHandler(webapp2.RequestHandler):
     def get(self):
@@ -1176,9 +1170,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         counter.resetCounter()
                     elif text == '/sendText':
                         id = -1
-                        text = "Ciao Anna, ci dispiace che vuoi disabilitare PickMeUp, spero che tornerai a trovarci. " \
-                               "per disabilitare un bot devi bloccarlo così come bloccheresti qualsiasi utente. " \
-                               "La procedura esatta varia dal dispositivo che usi, puoi contattarmi su @kercos per maggiori informazioni."
+                        text = ""
                         if tell_person(id, text):
                             reply('Successfully sent text')
                         else:
@@ -1193,7 +1185,9 @@ class WebhookHandler(webapp2.RequestHandler):
                     elif text == '/test':
                         #return
                         logging.debug('test')
-                        deferred.defer(restartOldUsers)
+                        #c = person.resetActive()
+                        #reply("Successfully reset actives: " + str(c))
+                        #deferred.defer(restartOldUsers)
                         #c = deferred.defer(restartLanguages)
                         #c = person.resetAllState(-2)
                         #reply("Successfully reset all states: " + str(c))
@@ -1238,7 +1232,6 @@ class WebhookHandler(webapp2.RequestHandler):
                 else:
                     reply(_("Sorry, I don't understand you"))
                     restart(p)
-            #kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
             elif p.state == 0:
                 # AFTER TYPING START
                 if text.endswith(_("Passenger")):
@@ -1356,6 +1349,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     deferred.defer(notify_potential_passengers,p)
                     ride.recordRide(p, int(text))
                     person.setState(p, 32)
+                    person.setActive(p, True)
                     # state = 32
                 elif text.endswith(_("Abort")):
                     reply(_("Passage offer has been aborted."))
