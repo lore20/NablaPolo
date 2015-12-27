@@ -5,7 +5,9 @@
 import csv
 from google.appengine.ext import ndb
 from google.appengine.ext.ndb import metadata
-from main import Person, Ride, RideRequest
+from person import Person
+from ride import Ride
+from ride_request import RideRequest
 
 
 def exportToCsv(query, csvFileName):

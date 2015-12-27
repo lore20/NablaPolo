@@ -5,10 +5,10 @@ cron:
 #  url: /tiramisulottery
 #  schedule: every 1 hours from 09:00 to 19:00
 #  timezone: Europe/Rome
-- description: info user tiramisu group
-  url: /infousers_tiramisu
-  schedule: every day 09:00
-  timezone: Europe/Rome
+#- description: info user tiramisu group
+#  url: /infousers_tiramisu
+#  schedule: every day 09:15
+#  timezone: Europe/Rome
 - description: info user weekly for all
   url: /infouser_weekly_all
   schedule: every monday 09:00
@@ -20,11 +20,23 @@ cron:
 - description: checking drivers and passengers that are expired
   url: /checkExpiredUsers
   schedule: every 1 minutes
+- description: restart users in non-start states for over a week
+  url: /restartOldUsers
+  schedule: every sunday 12:00
 - description: info dayly ride
   url: /infoday_tiramisu
-  schedule: every day 22:00
+  schedule: every mon,tue,wed,thu 22:00
   timezone: Europe/Rome
-- description: info weekly ride
+- description: info weekly ride for all
   url: /infoweek_all
   schedule: every friday 22:00
   timezone: Europe/Rome
+- description: day people count
+  url: /dayPeopleCount
+  schedule: every day 00:00
+  timezone: Europe/Rome
+- description: new version released
+  url: /newVersionBroadcast
+  schedule: 14 of dec 09:05
+  timezone: Europe/Rome
+

@@ -80,7 +80,7 @@
 
       function drawChart() {
         var scan = JSON.parse('{{ today_events|safe }}');
-        console.log('Requests scanned ' + JSON.stringify(scan));
+        //  console.log('Requests scanned ' + JSON.stringify(scan));
 
         var container = document.getElementById('timeline');
         var chart = new google.visualization.Timeline(container);
@@ -106,17 +106,21 @@
         var mm = today.getMonth(); //January is 0!
         var yyyy = today.getFullYear();
 
-        for (property in scan) {
-            start_end_array = scan[property]
-            //console.log(property + " -> " + start_end_array);
-            dataTable.addRow([property, '', new Date(yyyy,mm,dd,0,0,0), new Date(yyyy,mm,dd,0,0,0)])
-            dataTable.addRow([property, '', new Date(yyyy,mm,dd,23,59,59), new Date(yyyy,mm,dd,23,59,59)])
-            for (var i=0; i<start_end_array.length; i++) {
-                start_end = start_end_array[i];
-                //console.log(start_end + ' -> ' + new Date(start_end[0]) + "-" + new Date(start_end[1]));
-                dataTable.addRow([property, '', new Date(start_end[0]), new Date(start_end[1])])
+        for (loc in scan) {
+            subdict = scan[loc]
+            console.log("subdict -> " + JSON.stringify(subdict));
+            for (property in subdict) {
+                start_end_array = subdict[property]
+                //console.log(property + " -> " + start_end_array);
+                dataTable.addRow([property, '', new Date(yyyy,mm,dd,0,0,0), new Date(yyyy,mm,dd,0,0,0)])
+                dataTable.addRow([property, '', new Date(yyyy,mm,dd,23,59,59), new Date(yyyy,mm,dd,23,59,59)])
+                for (var i=0; i<start_end_array.length; i++) {
+                    start_end = start_end_array[i];
+                    //console.log(start_end + ' -> ' + new Date(start_end[0]) + "-" + new Date(start_end[1]));
+                    dataTable.addRow([property, '', new Date(start_end[0]), new Date(start_end[1])])
+                }
             }
-        }
+         }
 
         var options = {
             hAxis: {
@@ -152,7 +156,7 @@
         console.log("received message: " + msg.data);
         document.getElementById("p_tn").innerHTML=peopleInTrento;
         document.getElementById("p_pv").innerHTML=peopleInPovo;
-        document.getElementById("log_text").innerHTML=msg.data;
+        //document.getElementById("log_text").innerHTML=msg.data;
       }
       socket.onerror = function(err) {
         // reconnect on timeout
@@ -191,15 +195,18 @@
 
 <div id="p_tn" class="gwd-div-1n6o">{{ passenger['trento'] }}</div>
 <div id="p_pv" class="gwd-div-1n6o gwd-div-1394">{{ passenger['povo'] }}</div>
+
+<!--
 <div id="log_text" class="gwd-div-bh29">passengers: {{ passenger }} PV-TN: {{ ridesPovoToTrento }} TN-PV: {{
     ridesTrentoToPovo }}
-</div>
 
+</div>
+-->
 
 <!-- MAIN CONTENT -->
 
 <div id="timeline_wrap" class="timeline">
-    <div id="timeline" style="height: 250px;"></div>
+    <div id="timeline" style="height: 450px;"></div>
 </div>
 
 </body>
