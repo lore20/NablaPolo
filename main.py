@@ -788,6 +788,8 @@ def tell_katja_test():
             e.put()
 
 def tell_masters(msg):
+    if key.TEST:
+        return
     for id in key.MASTER_CHAT_ID:
         tell(id, msg)
 
@@ -909,6 +911,8 @@ class TiramisuHandler(webapp2.RequestHandler):
 
 class InfouserTiramisuHandler(webapp2.RequestHandler):
     def get(self):
+        if key.TEST:
+            return
         urlfetch.set_default_fetch_deadline(60)
         tell(key.TIRAMISU_CHAT_ID, getInfoCount())
 
@@ -925,6 +929,8 @@ class DayPeopleCountHandler(webapp2.RequestHandler):
 
 class InfodayTiramisuHandler(webapp2.RequestHandler):
     def get(self):
+        if key.TEST:
+            return
         urlfetch.set_default_fetch_deadline(60)
         tell(key.TIRAMISU_CHAT_ID, getInfoDay('IT'))
 
@@ -1108,7 +1114,12 @@ class WebhookHandler(webapp2.RequestHandler):
                 reply(INSTRUCTIONS)
         else:
             # known user
-            if text=='/state':
+            if text == '/initbot' and chat_id in key.MASTER_CHAT_ID:
+                itinerary.initBusStops()
+                counter.resetCounter()
+                itinerary.initBasicRoutes()
+                reply('Succeffully initialized bot!')
+            elif text=='/state':
                 if p.state in STATES:
                     reply("You are in state " + str(p.state) + ": " + STATES[p.state]);
                 else:
