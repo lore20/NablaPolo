@@ -2,8 +2,12 @@
 #application: pickmeup-telegram
 #version: 8
 
-#TEST
-application: tiramisu-telegram
+#TEST DEV
+#application: tiramisu-telegram
+#version: 1
+
+#TEST ANGELO
+application: tiramisu-test-angelo
 version: 1
 
 runtime: python27
