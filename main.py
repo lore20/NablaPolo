@@ -652,7 +652,7 @@ def notify_potential_passengers(driver):
         if p.notification_enabled:
             count+=1
             setLanguage(p.language)
-            text = _("Notification " + emoij.CAR + ": There is a driver matching your default route!") + '\n\n' +\
+            text = _("Notification ") + emoij.CAR + _(": There is a driver matching your default route!") + '\n\n' +\
                    getDriverRideDetails(driver).encode('utf-8')
             tell(p.chat_id,text)
             #logging.debug(getDriverRideDetails(driver))
@@ -1108,7 +1108,7 @@ class WebhookHandler(webapp2.RequestHandler):
             if text in ['/start','START']:
                 registerUser(p, name, last_name, username)
                 restart(p)
-                # state = 0
+                # state = -2
             else:
                 reply(_("Hi") + ' ' + name + ", " + _("welcome!"))
                 reply(INSTRUCTIONS)
@@ -1179,11 +1179,19 @@ class WebhookHandler(webapp2.RequestHandler):
                         checkEnabled()
                     elif text == '/resetcounters':
                         counter.resetCounter()
-                    elif text == '/sendText':
-                        id = -1
-                        text = ""
+                    elif text.startswith('/sendText'):
+                        split = text.split()
+                        if len(split)<3:
+                            reply('Commands should have at least 2 spaces')
+                            return
+                        if not split[1].isdigit():
+                            reply('Second argumnet should be a valid chat_id')
+                            return
+                        id = int(split[1])
+                        text = ' '.join(split[2:])
                         if tell_person(id, text):
-                            reply('Successfully sent text')
+                            p = person.getPerson(id)
+                            reply('Successfully sent text to ' + p.name)
                         else:
                             reply('Problems in sending text')
                     elif text == '/resetBusStopsAndCounters':

@@ -38,6 +38,9 @@ def addPerson(chat_id, name):
     p.put()
     return p
 
+def getPerson(chat_id):
+    return Person.query(Person.chat_id==chat_id).get()
+
 def setActive(p, active):
     p.active = active
     p.put()
