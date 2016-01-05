@@ -918,6 +918,8 @@ class InfouserTiramisuHandler(webapp2.RequestHandler):
 
 class InfouserAllHandler(webapp2.RequestHandler):
     def get(self):
+        if key.TEST:
+            return
         urlfetch.set_default_fetch_deadline(60)
         broadcast(getInfoCount('IT'), language='IT')
         broadcast(getInfoCount('EN'), language='EN')
@@ -1238,7 +1240,6 @@ class WebhookHandler(webapp2.RequestHandler):
                         msg = text[14:] #.encode('utf-8')
                         deferred.defer(broadcast, msg, 'IT')
                     elif text.startswith('/broadcast_en ') and len(text)>14:
-                        return
                         msg = text[14:] #.encode('utf-8')
                         deferred.defer(broadcast, msg, 'EN')
                     elif text.startswith('/self ') and len(text)>6:
