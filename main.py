@@ -234,11 +234,11 @@ def checkEnabled():
                 p.put()
         sleep(0.035) # no more than 30 messages per second
 
-def broadcast(msg, language='ALL', curs=None, count = 0):
+def broadcast(msg, language='ALL', check_notification=False, curs=None, count = 0):
     users, next_curs, more = Person.query().fetch_page(50, start_cursor=curs) #.order(-Person.last_mod)
     try:
         for p in users:
-            if (p.enabled):
+            if p.enabled and (not check_notification or p.notification_enabled):
                 if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
                     setLanguage(p.language)
                     logging.debug("Sending message to chat id " + str(p.chat_id))
@@ -248,10 +248,10 @@ def broadcast(msg, language='ALL', curs=None, count = 0):
                     sleep(0.050) # no more than 20 messages per second
     except datastore_errors.Timeout:
         sleep(1)
-        deferred.defer(broadcast, msg, language, curs, count)
+        deferred.defer(broadcast, msg, language, check_notification, curs, count)
         return
     if more:
-        deferred.defer(broadcast, msg, language, next_curs, count, _queue='default')
+        deferred.defer(broadcast, msg, language, check_notification, next_curs, count, _queue='default')
     else:
         logging.debug('broadcasted to people ' + str(count))
 
@@ -289,8 +289,8 @@ def getInfoDay(language=None):
         msg += _("Let's make it happen! ") + emoij.SMILING_FACE
     return msg
 
-def getInfoWeek():
-    setLanguage('IT')
+def getInfoWeek(language):
+    setLanguage(language)
     lastweek = time_util.get_last_week()
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > lastweek)
     qryRide = Ride.query(Ride.start_daytime > lastweek)
@@ -921,8 +921,8 @@ class InfouserAllHandler(webapp2.RequestHandler):
         if key.TEST:
             return
         urlfetch.set_default_fetch_deadline(60)
-        broadcast(getInfoCount('IT'), language='IT')
-        broadcast(getInfoCount('EN'), language='EN')
+        broadcast(getInfoCount('IT'), language='IT', check_notification=True)
+        broadcast(getInfoCount('EN'), language='EN', check_notification=True)
 
 class DayPeopleCountHandler(webapp2.RequestHandler):
     def get(self):
@@ -939,7 +939,8 @@ class InfodayTiramisuHandler(webapp2.RequestHandler):
 class InfodayAllHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        broadcast(getInfoWeek())
+        broadcast(getInfoWeek('IT'), language='IT', check_notification=True)
+        broadcast(getInfoWeek('EN'), language='EN', check_notification=True)
 
 class ResetCountersHandler(webapp2.RequestHandler):
     def get(self):
