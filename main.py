@@ -938,6 +938,8 @@ class InfodayTiramisuHandler(webapp2.RequestHandler):
 
 class InfodayAllHandler(webapp2.RequestHandler):
     def get(self):
+        if key.TEST:
+            return
         urlfetch.set_default_fetch_deadline(60)
         broadcast(getInfoWeek('IT'), language='IT', check_notification=True)
         broadcast(getInfoWeek('EN'), language='EN', check_notification=True)
@@ -1118,9 +1120,9 @@ class WebhookHandler(webapp2.RequestHandler):
         else:
             # known user
             if text == '/initbot' and chat_id in key.MASTER_CHAT_ID:
-                itinerary.initBusStops()
-                counter.resetCounter()
-                itinerary.initBasicRoutes()
+                itinerary.initBusStops(delete=True)
+                counter.resetCounter(delete=True)
+                itinerary.initBasicRoutes(delete=True)
                 reply('Succeffully initialized bot!')
             elif text=='/state':
                 if p.state in STATES:

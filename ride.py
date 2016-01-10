@@ -1,3 +1,4 @@
+import person
 from google.appengine.ext import ndb
 from datetime import datetime
 
@@ -10,6 +11,7 @@ class Ride(ndb.Model):
     auto_abort = ndb.BooleanProperty()
     minutes_to_pickup = ndb.IntegerProperty()
     start_location = ndb.StringProperty()
+    end_location = ndb.StringProperty()
     passengers_ids = ndb.JsonProperty()
     passengers_names = ndb.JsonProperty()
     passengers_names_str = ndb.StringProperty()
@@ -29,6 +31,7 @@ def recordRide(driver, minutes_to_pickup):
     r.start_daytime = datetime.now()
     r.minutes_to_pickup = minutes_to_pickup
     r.start_location = driver.location
+    r.end_location = person.getDestination(driver)
     r.passengers_ids = [] #ids
     r.passengers_names = [] #names
     k = r.put()

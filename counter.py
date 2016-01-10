@@ -33,7 +33,9 @@ PASSENGERS_LABEL = 'PASSENGERS'
 def getKey(cityBusStop, driver):
     return cityBusStop + ' ' + (DRIVER_LABEL if driver else PASSENGERS_LABEL)
 
-def resetCounter():
+def resetCounter(delete=False):
+    if delete:
+        ndb.delete_multi(Counter.query().fetch(keys_only=True))
     for q in itinerary.BusStop.query():
         for driver in [True, False]:
             cityBusStop = itinerary.getKey(q.city, q.name)

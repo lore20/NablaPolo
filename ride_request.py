@@ -1,3 +1,4 @@
+import person
 from google.appengine.ext import ndb
 from datetime import datetime
 
@@ -6,6 +7,7 @@ class RideRequest(ndb.Model):
     passenger_id = ndb.IntegerProperty()
     passenger_last_seen = ndb.DateTimeProperty()
     passenger_location = ndb.StringProperty()
+    passenger_destination = ndb.StringProperty()
     passenger_ticket_id = ndb.StringProperty()
     driver_name = ndb.StringProperty()
     driver_id = ndb.IntegerProperty()
@@ -23,6 +25,7 @@ def recordRideRequest(passenger):
     request.passenger_id = passenger.chat_id
     request.passenger_last_seen = passenger.last_seen
     request.passenger_location = passenger.location
+    request.passenger_destination = person.getDestination(passenger)
     request.passenger_ticket_id = passenger.ticket_id
     k = request.put()
     #logging.debug('New ride. Key:' + str(k))

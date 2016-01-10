@@ -1,3 +1,5 @@
+# coding=utf-8
+
 from google.appengine.ext import ndb
 import math
 import operator
@@ -32,10 +34,30 @@ TN_Pergine_FS = ("Pergine FS", 46.0634661, 11.2315599, 'PER_FS')
 TN_Mattarello_Catorni = ("Mattarello Catoni", 46.009173, 11.128193, 'MAT_CA')
 TN_NORD_ZONA_COMMERCIALE = ("Trento Nord Zona Commerciale", 46.090066, 11.113395, 'NZC')
 
+#RIVA - ARCO
 TN_RIVA_INVIOLATA = ("Riva Inviolata", 45.889042, 10.843240, 'RDG_INV')
 TN_ARCO_CASINO = ("Arco Casinò", 45.917813, 10.885141, 'ARC_CAS')
 TN_ARCO_S_CAT_POLI = ("Arco S.Caterina Poli", 45.909959, 10.870948, 'ARC_CAS')
 
+#RIVA - LEDRO
+TN_RIVA_FLORIANI = ("Riva rotonda Floriani", 45.894707, 10.843048, 'RDG_RFL')
+TN_LEDRO_BIACESA = ("Ledro Biacesa", 45.865099, 10.805401, "LDR_BIA")
+TN_LEDRO_MOLINA = ("Ledro Molina", 45.871800, 10.772175, "LDR_MLN")
+TN_LEDRO_MEZZOLAGO = ("Ledro Mezzolago", 45.881077, 10.750451, "LDR_ML")
+TN_LEDRO_PIEVE = ("Pieve (consorzio turismo residence)", 45.889473, 10.729370, "LDR_PV")
+TN_LEDRO_BEZZECCA = ("Bezzecca (albergo da Gino)", 45.895281, 10.715026, "LDR_BZC")
+TN_LEDRO_RIARMO = ("Riarmo di sotto (benzinaio)", 45.892677, 10.685424, "LDR_RM")
+TN_LEDRO_TIARNO = ("Tiarno di sopra (Ribaga)", 45.888336, 10.671004, "LDR_TRN")
+
+#RIVA - TENNO
+TN_RIVA_MALOSSINI = ("Riva v. Oleandri (CS Malossini)", 45.897645, 10.844131, "RDG_CSM")
+TN_TENNO_GAVAZZO = ("Gavazzo (bus stop)", 45.912496, 10.841007, "TEN_GAV")
+TN_TENNO_COLOGNA = ("Cologna alta (chiesa parrocchiale)", 45.914870, 10.842381, "TEN_COL")
+TN_TENNO_FARMACIA = ("Tenno farmacia", 45.918102, 10.832828, "TEN_FAR")
+TN_TENNO_ZANOLLI = ("Ville del monte (Ex albergo Zanolli)", 45.930241, 10.822422, "TEN_ZAN")
+
+
+#for back compatibility (dashboard)
 FERMATA_TRENTO = TN_Aquila[0]
 FERMATA_POVO = TN_Povo_PoloScientifico[0]
 
@@ -62,7 +84,22 @@ CITY_BUS_STOPS = {
         TN_NORD_ZONA_COMMERCIALE,
         TN_RIVA_INVIOLATA,
         TN_ARCO_CASINO,
-        TN_ARCO_S_CAT_POLI
+        TN_ARCO_S_CAT_POLI,
+        #
+        TN_RIVA_FLORIANI,
+        TN_LEDRO_BIACESA,
+        TN_LEDRO_MOLINA,
+        TN_LEDRO_MEZZOLAGO,
+        TN_LEDRO_PIEVE,
+        TN_LEDRO_BEZZECCA,
+        TN_LEDRO_RIARMO,
+        TN_LEDRO_TIARNO,
+        #
+        TN_RIVA_MALOSSINI,
+        TN_TENNO_GAVAZZO,
+        TN_TENNO_COLOGNA,
+        TN_TENNO_FARMACIA,
+        TN_TENNO_ZANOLLI,
     ),
     CITY_CALTANISSETTA: (
         CL_FS,
@@ -85,6 +122,20 @@ BASIC_ROUTES = {
         [TN_ARCO_S_CAT_POLI[0]], #mid_going
         [TN_ARCO_S_CAT_POLI[0]], #mid_back
     ),
+    "/Riva_Ledro": (
+        CITY_TRENTO, #city
+        TN_RIVA_FLORIANI[0], #start
+        TN_LEDRO_TIARNO[0], #end
+        [TN_LEDRO_BIACESA[0],TN_LEDRO_MOLINA[0],TN_LEDRO_MEZZOLAGO[0],TN_LEDRO_PIEVE[0],TN_LEDRO_BEZZECCA[0],TN_LEDRO_RIARMO[0]], #mid_going
+        [TN_LEDRO_RIARMO[0],TN_LEDRO_BEZZECCA[0],TN_LEDRO_PIEVE[0],TN_LEDRO_MEZZOLAGO[0],TN_LEDRO_MOLINA[0],TN_LEDRO_BIACESA[0]], #mid_back
+    ),
+    "/Riva_Tenno": (
+        CITY_TRENTO, #city
+        TN_RIVA_MALOSSINI[0], #start
+        TN_TENNO_ZANOLLI[0], #end
+        [TN_TENNO_GAVAZZO[0],TN_TENNO_COLOGNA[0],TN_TENNO_FARMACIA[0]], #mid_going
+        [TN_TENNO_FARMACIA[0],TN_TENNO_COLOGNA[0],TN_TENNO_GAVAZZO[0]], #mid_back
+    ),
 }
 
 MAX_CLUSTER_DISTANCE = 0.5 #km
@@ -106,7 +157,9 @@ def getBusStop(cityName, bsName):
     key = getKey(cityName, bsName)
     return ndb.Key(BusStop, key).get()
 
-def initBusStops():
+def initBusStops(delete=False):
+    if delete:
+        ndb.delete_multi(BusStop.query().fetch(keys_only=True))
     for city_key in CITY_BUS_STOPS:
         for bs_lat_lon in CITY_BUS_STOPS[city_key]:
             bs_name = bs_lat_lon[0]
@@ -140,7 +193,9 @@ class BasicRoutes(ndb.Model):
     bus_stop_mid_going = ndb.StringProperty(repeated=True)
     bus_stop_mid_back = ndb.StringProperty(repeated=True)
 
-def initBasicRoutes():
+def initBasicRoutes(delete=False):
+    if delete:
+        ndb.delete_multi(BasicRoutes.query().fetch(keys_only=True))
     for route_cmd in BASIC_ROUTES:
         route = BasicRoutes.get_or_insert(route_cmd)
         route_data = BASIC_ROUTES[route_cmd]
