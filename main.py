@@ -367,7 +367,9 @@ def goToSettingNotification(p):
 
 
 def goToSettingItineraryBasic(p):
-    commands = '\n\n'.join(itinerary.BASIC_ROUTES.keys())
+    #commands = '\n\n'.join(itinerary.BASIC_ROUTES.keys())
+    commandList = itinerary.getBasicRoutesCommands()
+    commands = '\n\n'.join(commandList)
     tell(p.chat_id, _("Click on one of the following routes: ") + _("\n\n") + commands,
          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
     person.setState(p, 935)
@@ -1740,11 +1742,16 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 935:
                 #ITINERARY BASIC
-                if text in itinerary.BASIC_ROUTES.keys():
-                    itinerary.setBasicRoute(p,text)
-                    reply(_('Successfully set the route: ') + p.bus_stop_start + ' <-> ' + p.bus_stop_end)
-                    restart(p)
-                    # state = -1
+                if text.startswith('/'):
+                    commandList = itinerary.getBasicRoutesCommands()
+                    commands = '\n\n'.join(commandList)
+                    if text in commands:
+                        itinerary.setBasicRoute(p,text)
+                        reply(_('Successfully set the route: ') + p.bus_stop_start + ' <-> ' + p.bus_stop_end)
+                        restart(p)
+                        # state = -1
+                    else:
+                        reply(_("Sorry, I don't understand you"))
                 elif text.endswith(_("Back")):
                     goToSettings(p)
                     # state = 90

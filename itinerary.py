@@ -209,6 +209,13 @@ def initBasicRoutes(delete=False):
         )
         route.put()
 
+def getBasicRoutesCommands():
+    cmd = []
+    routes = BasicRoutes.query().fetch(keys_only=True)
+    for r in routes:
+        cmd.append(r.id())
+    return cmd
+
 def setBasicRoute(p, route_cmd):
     route = ndb.Key(BasicRoutes, route_cmd).get()
     p.populate(last_city = route.city,
