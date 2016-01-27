@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: VERSION\n"
-"POT-Creation-Date: 2015-12-31 09:44+0000\n"
-"PO-Revision-Date: 2015-12-31 09:44+0000\n"
+"POT-Creation-Date: 2016-01-25 21:36+0000\n"
+"PO-Revision-Date: 2016-01-25 21:36+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE TEAM <EMAIL@ADDRESS>\n"
 "Language: it_IT\n"
@@ -11,11 +11,15 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../main.py:655
+#: ../main.py:659
 msgid ": There is a driver matching your default route!"
 msgstr ": C'è un'offerta di passaggio che coincide con la tua richiesta!"
 
-#: ../main.py:183 ../main.py:1113
+#: ../main.py:1532
+msgid "Thanks for agreeing on terms!"
+msgstr "Grazie per aver accettato i termini e le condizioni!"
+
+#: ../main.py:183 ../main.py:1122
 msgid "Hi"
 msgstr "Ciao"
 
@@ -27,26 +31,26 @@ msgstr "! "
 msgid "Are you a driver or a passenger?"
 msgstr "Sei un autista o un passeggero?"
 
-#: ../main.py:184 ../main.py:1261
+#: ../main.py:184 ../main.py:1269
 msgid "Driver"
 msgstr "Autista"
 
-#: ../main.py:184 ../main.py:1256
+#: ../main.py:184 ../main.py:1264
 msgid "Passenger"
 msgstr "Passeggero"
 
-#: ../main.py:184 ../main.py:558 ../main.py:608 ../main.py:616 ../main.py:632
-#: ../main.py:639 ../main.py:644 ../main.py:1260 ../main.py:1266
-#: ../main.py:1267 ../main.py:1275 ../main.py:1292 ../main.py:1306
-#: ../main.py:1321 ../main.py:1347 ../main.py:1355 ../main.py:1373
-#: ../main.py:1387 ../main.py:1400 ../main.py:1403
+#: ../main.py:184 ../main.py:562 ../main.py:612 ../main.py:620 ../main.py:636
+#: ../main.py:643 ../main.py:648 ../main.py:1268 ../main.py:1274
+#: ../main.py:1275 ../main.py:1283 ../main.py:1300 ../main.py:1314
+#: ../main.py:1329 ../main.py:1355 ../main.py:1363 ../main.py:1381
+#: ../main.py:1395 ../main.py:1408 ../main.py:1411
 msgid "Abort"
 msgstr "Annulla"
 
 #: ../main.py:194 ../main.py:272 ../main.py:285 ../main.py:301 ../main.py:341
-#: ../main.py:392 ../main.py:463 ../main.py:543 ../main.py:642 ../main.py:1072
-#: ../main.py:1081 ../main.py:1083 ../main.py:1085 ../main.py:1088
-#: ../main.py:1091
+#: ../main.py:394 ../main.py:467 ../main.py:547 ../main.py:646 ../main.py:1081
+#: ../main.py:1090 ../main.py:1092 ../main.py:1094 ../main.py:1097
+#: ../main.py:1100
 msgid "\n"
 msgstr "\n"
 
@@ -106,13 +110,13 @@ msgstr "Questa settimana ci sono state in totale "
 msgid "In order to start, please go to SETTINGS to agree on terms and conditions and setup your default ITINERARY."
 msgstr "Prima di cominciare, vai su IMPOSTAZIONI per accettare i termini di servizio e impostare il tuo PERCORSO predefinito."
 
-#: ../main.py:315 ../main.py:319 ../main.py:324 ../main.py:329 ../main.py:1133
-#: ../main.py:1154
+#: ../main.py:315 ../main.py:319 ../main.py:324 ../main.py:329 ../main.py:1142
+#: ../main.py:1163
 msgid "SETTINGS"
 msgstr "IMPOSTAZIONI"
 
-#: ../main.py:315 ../main.py:319 ../main.py:324 ../main.py:329 ../main.py:1130
-#: ../main.py:1151
+#: ../main.py:315 ../main.py:319 ../main.py:324 ../main.py:329 ../main.py:1139
+#: ../main.py:1160
 msgid "INFO"
 msgstr "INFO"
 
@@ -124,7 +128,7 @@ msgstr "Prima di cominciare, vai su IMPOSTAZIONI per accettare i termini di serv
 msgid "In order to start, please go to SETTINGS to setup your default ITINERARY. You only need to do this once but you can always change it later."
 msgstr "Per iniziare è necessario premere IMPOSTAZIONI per settare l'ITINERARIO. E' sufficiente farlo una volta sola ma le impostazioni possono essere modificate in ogni momento."
 
-#: ../main.py:324 ../main.py:329 ../main.py:1136 ../main.py:1157
+#: ../main.py:324 ../main.py:329 ../main.py:1145 ../main.py:1166
 msgid "INVITE A FRIEND"
 msgstr "INVITA UN AMICO"
 
@@ -144,32 +148,32 @@ msgstr "Premi START se vuoi iniziare un nuovo viaggio! "
 msgid "This is the info panel."
 msgstr "Questo è il pannello informativo."
 
-#: ../main.py:334 ../main.py:1419
+#: ../main.py:334 ../main.py:1427
 msgid "INFO USERS"
 msgstr "INFO UTENTI"
 
-#: ../main.py:334 ../main.py:1423
+#: ../main.py:334 ../main.py:1431
 msgid "DAY SUMMARY"
 msgstr "RIEPILOGO GIORNALIERO"
 
-#: ../main.py:334 ../main.py:1427
+#: ../main.py:334 ../main.py:1435
 msgid "SEARCH BUS STOPS"
 msgstr "CERCA STAZIONI AUTOBUS"
 
-#: ../main.py:334 ../main.py:1433
+#: ../main.py:334 ../main.py:1441
 msgid "SEND FEEDBACK"
 msgstr "MANDA UN FEEDBACK"
 
-#: ../main.py:334 ../main.py:348 ../main.py:359 ../main.py:364 ../main.py:372
-#: ../main.py:394 ../main.py:402 ../main.py:406 ../main.py:413 ../main.py:443
-#: ../main.py:465 ../main.py:1385 ../main.py:1395 ../main.py:1430
-#: ../main.py:1435 ../main.py:1437 ../main.py:1453 ../main.py:1468
-#: ../main.py:1474 ../main.py:1486 ../main.py:1500 ../main.py:1502
-#: ../main.py:1515 ../main.py:1527 ../main.py:1546 ../main.py:1560
-#: ../main.py:1565 ../main.py:1574 ../main.py:1602 ../main.py:1607
-#: ../main.py:1614 ../main.py:1653 ../main.py:1659 ../main.py:1666
-#: ../main.py:1705 ../main.py:1711 ../main.py:1718 ../main.py:1744
-#: ../main.py:1759
+#: ../main.py:334 ../main.py:348 ../main.py:359 ../main.py:364 ../main.py:374
+#: ../main.py:396 ../main.py:404 ../main.py:408 ../main.py:415 ../main.py:445
+#: ../main.py:469 ../main.py:1393 ../main.py:1403 ../main.py:1438
+#: ../main.py:1443 ../main.py:1445 ../main.py:1461 ../main.py:1476
+#: ../main.py:1482 ../main.py:1494 ../main.py:1508 ../main.py:1510
+#: ../main.py:1523 ../main.py:1535 ../main.py:1554 ../main.py:1568
+#: ../main.py:1573 ../main.py:1582 ../main.py:1610 ../main.py:1615
+#: ../main.py:1622 ../main.py:1661 ../main.py:1667 ../main.py:1674
+#: ../main.py:1713 ../main.py:1719 ../main.py:1726 ../main.py:1757
+#: ../main.py:1772
 msgid "Back"
 msgstr "Indietro"
 
@@ -181,23 +185,23 @@ msgstr "Questo è il pannello delle impostazioni."
 msgid "You have not agreed on Terms and Conditions, please press the button below."
 msgstr "Non hai accettato i Termini di Servizio, premi il pulsante qui sotto."
 
-#: ../main.py:342 ../main.py:1485
+#: ../main.py:342 ../main.py:1493
 msgid "TERMS AND CONDITIONS"
 msgstr "TERMINI DI SERVIZIO"
 
-#: ../main.py:343 ../main.py:346 ../main.py:1497
+#: ../main.py:343 ../main.py:346 ../main.py:1505
 msgid "LANGUAGE"
 msgstr "LINGUA"
 
-#: ../main.py:345 ../main.py:1491
+#: ../main.py:345 ../main.py:1499
 msgid "ITINERARY (basic)"
 msgstr "ITINERARIO (semplice)"
 
-#: ../main.py:345 ../main.py:1488
+#: ../main.py:345 ../main.py:1496
 msgid "ITINERARY (advanced)"
 msgstr "ITINERARIO (avanzato)"
 
-#: ../main.py:346 ../main.py:1494
+#: ../main.py:346 ../main.py:1502
 msgid "NOTIFICATIONS"
 msgstr "NOTIFICHE"
 
@@ -205,7 +209,7 @@ msgstr "NOTIFICHE"
 msgid "You have the notifications ENABLED: you will be informed when a driver going through your route inserts a new journey, (even though you have no active requests) and we will send you weekly statistics."
 msgstr "Le notifiche sono ABILITATE: sarai informato ogniqualvolta un autista che fa il tuo stesso percorso inserisce un nuovo viaggio (anche se non hai richieste attive), e ti manderemo delle statistiche settimanali."
 
-#: ../main.py:359 ../main.py:1755
+#: ../main.py:359 ../main.py:1768
 msgid "DISABLE NOTIFICATIONS"
 msgstr "DISABILITA LE NOTIFICHE"
 
@@ -213,527 +217,528 @@ msgstr "DISABILITA LE NOTIFICHE"
 msgid "You have the notifications DISABLED: you will NOT be informed when a driver going through your route inserts a new journey, (unless you have an active request) and we will NOT send you weekly statistics."
 msgstr "Le notifiche sono DISABILITATE: NON sarai informato ogniqualvolta un autista che fa il tuo stesso percorso inserisce un nuovo viaggio (anche se non hai richieste attive), e NON ti manderemo delle statistiche settimanali."
 
-#: ../main.py:364 ../main.py:1751
+#: ../main.py:364 ../main.py:1764
 msgid "ENABLE NOTIFICATIONS"
 msgstr "ABILITA LE NOTIFICHE"
 
-#: ../main.py:371
+#: ../main.py:373
 msgid "Click on one of the following routes: "
 msgstr "Seleziona una delle seguenti tratte: "
 
-#: ../main.py:371 ../main.py:381 ../main.py:391 ../main.py:393 ../main.py:396
-#: ../main.py:464 ../main.py:1071 ../main.py:1073 ../main.py:1076
-#: ../main.py:1078 ../main.py:1082 ../main.py:1087 ../main.py:1090
+#: ../main.py:373 ../main.py:383 ../main.py:393 ../main.py:395 ../main.py:398
+#: ../main.py:468 ../main.py:1080 ../main.py:1082 ../main.py:1085
+#: ../main.py:1087 ../main.py:1091 ../main.py:1096 ../main.py:1099
 msgid "\n\n"
 msgstr "\n\n"
 
-#: ../main.py:381
+#: ../main.py:383
 msgid "Itinerary: "
 msgstr "Itinerario: "
 
-#: ../main.py:381
+#: ../main.py:383
 msgid " <-> "
 msgstr " <-> "
 
-#: ../main.py:384 ../main.py:1534
+#: ../main.py:386 ../main.py:1542
 msgid "Change Start Location"
 msgstr "Cambia PARTENZA"
 
-#: ../main.py:384 ../main.py:1534
+#: ../main.py:386 ../main.py:1542
 msgid "Set Start Location"
 msgstr "Imposta PARTENZA"
 
-#: ../main.py:385 ../main.py:1537
+#: ../main.py:387 ../main.py:1545
 msgid "Change End Location"
 msgstr "Cambia DESTINAZIONE"
 
-#: ../main.py:385 ../main.py:1537
+#: ../main.py:387 ../main.py:1545
 msgid "Set End Location"
 msgstr "Imposta DESTINAZIONE"
 
-#: ../main.py:390 ../main.py:1540
+#: ../main.py:392 ../main.py:1548
 msgid "Change Mid Points Going"
 msgstr "Cambia Punti Intermedi Andata"
 
-#: ../main.py:390 ../main.py:1543
+#: ../main.py:392 ../main.py:1551
 msgid "Change Mid Points Back"
 msgstr "Cambia Punti Intermedi Ritorno"
 
-#: ../main.py:391
+#: ../main.py:393
 msgid "Drivers can optionally add intermediate points where to pick up passengers:"
 msgstr "Gli autisti possono aggiungere dei punti intermedi di salita dei passeggeri:"
 
-#: ../main.py:392
+#: ../main.py:394
 msgid "Mid Points Going: "
 msgstr "Punti intermedi (andata): "
 
-#: ../main.py:393
+#: ../main.py:395
 msgid "Mid Points Back: "
 msgstr "Punti intermedi (ritorno): "
 
-#: ../main.py:396
+#: ../main.py:398
 msgid "Your current itinerary settings:"
 msgstr "Impostazioni correnti del tuo itinerario:"
 
-#: ../main.py:401 ../main.py:404
+#: ../main.py:403 ../main.py:406
 msgid "Please insert "
 msgstr "Inserisci "
 
-#: ../main.py:405
+#: ../main.py:407
 msgid "Alternatevely you can press on 'LIST BUS STOPS' and select one manually."
 msgstr "In alternativa puoi premere su 'LISTA FERMATE' e selezionarne una manualmente."
 
-#: ../main.py:406 ../main.py:413 ../main.py:431 ../main.py:1553 ../main.py:1595
-#: ../main.py:1635 ../main.py:1687
+#: ../main.py:408 ../main.py:415 ../main.py:433 ../main.py:1561 ../main.py:1603
+#: ../main.py:1643 ../main.py:1695
 msgid "List Bus Stops"
 msgstr "Lista Fermate"
 
-#: ../main.py:412
+#: ../main.py:414
 msgid "You can enter a location using GEOLOCATION or ask for a LIST of bus stops in your city"
 msgstr "Puoi inserire un punto usando la GEOLOCATION o scegliendo da una LISTA di fermate nella tua città"
 
-#: ../main.py:413
+#: ../main.py:415
 msgid "Geolocation"
 msgstr "Geolocation"
 
-#: ../main.py:422
+#: ../main.py:424
 msgid "Please select an intermediate point you can stop on the way FORWARD to pick-up other passangers "
 msgstr "Seleziona un punto intermedio in cui ti puoi fermare all'ANDATA per prendere altri passeggeri "
 
-#: ../main.py:423
+#: ../main.py:425
 msgid "Please select an intermediate point you can stop on the way BACK to pick-up other passangers "
 msgstr "Seleziona un punto intermedio in cui ti puoi fermare al RITORNO per prendere altri passeggeri "
 
-#: ../main.py:428
+#: ../main.py:430
 msgid "(or alternatively by asking the list of the bus stops and selecting one manually)."
 msgstr "(o in alternativa tramite una lista di fermate da selezionare manualmente)"
 
-#: ../main.py:432 ../main.py:1637 ../main.py:1689
+#: ../main.py:434 ../main.py:1645 ../main.py:1697
 msgid "Remove all"
 msgstr "Rimuovi tutto"
 
-#: ../main.py:437 ../main.py:440 ../main.py:1642 ../main.py:1694
+#: ../main.py:439 ../main.py:442 ../main.py:1650 ../main.py:1702
 msgid "Same as other direction"
 msgstr "Come nell'altra direzione"
 
-#: ../main.py:446
+#: ../main.py:448
 msgid "Current midpoints:"
 msgstr "Punti intermedi attuali:"
 
-#: ../main.py:463
+#: ../main.py:467
 msgid "Found the following bus stop(s) in your city:"
 msgstr "Fermate individuate nella tua città:"
 
-#: ../main.py:464
+#: ../main.py:468
 msgid "Press on one of them to set it."
 msgstr "Premi su una per impostarla."
 
-#: ../main.py:499
+#: ../main.py:503
 msgid "Resetting interface to initial state"
 msgstr "Interfaccia risettata alla schermata iniziale"
 
-#: ../main.py:525
+#: ../main.py:529
 msgid "The ride offer has been aborted: you were expected to give a ride some time ago!"
 msgstr "L'offerta del passaggio è stata annullata: il tuo arrivo alla fermata era previsto un po' di tempo fa!"
 
-#: ../main.py:530
+#: ../main.py:534
 msgid "The ride has been completed automatically: you were supposed to arrive some time ago!"
 msgstr "Il viaggio è stato completato automaticamente: il tuo arrivo alla destinazione era previsto un po' di tempo fa!"
 
-#: ../main.py:542
+#: ../main.py:546
 msgid "The ride request has been aborted: "
 msgstr "La richiesta di passaggio è stata annullata: "
 
-#: ../main.py:543
+#: ../main.py:547
 msgid "after some time the requests automatically expire."
 msgstr "dopo un po' di tempo la richiesta scade automaticamente."
 
-#: ../main.py:544
+#: ../main.py:548
 msgid "We believe and hope you have already reached your destination,                otherwise feel free to start another request"
 msgstr "Pensiamo e speriamo che tu abbia già raggiunto la tua destinazione; in caso contrario, sentiti libero di inserire una nuova richiesta"
 
-#: ../main.py:555
+#: ../main.py:559
 msgid "Currently there are no drivers matching your journey."
 msgstr "In questo momento non ci sono offerte di passaggi che coincidono con il tuo viaggio."
 
-#: ../main.py:556
+#: ../main.py:560
 msgid "You will be notified as soon as one is available."
 msgstr "Sarai informato non appena ci sarà un'offerta di passaggio che coincide con la tua richiesta."
 
-#: ../main.py:557
+#: ../main.py:561
 msgid "If you find another solution, please abort your request."
 msgstr "Se trovi un'altra soluzione sei pregato di annullare la tua richiesta."
 
-#: ../main.py:607
+#: ../main.py:611
 msgid "There is a passenger matching your journey "
 msgstr "C'è una richiesta di passaggio che coincide con il tuo viaggio "
 
-#: ../main.py:608 ../main.py:639 ../main.py:1334 ../main.py:1381
-#: ../main.py:1400 ../main.py:1408
+#: ../main.py:612 ../main.py:643 ../main.py:1342 ../main.py:1389
+#: ../main.py:1408 ../main.py:1416
 msgid "List Passengers"
 msgstr "Lista Passeggeri"
 
-#: ../main.py:608 ../main.py:639 ../main.py:1383 ../main.py:1400
+#: ../main.py:612 ../main.py:643 ../main.py:1391 ../main.py:1408
 msgid "Send Message"
 msgstr "Invia Messaggio"
 
-#: ../main.py:615
+#: ../main.py:619
 msgid "There is a driver matching your journey."
 msgstr "C'è un autista che fa il tuo stesso percorso."
 
-#: ../main.py:616 ../main.py:632 ../main.py:1304
+#: ../main.py:620 ../main.py:636 ../main.py:1312
 msgid "List Drivers"
 msgstr "Lista Autisti"
 
-#: ../main.py:616 ../main.py:632 ../main.py:1301
+#: ../main.py:620 ../main.py:636 ../main.py:1309
 msgid "Got the Ride!"
 msgstr "Passaggio Confermato!"
 
-#: ../main.py:631
+#: ../main.py:635
 msgid "The is a driver matching your journey! "
 msgstr "C'è un'offerta di passaggio che coincide con la tua richiesta! "
 
-#: ../main.py:637
+#: ../main.py:641
 msgid "There is some passenger(s) matching your journey "
 msgstr "C'è una richiesta di passaggio che coincide con il tuo viaggio "
 
-#: ../main.py:638
+#: ../main.py:642
 msgid "Have a nice trip!"
 msgstr "Buon viaggio!"
 
-#: ../main.py:641
+#: ../main.py:645
 msgid "There is currently no passenger matching your journey."
 msgstr "In questo momento non ci sono richieste di passaggi che coincidono con il tuo viaggio."
 
-#: ../main.py:642
+#: ../main.py:646
 msgid "If a new passege request matches your journey we will notify you."
 msgstr "Se una nuova richiesta di passaggio coincide con il tuo viaggio riceverai una notifica."
 
-#: ../main.py:643
+#: ../main.py:647
 msgid "Have a nice trip! "
 msgstr "Buon viaggio! "
 
-#: ../main.py:655
+#: ../main.py:659
 msgid "Notification "
 msgstr "Notifica "
 
-#: ../main.py:664
+#: ../main.py:668
 msgid " ride start: "
 msgstr " inizio viaggio: "
 
-#: ../main.py:666 ../main.py:674
+#: ../main.py:670 ../main.py:678
 msgid " itinerary: "
 msgstr " itinerario: "
 
-#: ../main.py:668 ../main.py:676 ../main.py:735
+#: ../main.py:672 ../main.py:680 ../main.py:739
 msgid " (id: "
 msgstr " (id: "
 
-#: ../main.py:668 ../main.py:676 ../main.py:735
+#: ../main.py:672 ../main.py:680 ../main.py:739
 msgid ")"
 msgstr ")"
 
-#: ../main.py:673
+#: ../main.py:677
 msgid " waiting since "
 msgstr " in attesa dalle "
 
-#: ../main.py:688
+#: ../main.py:692
 msgid "No drivers found matching your journey"
 msgstr "Nessun autista trovato che coincide con il tuo viaggio"
 
-#: ../main.py:699
+#: ../main.py:703
 msgid "No passengers found matching your journey"
 msgstr "Nessun passeggero trovato che coincide con il tuo viaggio"
 
-#: ../main.py:711
+#: ../main.py:715
 msgid "Oops... there are no more passage requests matching your journey!"
 msgstr "Oops... non ci sono più richieste di passaggi che coincidono con il tuo viaggio!"
 
-#: ../main.py:725
+#: ../main.py:729
 msgid "Oops... the are no more drivers matching your journey!"
 msgstr "Oops... non ci sono più autisti che coincidono con il tuo viaggio!"
 
-#: ../main.py:740 ../main.py:1316
+#: ../main.py:744 ../main.py:1324
 msgid "Thanks, have a good ride!"
 msgstr "Grazie, buon viaggio!"
 
-#: ../main.py:736 ../main.py:1315
+#: ../main.py:740 ../main.py:1323
 msgid "Someone else"
 msgstr "Qualcun altro"
 
-#: ../main.py:737
+#: ../main.py:741
 msgid "Great, which driver gave you a ride?"
 msgstr "Bene! Quale autista ti ha dato il passaggio?"
 
-#: ../main.py:752
+#: ../main.py:756
 msgid "Message from "
 msgstr "Messaggio da "
 
-#: ../main.py:752
+#: ../main.py:756
 msgid ": "
 msgstr ": "
 
-#: ../main.py:1071
+#: ../main.py:1080
 msgid "PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for small journeys within a city)."
 msgstr "PickMeUp è un servizio no-profit di carpooling (simile a BlaBlaCar ma pensato per piccoli tragitti in città)."
 
-#: ../main.py:1072
+#: ../main.py:1081
 msgid "You need to agree on terms and conditions in SETTINGS  and insert an ITINERARY to start a new journey."
 msgstr "Devi accettare i Termini di Servizio all'interno delle IMPOSTAZIONI e inserire un nuovo ITINERARIO per iniziare a viaggiare."
 
-#: ../main.py:1073
+#: ../main.py:1082
 msgid "Once all is set, you can press START to request or offer a ride."
 msgstr "Quando hai finito con le impostazioni, puoi premere START per ricevere o offrire un passaggio."
 
-#: ../main.py:1074
+#: ../main.py:1083
 msgid "Please visit our website at http://pickmeup.trentino.it read the pdf instructions at http://tiny.cc/pickmeup_info and if you want to promote this initiative do like us on FaceBook https://www.fb.com/321pickmeup "
-msgstr "Visita il nostro sito http://pickmeup.trentino.it leggi le istruzioni pdf su http://tiny.cc/pickmeup_info e metti mi piace sulla pagina Facebook https://www.fb.com/321pickmeup per promuovere l'iniziativa "
+msgstr "Visita il nostro sito http://pickmeup.trentino.it leggi le istruzioni pdf su http://tiny.cc/pickmeup_info e metti mi piace sulla pagina Facebook https://www.fb.com/321pickmeup per promuovere l'iniziativa. "
 
-#: ../main.py:1077
+#: ../main.py:1086
 msgid "If you want to join our discussions come to the tiramisu group at the following link: https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g"
 msgstr "Se vuoi unirti alla discussione, vieni a trovarci sul gruppo Tiramisù al seguente link: https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g"
 
-#: ../main.py:1079
+#: ../main.py:1088
 msgid "Any feedback or contribution is highly appreciated (go to INFO -> SEND FEEDBACK)! :D"
 msgstr "Qualsiasi commento o suggerimento è estremamente apprezzato (vai su INFO -> SEND FEEDBACK)! :D"
 
-#: ../main.py:1081
+#: ../main.py:1090
 msgid "PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city."
 msgstr "PickMeUp è un sistema di carpooling dinamico, come BlaBlaCar ma in città."
 
-#: ../main.py:1082
+#: ../main.py:1091
 msgid "It is currently  under testing."
 msgstr "Al momento è in fase di test."
 
-#: ../main.py:1083
+#: ../main.py:1092
 msgid "WARNINGS:"
 msgstr "AVVERTENZE:"
 
-#: ../main.py:1084
+#: ../main.py:1093
 msgid "Drivers: please offer rides before starting the ride. DO NOT use your phone while you drive."
 msgstr "Autisti: effettua l’offerta dei passaggi prima di iniziare il viaggio. NON usare il telefono mentre guidi."
 
-#: ../main.py:1086
+#: ../main.py:1095
 msgid "Passengers: please ask for rides when you are at the bus stop. "
 msgstr "Passeggeri: immettere la richiesta di passaggio solo una volta raggiunta la stazione prestabilita. "
 
-#: ../main.py:1087
+#: ../main.py:1096
 msgid "Be kind with the driver and the other passengers."
 msgstr "Sii gentile con l'autista e con gli altri passeggeri."
 
-#: ../main.py:1088
+#: ../main.py:1097
 msgid "PickMeUp is a non-profit service and it is totally money-free between passengers and drivers."
 msgstr "PickMeUp è un'iniziativa no-profit e non prevede alcuno scambio di denaro tra passeggeri e autisti."
 
-#: ../main.py:1089
+#: ../main.py:1098
 msgid "The current version is under testing: "
 msgstr "La versione corrente è in fase di sperimentazione: "
 
-#: ../main.py:1090
+#: ../main.py:1099
 msgid "no review system has been implemented yet and ride traceability is still limited. "
 msgstr "il sistema non prevede la possibilità di lasciare referenze sugli utilizzatori, e il tracciamento dei viaggi è ancora limitato. "
 
-#: ../main.py:1091
+#: ../main.py:1100
 msgid "PickMeUp developers decline any responsibility for the use of the service."
 msgstr "Gli sviluppatori di PickMeUp declinano ogni responsabilità per l'uso del servizio."
 
-#: ../main.py:1092
+#: ../main.py:1101
 msgid "If you want to use this service you have to agree on these terms by pressing the button below."
 msgstr "Per poter usare il servizio, devi accettare i Termini premendo il pulsante sottostante."
 
-#: ../main.py:1094
+#: ../main.py:1103
 msgid "Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! "
-msgstr "Ciao, ho scoperto @PickMeUp_bot un servizio di capooling gratuito basato su Telegram! "
+msgstr "Ciao, ho scoperto @PickMeUp_bot un servizio di carpooling gratuito basato su Telegram! "
 
-#: ../main.py:1095
+#: ../main.py:1104
 msgid "It's like BlaBlaCar, but for commuting within a city. "
 msgstr "È come BlaBlaCar, ma in città. "
 
-#: ../main.py:1096
+#: ../main.py:1105
 msgid "The system is currently under testing but the community is getting larger every day. "
 msgstr "Il sistema è ancora in fase di sperimentazione ma la comunità sta crescendo ogni giorno. "
 
-#: ../main.py:1097
+#: ../main.py:1106
 msgid "You can try it by clicking on @PickMeUp_bot and press START! "
 msgstr "Clicca su @PickMeUp_bot per aggiungerlo e premi START! "
 
-#: ../main.py:1099
+#: ../main.py:1108
 msgid "Please attach a location by 1) pressing the "
 msgstr "Inserisci un luogo: 1) premi l'icona "
 
-#: ../main.py:1100
+#: ../main.py:1109
 msgid " icon below and 2) chosing a position in the map."
 msgstr " in basso e 2) scegli una posizione nella mappa."
 
-#: ../main.py:1113
+#: ../main.py:1122
 msgid "welcome!"
 msgstr "benvenuto!"
 
-#: ../main.py:1137 ../main.py:1158
+#: ../main.py:1146 ../main.py:1167
 msgid "Forward the following message to your friends."
 msgstr "Inoltra il seguente messaggio ai tuoi amici."
 
-#: ../main.py:1140 ../main.py:1252 ../main.py:1272 ../main.py:1288
-#: ../main.py:1298 ../main.py:1312 ../main.py:1359 ../main.py:1378
-#: ../main.py:1393 ../main.py:1416 ../main.py:1440 ../main.py:1472
-#: ../main.py:1506 ../main.py:1519 ../main.py:1531 ../main.py:1550
-#: ../main.py:1569 ../main.py:1592 ../main.py:1611 ../main.py:1632
-#: ../main.py:1663 ../main.py:1684 ../main.py:1715 ../main.py:1736
-#: ../main.py:1748 ../main.py:1763
+#: ../main.py:1149 ../main.py:1260 ../main.py:1280 ../main.py:1296
+#: ../main.py:1306 ../main.py:1320 ../main.py:1367 ../main.py:1386
+#: ../main.py:1401 ../main.py:1424 ../main.py:1448 ../main.py:1473
+#: ../main.py:1480 ../main.py:1514 ../main.py:1527 ../main.py:1539
+#: ../main.py:1558 ../main.py:1577 ../main.py:1592 ../main.py:1600
+#: ../main.py:1619 ../main.py:1632 ../main.py:1640 ../main.py:1671
+#: ../main.py:1684 ../main.py:1692 ../main.py:1723 ../main.py:1736
+#: ../main.py:1744 ../main.py:1756 ../main.py:1761 ../main.py:1776
 msgid "Sorry, I don't understand you"
 msgstr "Scusa, non capisco"
 
-#: ../main.py:1259
+#: ../main.py:1267
 msgid "Hi! I can try to help you to get a ride. Which bus stop are you at?"
 msgstr "Ciao, posso aiutarti a trovare un passaggio! A quale fermata dell'autobus ti trovi?"
 
-#: ../main.py:1265
+#: ../main.py:1273
 msgid "Hi! Glad you can give a ride. Where can you start picking up passengers?"
 msgstr "Ciao! Felice che tu possa offrire un passaggio. Dove puoi iniziare a far salire i passeggeri?"
 
-#: ../main.py:1269 ../main.py:1276 ../main.py:1293 ../main.py:1307
-#: ../main.py:1322
+#: ../main.py:1277 ../main.py:1284 ../main.py:1301 ../main.py:1315
+#: ../main.py:1330
 msgid "Passage aborted."
 msgstr "Passaggio annullato."
 
-#: ../main.py:1283
+#: ../main.py:1291
 msgid "Your passenger ID is: "
 msgstr "Il tuo codice identificativo è: "
 
-#: ../main.py:1330
+#: ../main.py:1338
 msgid "Great! Many thanks to"
 msgstr "Bene! Un ringraziamento a"
 
-#: ../main.py:1333
+#: ../main.py:1341
 msgid "confirmed you gave him/her a ride!"
 msgstr "ha confermato che gli/le hai dato un passaggio!"
 
-#: ../main.py:1334 ../main.py:1410
+#: ../main.py:1342 ../main.py:1418
 msgid "Reached Destination!"
 msgstr "Raggiunta Destinazione!"
 
-#: ../main.py:1341
+#: ../main.py:1349
 msgid "Name of driver not correct, try again."
 msgstr "Nome dell'autista non corretto, prova di nuovo."
 
-#: ../main.py:1348 ../main.py:1374 ../main.py:1388
+#: ../main.py:1356 ../main.py:1382 ../main.py:1396
 msgid "Passage offer has been aborted."
 msgstr "Offerta di passaggio annullata"
 
-#: ../main.py:1354
+#: ../main.py:1362
 msgid "In how many minutes will you be there?"
 msgstr "In quanti minuti prevedi di arrivare?"
 
-#: ../main.py:1366
+#: ../main.py:1374
 msgid "Your driver ID is: "
 msgstr "Il tuo codice identificativo è: "
 
-#: ../main.py:1384
+#: ../main.py:1392
 msgid "Please type a short message which will be sent to all passengers matching your journey"
 msgstr "Scrivi un messaggio breve da mandare ai passeggeri che coincidono con il tuo viaggio"
 
-#: ../main.py:1397
+#: ../main.py:1405
 msgid "Sent message to "
 msgstr "Messaggio inviato a "
 
-#: ../main.py:1397
+#: ../main.py:1405
 msgid " people"
 msgstr " persona/e"
 
-#: ../main.py:1399
+#: ../main.py:1407
 msgid "There is some passenger(s) matching your journing "
 msgstr "C'è una o più richieste di passaggio che coincidono con il tuo viaggio "
 
-#: ../main.py:1402
+#: ../main.py:1410
 msgid "Oops... there are no more passengers matching your journing!"
 msgstr "Oops... non ci sono più richieste di passaggi che coincidono con il tuo viaggio!"
 
-#: ../main.py:1411
+#: ../main.py:1419
 msgid "Great, thanks!"
 msgstr "Bene, grazie!"
 
-#: ../main.py:1429
+#: ../main.py:1437
 msgid "I will give you a list of bus stops within a radius of 10 km from the given location."
 msgstr "Riceverai una lista di fermate all'interno di un raggio di 10 km dalla posizione richiesta."
 
-#: ../main.py:1434
+#: ../main.py:1442
 msgid "Please send us any feedback, e.g., new bus stops, bugs, suggestions. "
 msgstr "Mandaci dei feedback per aiutarci a migliorare il sistema, ad esempio nuove fermate, segnalazione di errori, suggerimenti. "
 
-#: ../main.py:1451
+#: ../main.py:1459
 msgid "Found the following bus stop(s) near the location: "
 msgstr "Trovate le seguenti fermate vicino alla posizione inserita: "
 
-#: ../main.py:1452
+#: ../main.py:1460
 msgid "By pressing on any of the names, the location will be presented to you."
 msgstr "Premendo su qualsiasi dei nomi, ti verrà indicata la posizione nella mappa."
 
-#: ../main.py:1456 ../main.py:1564 ../main.py:1606 ../main.py:1657
-#: ../main.py:1709
+#: ../main.py:1464 ../main.py:1572 ../main.py:1614 ../main.py:1665
+#: ../main.py:1717
 msgid "No bus stop found near location, try again. "
 msgstr "Nessuna fermata trovata vicino alla posizione inviata, prova di nuovo. "
 
-#: ../main.py:1481
+#: ../main.py:1489
 msgid "Thanks for your feedback!"
 msgstr "Grazie per il tuo feedback!"
 
-#: ../main.py:1486 ../main.py:1522
+#: ../main.py:1494 ../main.py:1530
 msgid "I AGREE"
 msgstr "ACCETTO"
 
-#: ../main.py:1498
+#: ../main.py:1506
 msgid "Choose the language"
 msgstr "Scegli la lingua"
 
-#: ../main.py:1535 ../main.py:1575
+#: ../main.py:1543 ../main.py:1583
 msgid "the START location"
 msgstr "la PARTENZA"
 
-#: ../main.py:1538 ../main.py:1615
+#: ../main.py:1546 ../main.py:1623
 msgid "the END location"
 msgstr "la DESTINAZIONE"
 
-#: ../main.py:1559 ../main.py:1601 ../main.py:1652 ../main.py:1704
+#: ../main.py:1567 ../main.py:1609 ../main.py:1660 ../main.py:1712
 msgid "Found the following bus stop(s) near the location, please make one selection."
 msgstr "Trovate le seguenti fermate vicino alla posizione inserita, selezionane una."
 
-#: ../main.py:1587
+#: ../main.py:1595
 msgid "Thanks for setting the START location!"
 msgstr "Grazie per aver inserito la PARTENZA!"
 
-#: ../main.py:1627
+#: ../main.py:1635
 msgid "Thanks for setting the END location!"
 msgstr "Grazie per aver inserito la DESTINAZIONE!"
 
-#: ../main.py:1639
+#: ../main.py:1647
 msgid "All mid points on the way FORWARD have been removed."
 msgstr "Tutti i punti intermedi per l'ANDATA sono stati rimossi."
 
-#: ../main.py:1645
+#: ../main.py:1653
 msgid "Successfully set mid points way FORWARD as in way BACK!"
 msgstr "I punti intermedi per l'ANDATA sono stati impostati come per il RITORNO."
 
-#: ../main.py:1679 ../main.py:1731
+#: ../main.py:1687 ../main.py:1739
 msgid "Thanks for adding a new mid point!"
 msgstr "Grazie per aver inserito un nuovo punto intermedio!"
 
-#: ../main.py:1691
+#: ../main.py:1699
 msgid "All mid points on the way BACK have been removed."
 msgstr "Tutti i punti intermedi per il RITORNO sono stati rimossi."
 
-#: ../main.py:1697
+#: ../main.py:1705
 msgid "Successfully set mid points way BACK as in way FORWARD!"
 msgstr "I punti intermedi per il RITORNO sono stati impostati come per l'ANDATA."
 
-#: ../main.py:1741
+#: ../main.py:1752
 msgid "Successfully set the route: "
 msgstr "Tratta impostata correttamente: "
 
-#: ../main.py:1765
+#: ../main.py:1778
 msgid "Something is wrong with your state ("
 msgstr "Sembra esserci un problema con il tuo stato ("
 
-#: ../main.py:1766
+#: ../main.py:1779
 msgid "). Please contact the admin at pickmeupbot@gmail.com"
 msgstr "). Ti preghiamo di contattarci a pickmeupbot@gmail.com"
 

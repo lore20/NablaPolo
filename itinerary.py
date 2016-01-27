@@ -46,8 +46,8 @@ TN_LEDRO_MOLINA = ("Ledro Molina", 45.871800, 10.772175, "LDR_MLN")
 TN_LEDRO_MEZZOLAGO = ("Ledro Mezzolago", 45.881077, 10.750451, "LDR_ML")
 TN_LEDRO_PIEVE = ("Pieve (consorzio turismo residence)", 45.889473, 10.729370, "LDR_PV")
 TN_LEDRO_BEZZECCA = ("Bezzecca (albergo da Gino)", 45.895281, 10.715026, "LDR_BZC")
-TN_LEDRO_RIARMO = ("Riarmo di sotto (benzinaio)", 45.892677, 10.685424, "LDR_RM")
-TN_LEDRO_TIARNO = ("Tiarno di sopra (Ribaga)", 45.888336, 10.671004, "LDR_TRN")
+TN_LEDRO_TIARNO_SOTTO = ("Tiarno di sotto (benzinaio)", 45.892677, 10.685424, "LDR_TNA")
+TN_LEDRO_TIARNO_SOPRA = ("Tiarno di sopra (Ribaga)", 45.888336, 10.671004, "LDR_TNB")
 
 #RIVA - TENNO
 TN_RIVA_MALOSSINI = ("Riva v. Oleandri (CS Malossini)", 45.897645, 10.844131, "RDG_CSM")
@@ -56,6 +56,9 @@ TN_TENNO_COLOGNA = ("Cologna alta (chiesa parrocchiale)", 45.914870, 10.842381, 
 TN_TENNO_FARMACIA = ("Tenno farmacia", 45.918102, 10.832828, "TEN_FAR")
 TN_TENNO_ZANOLLI = ("Ville del monte (Ex albergo Zanolli)", 45.930241, 10.822422, "TEN_ZAN")
 
+#MORI - BESAGNO
+#TN_MORI_BC = ("Mori Bar Centrale",  45.851634, 10.9788377, "MOR")
+#TN_MORI_BESAGNO = ("Besagno", 45.8380353, 10.965215, "MOR_BS")
 
 #for back compatibility (dashboard)
 FERMATA_TRENTO = TN_Aquila[0]
@@ -92,14 +95,17 @@ CITY_BUS_STOPS = {
         TN_LEDRO_MEZZOLAGO,
         TN_LEDRO_PIEVE,
         TN_LEDRO_BEZZECCA,
-        TN_LEDRO_RIARMO,
-        TN_LEDRO_TIARNO,
+        TN_LEDRO_TIARNO_SOTTO,
+        TN_LEDRO_TIARNO_SOPRA,
         #
         TN_RIVA_MALOSSINI,
         TN_TENNO_GAVAZZO,
         TN_TENNO_COLOGNA,
         TN_TENNO_FARMACIA,
         TN_TENNO_ZANOLLI,
+        #
+        #TN_MORI_BC,
+        #TN_MORI_BESAGNO
     ),
     CITY_CALTANISSETTA: (
         CL_FS,
@@ -123,11 +129,11 @@ BASIC_ROUTES = {
         [TN_ARCO_S_CAT_POLI[0]], #mid_back
     ),
     "/Riva_Ledro": (
-        CITY_TRENTO, #city
-        TN_RIVA_FLORIANI[0], #start
-        TN_LEDRO_TIARNO[0], #end
-        [TN_LEDRO_BIACESA[0],TN_LEDRO_MOLINA[0],TN_LEDRO_MEZZOLAGO[0],TN_LEDRO_PIEVE[0],TN_LEDRO_BEZZECCA[0],TN_LEDRO_RIARMO[0]], #mid_going
-        [TN_LEDRO_RIARMO[0],TN_LEDRO_BEZZECCA[0],TN_LEDRO_PIEVE[0],TN_LEDRO_MEZZOLAGO[0],TN_LEDRO_MOLINA[0],TN_LEDRO_BIACESA[0]], #mid_back
+        CITY_TRENTO,  #city
+        TN_RIVA_FLORIANI[0],  #start
+        TN_LEDRO_TIARNO_SOPRA[0],  #end
+        [TN_LEDRO_BIACESA[0], TN_LEDRO_MOLINA[0], TN_LEDRO_MEZZOLAGO[0], TN_LEDRO_PIEVE[0], TN_LEDRO_BEZZECCA[0], TN_LEDRO_TIARNO_SOTTO[0]],  #mid_going
+        [TN_LEDRO_TIARNO_SOTTO[0], TN_LEDRO_BEZZECCA[0], TN_LEDRO_PIEVE[0], TN_LEDRO_MEZZOLAGO[0], TN_LEDRO_MOLINA[0], TN_LEDRO_BIACESA[0]], #mid_back
     ),
     "/Riva_Tenno": (
         CITY_TRENTO, #city
@@ -136,6 +142,13 @@ BASIC_ROUTES = {
         [TN_TENNO_GAVAZZO[0],TN_TENNO_COLOGNA[0],TN_TENNO_FARMACIA[0]], #mid_going
         [TN_TENNO_FARMACIA[0],TN_TENNO_COLOGNA[0],TN_TENNO_GAVAZZO[0]], #mid_back
     ),
+    #"/Mori_Besagno": (
+    #    CITY_TRENTO, #city
+    #    TN_MORI_BC[0], #start
+    #    TN_MORI_BESAGNO[0], #end
+    #    [], #mid_going
+    #    [], #mid_back
+    #)
 }
 
 MAX_CLUSTER_DISTANCE = 0.5 #km

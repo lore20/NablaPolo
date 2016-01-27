@@ -241,7 +241,7 @@ def broadcast(msg, language='ALL', check_notification=False, curs=None, count = 
             if p.enabled and (not check_notification or p.notification_enabled):
                 if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
                     setLanguage(p.language)
-                    logging.debug("Sending message to chat id " + str(p.chat_id))
+                    #logging.debug("Sending message to chat id " + str(p.chat_id))
                     tell(p.chat_id, _("Listen listen...") + _(' ') + _(msg))
                     #tell(p.chat_id, msg)
                     count += 1
@@ -453,6 +453,8 @@ def removeSpaces(str):
     #return re.sub(r'[^\w]','',str,re.UNICODE)
     str = re.sub(r"[\s'.]",'',str,re.UNICODE)
     str = str.replace('ò','o')
+    str = str.replace('(','_')
+    str = str.replace(')','')
     return str
 
 def replyListBusStops(p,new_state):
@@ -1240,13 +1242,13 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply(getInfoAllRequestsOffers())
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
-                        deferred.defer(broadcast, msg)
+                        deferred.defer(broadcast, msg, check_notification=True)
                     elif text.startswith('/broadcast_it ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        deferred.defer(broadcast, msg, 'IT')
+                        deferred.defer(broadcast, msg, 'IT', check_notification=True)
                     elif text.startswith('/broadcast_en ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        deferred.defer(broadcast, msg, 'EN')
+                        deferred.defer(broadcast, msg, 'EN', check_notification=True)
                     elif text.startswith('/self ') and len(text)>6:
                         msg = text[6:] #.encode('utf-8')
                         tellmyself(p,msg)
@@ -1468,7 +1470,7 @@ class WebhookHandler(webapp2.RequestHandler):
                         replyLocation(itinerary.getBusStopLocation(p.last_city, bus_stop))
                         #reply("Found: " + p.tmp[j])
                     else:
-                        reply("Sorry, I don't understand you")
+                        reply(_("Sorry, I don't understand you"))
                     #logging.debug('getBusStopFromCommand')
                     #getBusStopFromCommand(text,p)
                 elif text.endswith(_("Back")):
@@ -1527,7 +1529,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 #AGREE ON TERMS
                 if text==_('I AGREE'):
                     person.setAgreeOnTerms(p)
-                    reply("Thanks for agreeing on terms!")
+                    reply(_("Thanks for agreeing on terms!"))
                     goToSettings(p)
                     # state = 90
                 elif text.endswith(_("Back")):
@@ -1587,7 +1589,7 @@ class WebhookHandler(webapp2.RequestHandler):
                             j = len(p.tmp)/2+i
                             text = p.tmp[j]
                         else:
-                            reply("Sorry, I don't understand you")
+                            reply(_("Sorry, I don't understand you"))
                             return
                     person.setBusStopStart(p,text)
                     reply(_("Thanks for setting the START location!"))
@@ -1627,7 +1629,7 @@ class WebhookHandler(webapp2.RequestHandler):
                             j = len(p.tmp)/2+i
                             text = p.tmp[j]
                         else:
-                            reply("Sorry, I don't understand you")
+                            reply(_("Sorry, I don't understand you"))
                             return
                     person.setBusStopEnd(p,text)
                     reply(_("Thanks for setting the END location!"))
@@ -1679,7 +1681,7 @@ class WebhookHandler(webapp2.RequestHandler):
                             j = len(p.tmp)/2+i
                             text = p.tmp[j]
                         else:
-                            reply("Sorry, I don't understand you")
+                            reply(_("Sorry, I don't understand you"))
                             return
                     person.appendBusStopMidGoing(p,text)
                     reply(_("Thanks for adding a new mid point!"))
@@ -1731,7 +1733,7 @@ class WebhookHandler(webapp2.RequestHandler):
                             j = len(p.tmp)/2+i
                             text = p.tmp[j]
                         else:
-                            reply("Sorry, I don't understand you")
+                            reply(_("Sorry, I don't understand you"))
                             return
                     person.appendBusStopMidBack(p,text)
                     reply(_("Thanks for adding a new mid point!"))
