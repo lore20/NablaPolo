@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 #import json
 import json
 import logging
@@ -22,6 +24,7 @@ import itinerary
 import polls
 from polls import PollAnswer
 import token_factory
+import boolVariable
 
 # standard app engine imports
 from google.appengine.api import urlfetch
@@ -70,18 +73,25 @@ STATES = {
     90:   'Settings',
     91:   'Settings -> Language',
     92:   'Settings -> Terms and Conditions',
-    93:   'Settings -> Itinerary (Advanced)',
-    931:  'Settings -> Itinerary (Advanced) -> Start Location',
-    9311: 'Settings -> Itinerary (Advanced) -> Start Location -> Check',
-    932:  'Settings -> Itinerary (Advanced) -> End Location',
-    9321: 'Settings -> Itinerary (Advanced) -> End Location -> Check',
-    933:  'Settings -> Itinerary (Advanced) -> Mid Points Going',
-    9331: 'Settings -> Itinerary (Advanced) -> Mid Points Going -> Check',
-    934:  'Settings -> Itinerary (Advanced) -> Mid Points Back',
-    9341: 'Settings -> Itinerary (Advanced) -> Mid Points Back -> Check',
-    935:  'Settings -> Itinerary (Base)',
+    93:   'Settings -> Itinerary',
+    931:  'Settings -> Itinerary (Simple)',
+    935:   'Settings -> Itinerary (Advanced)',
+    9351:  'Settings -> Itinerary (Advanced) -> Start Location',
+    93511: 'Settings -> Itinerary (Advanced) -> Start Location -> Check',
+    9352:  'Settings -> Itinerary (Advanced) -> End Location',
+    93521: 'Settings -> Itinerary (Advanced) -> End Location -> Check',
+    9353:  'Settings -> Itinerary (Advanced) -> Mid Points Going',
+    93531: 'Settings -> Itinerary (Advanced) -> Mid Points Going -> Check',
+    9354:  'Settings -> Itinerary (Advanced) -> Mid Points Back',
+    93541: 'Settings -> Itinerary (Advanced) -> Mid Points Back -> Check',
     94:   'Settings -> Notification',
+    -50:   'TurkMode On (MASTER)',
+    -55:   'TurkMode On (USER)',
+
 }
+
+DRIVER_STATES = [30, 31, 32, 325, 33]
+PASSENGER_STATES = [20,21,22,23]
 
 LANGUAGES = {'IT': 'it_IT',
              'EN': 'en',
@@ -180,10 +190,17 @@ def registerUser(p, name, last_name, username):
 
 
 def start(p):
-    tell(p.chat_id, _("Hi") + _(' ') + p.name.encode('utf-8') + _('! ') + _("Are you a driver or a passenger?"),
-    kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
-    person.setNotified(p,False)
-    person.setState(p,0)
+    if boolVariable.turkMode():
+        tell(p.chat_id, _("Hi, you are now in an experimental mode in which you can type or record any ride offer or request. "
+                          "The bot will analyze what you write or say and answer you as soon as possible. "
+                          "Use the chat to input text or press the microphone to record any message. "),
+             kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
+        person.setState(p,-55)
+    else:
+        tell(p.chat_id, _("Hi") + _(' ') + p.name.encode('utf-8') + _('! ') + _("Are you a driver or a passenger?"),
+        kb=[[emoij.CAR + _(' ') + _("Driver"), emoij.FOOTPRINTS + _(' ') + _("Passenger")],[emoij.NOENTRY + _(' ') + _("Abort")]])
+        person.setNotified(p,False)
+        person.setState(p,0)
 
 def getUsers():
     query = Person.query() #.order(-Person.last_mod)
@@ -342,7 +359,8 @@ def goToSettings(p):
         keyboard.append([_('TERMS AND CONDITIONS')])
         keyboard.append([_('LANGUAGE')])
     else:
-        keyboard.append([_('ITINERARY (basic)'), _('ITINERARY (advanced)')])
+        #keyboard.append([_('ITINERARY (simple)'), _('ITINERARY (advanced)')])
+        keyboard.append([_('ITINERARY')])
         keyboard.append([_('NOTIFICATIONS'), _('LANGUAGE')])
 
     keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
@@ -364,15 +382,23 @@ def goToSettingNotification(p):
              kb=[[_('ENABLE NOTIFICATIONS')],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
     person.setState(p, 94)
 
+def goToSettingItinerary(p):
+    text = _("Click on 'ITINERARY (simple)' for predefined routes or 'ITINERARY (advanced)' "
+             "for manually setting departure, destinations and intermediate points.")
+    keyboard = [
+        [_('ITINERARY (simple)'), _('ITINERARY (advanced)')],
+        [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]
+    ]
+    tell(p.chat_id, text, kb=keyboard)
+    person.setState(p, 93)
 
-
-def goToSettingItineraryBasic(p):
+def goToSettingItinerarySimple(p):
     #commands = '\n\n'.join(itinerary.BASIC_ROUTES.keys())
     commandList = itinerary.getBasicRoutesCommands()
     commands = '\n\n'.join(commandList)
     tell(p.chat_id, _("Click on one of the following routes: ") + _("\n\n") + commands,
          kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-    person.setState(p, 935)
+    person.setState(p, 931)
 
 def goToSettingItineraryAdvanced(p):
 
@@ -396,7 +422,7 @@ def goToSettingItineraryAdvanced(p):
     keyboard.append([emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")])
 
     tell(p.chat_id, _("Your current itinerary settings:") + _("\n\n") + itn_txt, kb=keyboard)
-    person.setState(p, 93)
+    person.setState(p, 935)
 
 def askToInsertLocation(p, text_prefix, new_state, PAPER_CLIP_INSTRUCTIONS):
     if (p.last_city is None):
@@ -418,11 +444,11 @@ def askGeoLocationOrListBusStops(p, intro_text, new_state):
 
 def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
 
-    midpoints = p.bus_stop_mid_going if state==933 else p.bus_stop_mid_back
+    midpoints = p.bus_stop_mid_going if state==9353 else p.bus_stop_mid_back
     midpoints = [x.encode('UTF8') for x in midpoints]
 
     text = _("Please select an intermediate point you can stop on the way FORWARD to pick-up other passangers ") \
-        if state==933 else _("Please select an intermediate point you can stop on the way BACK to pick-up other passangers ")
+        if state==9353 else _("Please select an intermediate point you can stop on the way BACK to pick-up other passangers ")
 
     text += PAPER_CLIP_INSTRUCTIONS
 
@@ -434,7 +460,7 @@ def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
     secondLineButtons = [_('Remove all')] if midpoints else []
 
     if (p.bus_stop_mid_going != list(reversed(p.bus_stop_mid_back))):
-        if state==933:
+        if state==9353:
             if p.bus_stop_mid_back:
                 secondLineButtons.append(_('Same as other direction'))
         else:
@@ -758,6 +784,46 @@ def broadcast_driver_message(driver, msg):
     setLanguage(driver.language)
     return len(matchPassengers)
 
+def tell_person(chat_id, msg):
+    tell(chat_id, msg)
+    p = ndb.Key(Person, str(chat_id)).get()
+    if p and p.enabled:
+        return True
+    return False
+
+
+def sendText(p, text):
+    split = text.split()
+    if len(split)<3:
+        tell(p.chat_id, 'Commands should have at least 2 spaces')
+        return
+    if not split[1].isdigit():
+        tell(p.chat_id, 'Second argumnet should be a valid chat_id')
+        return
+    id = int(split[1])
+    text = ' '.join(split[2:])
+    if tell_person(id, text):
+        p = person.getPerson(id)
+        tell(p.chat_id, 'Successfully sent text to ' + p.name)
+    else:
+        tell(p.chat_id, 'Problems in sending text')
+
+def restartSingleUser(p, text):
+    split = text.split()
+    if len(split)<2:
+        tell(p.chat_id, 'Commands should have at least 1 space')
+        return
+    if not split[1].isdigit():
+        tell(p.chat_id, 'Second argumnet should be a valid chat_id')
+        return
+    chat_id = split[1]
+    text = ' '.join(split[2:])
+    u = ndb.Key(Person, chat_id).get()
+    if u:
+        restart(u)
+        tell(p.chat_id, 'Successfully restarted user: ' + u.name)
+    else:
+        tell(p.chat_id, 'Problems in sending text')
 
 # ================================
 # ================================
@@ -772,25 +838,6 @@ def setLanguage(langId):
 # ================================
 # ================================
 
-def tell_katja(msg):
-    tell(114258373, msg)
-
-def tell_person(chat_id, msg):
-    tell(chat_id, msg)
-    p = ndb.Key(Person, str(chat_id)).get()
-    if p and p.enabled:
-        return True
-    return False
-
-def tell_katja_test():
-    try:
-        tell(114258373, 'test')
-    except urllib2.HTTPError, err:
-        if err.code == 403:
-            e = Person.query(Person.chat_id==114258373).get()
-            e.enabled = False
-            e.put()
-
 def tell_masters(msg):
     if key.TEST:
         return
@@ -801,6 +848,24 @@ def tell_fede(msg):
     for i in range(100):
         tell(key.FEDE_CHAT_ID, "prova " + str(i))
         sleep(0.1)
+
+def sendVoice(chat_id, file_id):
+    try:
+        resp = urllib2.urlopen(BASE_URL + 'sendVoice', urllib.urlencode({
+            'chat_id': str(chat_id),
+            'voice': str(file_id), #.encode('utf-8'),
+        })).read()
+        logging.info('send voice: ')
+        logging.info(resp)
+    except urllib2.HTTPError, err:
+        if err.code == 403:
+            p = Person.query(Person.chat_id==chat_id).get()
+            p.enabled = False
+            p.put()
+            logging.info('Disabled user: ' + p.name.encode('utf-8') + ' ' + str(chat_id))
+        else:
+            logging.info('Error occured: ' + str(err))
+
 
 def sendLocation(chat_id, loc):
     try:
@@ -898,6 +963,27 @@ def updateDashboard():
             channel.send_message(t.token_id, json.dumps(data))
     for k in removeKeys:
         ndb.Key(token_factory.Token, k).delete()
+
+# ================================
+# ================================
+# ================================
+
+def getActiveDrivers(master_id):
+    match = []
+    qry = Person.query(Person.active == True, Person.state.IN(DRIVER_STATES))#.order(-Person.last_mod)
+    for d in qry:
+        if itinerary.matchDriverAndPassenger(d, passenger):
+            match.append(d)
+    return match
+
+def getActivePassengers(master_id):
+    match = []
+    qry = Person.query(Person.active==True, Person.state.IN(PASSENGER_STATES))#.order(-Person.last_mod)
+    for d in qry:
+        if itinerary.matchDriverAndPassenger(d, passenger):
+            match.append(d)
+    return match
+
 
 # ================================
 # ================================
@@ -1066,6 +1152,7 @@ class WebhookHandler(webapp2.RequestHandler):
         last_name = chat["last_name"].encode('utf-8') if "last_name" in chat else "-"
         username = chat["username"] if "username" in chat else "-"
         text_location = message["location"] if "location" in message else None
+        voice = message["voice"] if "voice" in message else None
 
         def reply(msg=None, kb=None, hideKb=True):
             tell(chat_id, msg, kb, hideKb)
@@ -1127,6 +1214,7 @@ class WebhookHandler(webapp2.RequestHandler):
                 itinerary.initBusStops(delete=True)
                 counter.resetCounter(delete=True)
                 itinerary.initBasicRoutes(delete=True)
+                boolVariable.disableTurkMode()
                 reply('Succeffully initialized bot!')
             elif text=='/state':
                 if p.state in STATES:
@@ -1156,7 +1244,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     #start(p, text, name, last_name, username)
                     registerUser(p, name, last_name, username)
                     start(p)
-                    # state = 0
+                    # state = 0 or state=-55 in turk mode active
                 elif text == _('INFO'):
                     goToInfoPanel(p)
                     # state = 80
@@ -1173,7 +1261,12 @@ class WebhookHandler(webapp2.RequestHandler):
                 elif text == '/allpassengers':
                     reply(person.listAllPassengers())
                 elif chat_id in key.MASTER_CHAT_ID:
-                    if text == '/resetusers':
+                    if text == '/turkOn' and chat_id==key.TURK_ID:
+                        boolVariable.enableTurkMode()
+                        reply('Turk Mode Activated, to disable type /turkOff\n'
+                              'Other commands are /activeDrivers /activePassengers /sendText [user_id] [msg]', kb=[])
+                        person.setState(p, -50)
+                    elif text == '/restartUsers':
                         logging.debug('reset user')
                         #c = person.resetNullStatesUsers()
                         #reply("Reset states of users: " + str(c))
@@ -1182,6 +1275,9 @@ class WebhookHandler(webapp2.RequestHandler):
                         #resetEnabled()
                         #resetLanguages()
                         #resesetNames()
+                    elif text.startswith('/restart '):
+                        # restart single user
+                        restartSingleUser(p, text)
                     elif text=='/infocount':
                         reply(getInfoCount())
                     elif text=='/checkenabled':
@@ -1189,20 +1285,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     elif text == '/resetcounters':
                         counter.resetCounter()
                     elif text.startswith('/sendText'):
-                        split = text.split()
-                        if len(split)<3:
-                            reply('Commands should have at least 2 spaces')
-                            return
-                        if not split[1].isdigit():
-                            reply('Second argumnet should be a valid chat_id')
-                            return
-                        id = int(split[1])
-                        text = ' '.join(split[2:])
-                        if tell_person(id, text):
-                            p = person.getPerson(id)
-                            reply('Successfully sent text to ' + p.name)
-                        else:
-                            reply('Problems in sending text')
+                        sendText(p, text)
                     elif text == '/resetBusStopsAndCounters':
                         itinerary.initBusStops()
                         counter.resetCounter()
@@ -1265,13 +1348,19 @@ class WebhookHandler(webapp2.RequestHandler):
                     person.setState(p, 20)
                     person.setType(p, text)
                     reply(_("Hi! I can try to help you to get a ride. Which bus stop are you at?"),
-                          kb=[[p.bus_stop_start, p.bus_stop_end], [emoij.NOENTRY + _(' ') + _("Abort")]])
+                          kb=[
+                              [p.bus_stop_start, p.bus_stop_end],
+                              [_("Change ITINERARY")],
+                              [emoij.NOENTRY + _(' ') + _("Abort")]])
                 elif text.endswith(_("Driver")):
                 #elif text == emoij.CAR + _(' ') + _("Driver"):
                     person.setState(p, 30)
                     person.setType(p, text)
                     reply(_("Hi! Glad you can give a ride. Where can you start picking up passengers?"),
-                          kb=[[p.bus_stop_start, p.bus_stop_end], [emoij.NOENTRY + _(' ') + _("Abort")]])
+                          kb=[
+                              [p.bus_stop_start, p.bus_stop_end],
+                              [_("Change ITINERARY")],
+                              [emoij.NOENTRY + _(' ') + _("Abort")]])
                 elif text.endswith(_("Abort")):
                 #elif text == emoij.NOENTRY + _(' ') + _("Abort"):
                     reply(_("Passage aborted."))
@@ -1280,10 +1369,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 else: reply(_("Sorry, I don't understand you"))
             elif p.state == 20:
                 # PASSANGERS, ASKED FOR LOCATION
-                if text.endswith(_("Abort")):
-                    reply(_("Passage aborted."))
-                    restart(p)
-                    # state = -1
+                if text.endswith(_("Change ITINERARY")):
+                    goToSettingItinerary(p)
+                    # state = 93
                 elif text in [p.bus_stop_start, p.bus_stop_end]:
                     person.setLocation(p, text)
                     person.updateLastSeen(p)
@@ -1293,6 +1381,10 @@ class WebhookHandler(webapp2.RequestHandler):
                     ride_request.recordRideRequest(p)
                     # updateDashboard()
                     # state = 21 or 22 depending if driver available
+                elif text.endswith(_("Abort")):
+                    reply(_("Passage aborted."))
+                    restart(p)
+                    # state = -1
                 else: reply(_("Sorry, I don't understand you") + _(' '))
                             #p.bus_stop_start + _(' ') + _("or") + _(' ') + p.bus_stop_end + '?')
             elif p.state == 21:
@@ -1352,10 +1444,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 #logging.debug('input: ' + text + ' ' + str(type(text)))
                 #logging.debug('start: ' + p.bus_stop_start + ' ' + str(type(p.bus_stop_start)))
                 #logging.debug('destination: ' + p.bus_stop_end + ' ' + str(type(p.bus_stop_end)))
-                if text.endswith(_("Abort")):
-                    reply(_("Passage offer has been aborted."))
-                    restart(p)
-                    # state = -1
+                if text.endswith(_("Change ITINERARY")):
+                    goToSettingItinerary(p)
+                    # state = 93
                 elif text in [p.bus_stop_start, p.bus_stop_end]:
                     person.setLocation(p, text)
                     # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
@@ -1363,6 +1454,10 @@ class WebhookHandler(webapp2.RequestHandler):
                           kb=[['0','2','5','10'],['15','30','45','60'],[emoij.NOENTRY + _(' ') + _("Abort")]])
                     person.setState(p, 31)
                     # state = 31
+                elif text.endswith(_("Abort")):
+                    reply(_("Passage offer has been aborted."))
+                    restart(p)
+                    # state = -1
                 else:
                     reply(_("Sorry, I don't understand you"))
                     #reply("Eh? " + p.bus_stop_start + _("or") + p.bus_stop_end + "?")
@@ -1493,12 +1588,9 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text==_('TERMS AND CONDITIONS'):
                     reply(TERMS_AND_CONDITIONS, kb=[[_("I AGREE")],[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                     person.setState(p, 92)
-                elif text==_('ITINERARY (advanced)'):
-                    goToSettingItineraryAdvanced(p)
+                elif text==_('ITINERARY'):
+                    goToSettingItinerary(p)
                     # state = 93
-                elif text==_('ITINERARY (basic)'):
-                    goToSettingItineraryBasic(p)
-                    # state = 935
                 elif text==_('NOTIFICATIONS'):
                     goToSettingNotification(p)
                     # state = 94
@@ -1537,29 +1629,59 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = 90
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 93:
-                #ITINERARY ADVANCED
-                if text in [_("Set Start Location"),_("Change Start Location")]:
-                    askToInsertLocation(p, _('the START location'), 931, PAPER_CLIP_INSTRUCTIONS)
+            elif p.state ==93:
+                #ITINERARY
+                if text==_('ITINERARY (simple)'):
+                    goToSettingItinerarySimple(p)
                     # state = 931
-                elif text in [_("Set End Location"),_("Change End Location")]:
-                    askToInsertLocation(p, _('the END location'), 932, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 932
-                elif text==_("Change Mid Points Going"):
-                    goToSettingMidPoints(p,933,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 933
-                elif text==_("Change Mid Points Back"):
-                    goToSettingMidPoints(p,934,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 934
+                elif text==_('ITINERARY (advanced)'):
+                    goToSettingItineraryAdvanced(p)
+                    # state = 935
                 elif text.endswith(_("Back")):
                     goToSettings(p)
                     # state = 90
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 931:
-                #START LOCATION
+                #ITINERARY SIMPLE
+                if text.startswith('/'):
+                    commandList = itinerary.getBasicRoutesCommands()
+                    commands = '\n\n'.join(commandList)
+                    if text in commands:
+                        itinerary.setBasicRoute(p,text)
+                        reply(_('Successfully set the route: ') + p.bus_stop_start + ' <-> ' + p.bus_stop_end)
+                        restart(p)
+                        # state = -1
+                    else:
+                        reply(_("Sorry, I don't understand you"))
+                elif text.endswith(_("Back")):
+                    goToSettingItinerary(p)
+                    # state = 93
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 935:
+                #ITINERARY ADVANCED
+                if text in [_("Set Start Location"),_("Change Start Location")]:
+                    askToInsertLocation(p, _('the START location'), 9351, PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9351
+                elif text in [_("Set End Location"),_("Change End Location")]:
+                    askToInsertLocation(p, _('the END location'), 9352, PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9352
+                elif text==_("Change Mid Points Going"):
+                    goToSettingMidPoints(p,9353,PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9353
+                elif text==_("Change Mid Points Back"):
+                    goToSettingMidPoints(p,9354,PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9354
+                elif text.endswith(_("Back")):
+                    goToSettingItinerary(p)
+                    # state = 93
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == 9351:
+                #ITINERARY ADVANCED START LOCATION
                 if text == _("List Bus Stops"):
-                    replyListBusStops(p, 9311)
+                    replyListBusStops(p, 93511)
                 elif text_location!=None:
                     loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
                     bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_end], p)
@@ -1567,21 +1689,21 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply(_("Found the following bus stop(s) near the location, please make one selection."),
                               kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                         person.setTmp(p,bus_stops)
-                        person.setState(p,9311)
+                        person.setState(p,93511)
                     else:
                         reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 9311:
-                #CHECK START LOCATION
+            elif p.state == 93511:
+                #ITINERARY ADVANCED CHECK START LOCATION
                 #logging.debug("text: " + text)
                 #logging.debug("tmp: " + str(p.tmp))
                 if text.endswith(_("Back")):
-                    askToInsertLocation(p, _('the START location'), 931, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 931
+                    askToInsertLocation(p, _('the START location'), 9351, PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9351
                 elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
@@ -1595,13 +1717,13 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Thanks for setting the START location!"))
                     replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 932:
-                #END LOCATION
+            elif p.state == 9352:
+                #ITINERARY ADVANCED END LOCATION
                 if text == _("List Bus Stops"):
-                    replyListBusStops(p, 9321)
+                    replyListBusStops(p, 93521)
                 elif text_location!=None:
                     loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
                     bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start], p)
@@ -1609,19 +1731,19 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply(_("Found the following bus stop(s) near the location, please make one selection."),
                               kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                         person.setTmp(p,bus_stops)
-                        person.setState(p,9321)
+                        person.setState(p,93521)
                     else:
                         reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 9321:
-                #CHECK END LOCATION
+            elif p.state == 93521:
+                #ITINERARY ADVANCED CHECK END LOCATION
                 if text.endswith(_("Back")):
-                    askToInsertLocation(p, _('the END location'), 932, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 932
+                    askToInsertLocation(p, _('the END location'), 9352, PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9352
                 elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
@@ -1635,24 +1757,24 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Thanks for setting the END location!"))
                     replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 933:
-                #MID POINT GOING
+            elif p.state == 9353:
+                #ITINERARY ADVANCED MID POINT GOING
                 if text == _("List Bus Stops"):
-                    replyListBusStops(p, 9331)
+                    replyListBusStops(p, 93531)
                 elif text == _("Remove all"):
                     person.emptyBusStopMidGoing(p)
                     reply(_("All mid points on the way FORWARD have been removed."))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 elif text == _('Same as other direction'):
                     p.bus_stop_mid_going = list(reversed(p.bus_stop_mid_back))
                     p.put()
                     reply(_("Successfully set mid points way FORWARD as in way BACK!"))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 elif text_location!=None:
                     loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
                     bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start, p.bus_stop_end], p)
@@ -1660,20 +1782,20 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply(_("Found the following bus stop(s) near the location, please make one selection."),
                               kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                         person.setTmp(p,bus_stops)
-                        person.setState(p,9331)
+                        person.setState(p,93531)
                     else:
                         reply(_("No bus stop found near location, try again. ") +
                               PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 9331:
-                #CHECK MID POINT GOING
+            elif p.state == 93531:
+                #ITINERARY ADVANCED CHECK MID POINT GOING
                 if text.endswith(_("Back")):
-                     goToSettingMidPoints(p,933,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 933
+                     goToSettingMidPoints(p,9353,PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9353
                 elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
@@ -1687,24 +1809,24 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Thanks for adding a new mid point!"))
                     replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 934:
-                #MID POINT BACK
+            elif p.state == 9354:
+                #ITINERARY ADVANCED MID POINT BACK
                 if text == _("List Bus Stops"):
-                    replyListBusStops(p, 9341)
+                    replyListBusStops(p, 93541)
                 elif text == _("Remove all"):
                     person.emptyBusStopMidBack(p)
                     reply(_("All mid points on the way BACK have been removed."))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 elif text == _('Same as other direction'):
                     p.bus_stop_mid_back = list(reversed(p.bus_stop_mid_going))
                     p.put()
                     reply(_("Successfully set mid points way BACK as in way FORWARD!"))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 elif text_location!=None:
                     loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
                     bus_stops = itinerary.getClosestBusStops(loc_point, [p.bus_stop_start, p.bus_stop_end], p)
@@ -1712,20 +1834,20 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply(_("Found the following bus stop(s) near the location, please make one selection."),
                               kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
                         person.setTmp(p,bus_stops)
-                        person.setState(p,9341)
+                        person.setState(p,93541)
                     else:
                         reply(_("No bus stop found near location, try again. ") +
                               PAPER_CLIP_INSTRUCTIONS)
                 elif text.endswith(_("Back")):
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
-            elif p.state == 9341:
-                #CHECK MID POINT BACK
+            elif p.state == 93541:
+                #ITINERARY ADVANCED CHECK MID POINT BACK
                 if text.endswith(_("Back")):
-                    goToSettingMidPoints(p,934,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 934
+                    goToSettingMidPoints(p,9354,PAPER_CLIP_INSTRUCTIONS)
+                    # state = 9354
                 elif text in p.tmp:
                     if text.startswith('/'):
                         if (text in p.tmp):
@@ -1739,24 +1861,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     reply(_("Thanks for adding a new mid point!"))
                     replyLocation(itinerary.getBusStopLocation(p.last_city, text))
                     goToSettingItineraryAdvanced(p)
-                    # state = 93
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 935:
-                #ITINERARY BASIC
-                if text.startswith('/'):
-                    commandList = itinerary.getBasicRoutesCommands()
-                    commands = '\n\n'.join(commandList)
-                    if text in commands:
-                        itinerary.setBasicRoute(p,text)
-                        reply(_('Successfully set the route: ') + p.bus_stop_start + ' <-> ' + p.bus_stop_end)
-                        restart(p)
-                        # state = -1
-                    else:
-                        reply(_("Sorry, I don't understand you"))
-                elif text.endswith(_("Back")):
-                    goToSettings(p)
-                    # state = 90
+                    # state = 935
                 else:
                     reply(_("Sorry, I don't understand you"))
             elif p.state == 94:
@@ -1774,9 +1879,41 @@ class WebhookHandler(webapp2.RequestHandler):
                     # state = 90
                 else:
                     reply(_("Sorry, I don't understand you"))
+            elif p.state == -50:
+                # TURK MODE MASTER
+                if text == '/turkOff':
+                    boolVariable.disableTurkMode()
+                    reply("Turk mode disabled")
+                    restart(p)
+                elif text == '/activeDrivers':
+                    getInfoAllRequestsOffers()
+                elif text == '/activePassengers':
+                    getInfoAllRequestsOffers()
+                elif text.startswith('/sendText'):
+                    sendText(p, text)
+                else:
+                    reply(_("Sorry, I don't understand you"))
+            elif p.state == -55:
+                if voice!=None:
+                    file_id = voice['file_id']
+                    tell(key.TURK_ID, p.name.encode('utf-8') + '(' + str(p.chat_id) + ") sent you this recording:")
+                    sendVoice(key.TURK_ID, file_id)
+                    reply(_("Successfully sent message to the bot, you will receive an answer shortly."))
+                elif text.endswith(_("Abort")):
+                    reply(_("Passage offer has been aborted."))
+                    restart(p)
+                elif text:
+                    tell(key.TURK_ID, p.name.encode('utf-8')
+                         + ' (' + str(p.chat_id) + ") sent you this message: "
+                         + text.encode('utf-8'))
+                    reply(_("Successfully sent message to the bot, you will receive an answer shortly."))
+                # TURK MODE USER
+                else:
+                    reply(_("Sorry, I don't understand you"))
             else:
                 reply(_("Something is wrong with your state (") + str(p.state).encode('utf-8') +
-                      _("). Please contact the admin at pickmeupbot@gmail.com"))
+                      _(").") + _("I'm going to bring you back to the initial screen. ") +
+                      _("If the problem presists, please write a message to @kercos"))
 
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
