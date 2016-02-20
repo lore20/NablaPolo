@@ -235,7 +235,8 @@ def setBasicRoute(p, route_cmd):
         bus_stop_start = route.bus_stop_start,
         bus_stop_end = route.bus_stop_end,
         bus_stop_mid_going=route.bus_stop_mid_going,
-        bus_stop_mid_back=route.bus_stop_mid_back
+        bus_stop_mid_back=route.bus_stop_mid_back,
+        basic_route=route_cmd
     )
     p.put()
 
@@ -350,6 +351,24 @@ def getClosestBusStops(loc_point, exclude_points, person, max_distance=MAX_DISTA
     if trim:
         result = result[:2]
     return column(result,0)
+
+def getAllBusStops(person):
+    result = []
+    for bs in BusStop.query(BusStop.city==person.last_city):
+        result.append(bs.name)
+    return result
+
+def getItineraryBusStops(person):
+    route = ndb.Key(BasicRoutes, person.basic_route).get()
+    result = []
+    result.append(route.bus_stop_start)
+    result.append(route.bus_stop_end)
+    for x in route.bus_stop_mid_going:
+        result.append(x)
+    #for y in route.bus_stop_mid_back:
+    #    result.append(y)
+    return result
+
 
 def getOtherBusStops(person):
     result = []

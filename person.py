@@ -27,6 +27,7 @@ class Person(ndb.Model):
     last_city = ndb.StringProperty()
     notified = ndb.BooleanProperty(default=False)
     prev_state = ndb.IntegerProperty()
+    basic_route = ndb.StringProperty()
 
 def addPerson(chat_id, name):
     p = Person.get_or_insert(str(chat_id))
@@ -133,32 +134,72 @@ def appendTmp(p, value):
 def isItinerarySet(p):
     return p.bus_stop_start!=None and p.bus_stop_end!=None
 
-def setBusStopStart(p, bs):
+def setBusStopStart(p, bs): #, swap_active=False
+    swapped = False
+    if bs == p.bus_stop_end:
+        p.bus_stop_end = p.bus_stop_start
+        tmp = p.bus_stop_mid_going
+        p.bus_stop_mid_going = p.bus_stop_mid_back
+        p.bus_stop_mid_back = tmp
+        swapped = True
     p.bus_stop_start = bs
+    #if swap_active:
+    if bs in p.bus_stop_mid_going:
+        index = p.bus_stop_mid_going.index(bs)
+        p.bus_stop_mid_going = p.bus_stop_mid_going[index+1:]
+        swapped = True
+    if bs in p.bus_stop_mid_back:
+        index = p.bus_stop_mid_back.index(bs)
+        p.bus_stop_mid_back = p.bus_stop_mid_back[:index]
+        swapped = True
+    if not swapped:
+        p.basic_route = None
     p.put()
 
-def setBusStopEnd(p, bs):
+def setBusStopEnd(p, bs): #, swap_active=False
+    swapped = False
+    if bs == p.bus_stop_start:
+        p.bus_stop_start = p.bus_stop_end
+        tmp = p.bus_stop_mid_going
+        p.bus_stop_mid_going = p.bus_stop_mid_back
+        p.bus_stop_mid_back = tmp
+        swapped = True
     p.bus_stop_end = bs
+    #if swap_active:
+    if bs in p.bus_stop_mid_going:
+        index = p.bus_stop_mid_going.index(bs)
+        p.bus_stop_mid_going = p.bus_stop_mid_going[:index]
+        swapped = True
+    if bs in p.bus_stop_mid_back:
+        index = p.bus_stop_mid_back.index(bs)
+        p.bus_stop_mid_back = p.bus_stop_mid_back[index+1:]
+        swapped = True
+    if not swapped:
+        p.basic_route = None
     p.put()
 
 def appendBusStopMidGoing(p, bs):
     #if p.bus_stop_intermediate_going is None:
     #    p.bus_stop_intermediate_going = []
     p.bus_stop_mid_going.append(bs)
+    p.basic_route = None
     p.put()
 
 def appendBusStopMidBack(p, bs):
     #if p.bus_stop_intermediate_back is None:
     #    p.bus_stop_intermediate_back = []
     p.bus_stop_mid_back.append(bs)
+    p.basic_route = None
     p.put()
 
 def emptyBusStopMidGoing(p):
     p.bus_stop_mid_going = []
+    p.basic_route = None
     p.put()
 
 def emptyBusStopMidBack(p):
     p.bus_stop_mid_back = []
+    p.basic_route = None
     p.put()
 
 def resetTermsAndNotification():
@@ -170,6 +211,16 @@ def resetTermsAndNotification():
         p.put()
         count+=1
     return count
+
+def resetBasicRoutes():
+    qry = Person.query()
+    count = 0
+    for p in qry:
+        p.basic_routes = None
+        p.put()
+        count+=1
+    return count
+
 
 def resetActive():
     qry = Person.query()
