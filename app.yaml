@@ -1,14 +1,10 @@
 #REAL VERSION
 #application: pickmeup-telegram
-#version: 8
+#version: 9
 
 #TEST DEV
 application: tiramisu-telegram
 version: 1
-
-#TEST ANGELO
-#application: tiramisu-test-angelo
-#version: 1
 
 runtime: python27
 api_version: 1
@@ -41,6 +37,10 @@ handlers:
   script: google.appengine.ext.deferred.deferred.application
   login: admin
 
+- url: /ttdata
+  static_dir: ttdata
+  application_readable: true
+
 #- url: /_ah/channel/connected/
 #  script: com.pickmeup-telegram.server.channel.ChannelConnected
 #  name: ChannelConnected
@@ -63,6 +63,8 @@ libraries:
 - name: jinja2
   version: latest
 - name: ssl
+  version: latest
+- name: numpy
   version: latest
 
 

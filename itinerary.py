@@ -10,8 +10,10 @@ import person
 #CITIES
 CITY_TRENTO = 'Trento'
 CITY_CALTANISSETTA = 'Caltanissetta'
+CITY_PADOVA = 'Padova'
 
-CITIES = (CITY_TRENTO, CITY_CALTANISSETTA)
+#CITIES = [CITY_TRENTO, CITY_CALTANISSETTA, CITY_PADOVA]
+CITIES = [CITY_TRENTO, CITY_PADOVA]
 
 # http://overpass-turbo.eu/
 # node["highway"="bus_stop"]({{bbox}});
@@ -66,8 +68,16 @@ FERMATA_POVO = TN_Povo_PoloScientifico[0]
 
 
 #BUS STOPS CALTANISSETTA
-CL_FS = ('Stazione FS', 37.4885123, 14.0577765, 'FS')
+CL_FS = ('Stazione FS', 37.4885123, 14.0577765, 'CLFS')
 CL_Cefpas = ('Cefpas', 37.490577, 14.0290256, 'CEFPAS')
+
+PD_GZ_VSCH = ("Valsanzibio Chiesa", 45.29052, 11.73018, 'GZ_VSCH')
+PD_GZ_RMCH = ("Galzignano via Roma Chiesa", 45.30802, 11.72967, 'GZ_RMCH')
+PD_GZ_SITA = ("Porto fermata SITA", 45.30534, 11.74185, 'GZ_SITA')
+PD_GZ_TURRI = ("Turri Totem luminoso", 45.31709, 11.78263, 'GZ_TU')
+PD_GZ_TEFS = ("Stazione Terme Euganee", 45.32761, 11.79576, 'GZ_TEFS')
+PD_GZ_BTCO = ("Battaglia Terme Parcheggio COOP", 45.29031, 11.7773, 'GZ_BTCO')
+
 
 CITY_BUS_STOPS = {
     CITY_TRENTO: (
@@ -110,6 +120,14 @@ CITY_BUS_STOPS = {
     CITY_CALTANISSETTA: (
         CL_FS,
         CL_Cefpas
+    ),
+    CITY_PADOVA: (
+        PD_GZ_VSCH,
+        PD_GZ_RMCH,
+        PD_GZ_SITA,
+        PD_GZ_TURRI,
+        PD_GZ_TEFS,
+        PD_GZ_BTCO
     )
 }
 
@@ -149,6 +167,35 @@ BASIC_ROUTES = {
     #    [], #mid_going
     #    [], #mid_back
     #)
+    "/Valsanzibio_TermeEuganeeFS": (
+        CITY_PADOVA, #city
+        PD_GZ_VSCH[0], #start
+        PD_GZ_TEFS[0], #end
+        [PD_GZ_RMCH[0], PD_GZ_SITA[0], PD_GZ_TURRI[0]], #mid_going
+        [PD_GZ_TURRI[0], PD_GZ_SITA[0], PD_GZ_RMCH[0]], #mid_back
+    ),
+    "/Galzignano_TermeEuganeeFS": (
+        CITY_PADOVA, #city
+        PD_GZ_RMCH[0], #start
+        PD_GZ_TEFS[0], #end
+        [PD_GZ_SITA[0], PD_GZ_TURRI[0]], #mid_going
+        [PD_GZ_TURRI[0], PD_GZ_SITA[0]], #mid_back
+    ),
+    "/Valsanzibio_BattagliaTerme": (
+        CITY_PADOVA, #city
+        PD_GZ_VSCH[0], #start
+        PD_GZ_BTCO[0], #end
+        [PD_GZ_RMCH[0], PD_GZ_SITA[0]], #mid_going
+        [PD_GZ_SITA[0], PD_GZ_RMCH[0]], #mid_back
+    ),
+    "/Galzignano_BattagliaTerme": (
+        CITY_PADOVA, #city
+        PD_GZ_RMCH[0], #start
+        PD_GZ_BTCO[0], #end
+        [PD_GZ_SITA[0]], #mid_going
+        [PD_GZ_SITA[0]], #mid_back
+    ),
+
 }
 
 MAX_CLUSTER_DISTANCE = 0.5 #km
@@ -222,9 +269,9 @@ def initBasicRoutes(delete=False):
         )
         route.put()
 
-def getBasicRoutesCommands():
+def getBasicRoutesCommands(city):
     cmd = []
-    routes = BasicRoutes.query().fetch(keys_only=True)
+    routes = BasicRoutes.query(BasicRoutes.city == city).fetch(keys_only=True)
     for r in routes:
         cmd.append(r.id())
     return cmd

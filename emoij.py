@@ -2,6 +2,7 @@
 # and http://apps.timwhitlock.info/emoji/tables/unicode
 # http://www.iemoji.com/view/emoji/182/places/regional-indicator-symbol-letters-de
 # https://github.com/python-telegram-bot/python-telegram-bot/blob/master/telegram/emoji.py
+# http://unicode.org/emoji/charts/full-emoji-list.html
 
 CAR = b'\xF0\x9F\x9A\x97'
 PEDESTRIAN = b'\xF0\x9F\x9A\xB6'

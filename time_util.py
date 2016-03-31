@@ -1,6 +1,7 @@
 import datetime
 from datetime import datetime
 from datetime import timedelta
+import time
 
 def now(addMinutes=0):
     return datetime.now() + timedelta(minutes=int(addMinutes))
@@ -19,6 +20,10 @@ def ellapsed_min(date):
 def get_last_week():
     return datetime.now() - timedelta(days=7)
 
+def get_date_days_ago(days):
+    return datetime.now() - timedelta(days=days)
+
+
 def get_date_CET(date):
     if date is None: return None
     newdate = date + timedelta(hours=1)
@@ -34,3 +39,15 @@ def get_date_string(date):
 def get_time_string(date):
     newdate = date + timedelta(hours=1)
     return str(newdate).split(" ")[1].split(".")[0]
+
+def isTimeFormat(input):
+    try:
+        datetime.strptime(input, '%H:%M')
+        return True
+    except ValueError:
+        return False
+
+def getMinutes(input):
+    t1 = datetime.strptime(input, '%H:%M')
+    t2 = datetime.strptime('00:00', '%H:%M')
+    return int((t1-t2).total_seconds()//60)

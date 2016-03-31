@@ -39,6 +39,11 @@ def addPerson(chat_id, name):
     p.put()
     return p
 
+def updateUsername(p, username):
+    if (p.username!=username):
+        p.username = username
+        p.put()
+
 def getPerson(chat_id):
     return Person.query(Person.chat_id==chat_id).get()
 
@@ -65,6 +70,10 @@ def updateLastSeen(p):
 
 def setNotified(p, value):
     p.notified = value
+    p.put()
+
+def setLastCity(p, last_city):
+    p.last_city = last_city
     p.put()
 
 def getDestination(p):
