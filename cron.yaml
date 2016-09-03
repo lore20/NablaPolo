@@ -10,13 +10,10 @@ cron:
 #  schedule: every day 09:15
 #  timezone: Europe/Rome
 #- description: info dayly ride
-#  url: /infoday_tiramisu
-#  schedule: every mon,tue,wed,thu 22:00
+#- description: info user weekly for all
+#  url: /infouser_weekly_all
+#  schedule: every monday 09:00
 #  timezone: Europe/Rome
-- description: info user weekly for all
-  url: /infouser_weekly_all
-  schedule: every monday 09:00
-  timezone: Europe/Rome
 - description: reset counters
   url: /resetcounters
   schedule: every day 04:00
@@ -29,7 +26,7 @@ cron:
   schedule: every sunday 12:00
 - description: info weekly ride for all
   url: /infoweek_all
-  schedule: every friday 22:00
+  schedule: every friday 21:00
   timezone: Europe/Rome
 - description: day people count
   url: /dayPeopleCount

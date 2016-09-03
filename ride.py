@@ -18,6 +18,9 @@ class Ride(ndb.Model):
     end_daytime = ndb.DateTimeProperty()
     auto_end = ndb.BooleanProperty()
 
+    def getDriverName(self):
+        return self.driver_name.encode('utf-8')
+
 def getRideKey(driver):
     key = str(driver.chat_id) + '_' + str(driver.last_seen)
     return key

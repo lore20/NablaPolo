@@ -310,6 +310,7 @@ def getBusStopLocation(city, bs_name):
     return bs.location
 
 def matchDriverStartWithLocation(driver, bus_stop_name):
+    #logging.debug("In matchDriverStartWithLocation. bus_stop_name: " + bus_stop_name.encode('utf-8'))
     bs_start_d = getBusStop(driver.last_city, driver.location)
     bs_start_p = getBusStop(driver.last_city, bus_stop_name)
     if (bs_start_d is None or bs_start_p is None):
@@ -367,6 +368,9 @@ def matchDriverAndPotentialPassenger(driver, passenger):
                           str(matchDriverEndWithLocation(driver, bus_stop_passenger[1-i])) + ' ' +
                           str(matchDriverMidPointsBackWithLocation(driver, bus_stop_passenger[1-i]))
                           )
+        if bus_stop_passenger[i]==None or bus_stop_passenger[i-1]==None:
+            logging.debug("In matchDriverAndPotentialPassenger: bus_stop_passenger[i]==None")
+            continue
         if (matchDriverStartWithLocation(driver, bus_stop_passenger[i]) or
             matchDriverMidPointsGoingWithLocation(driver, bus_stop_passenger[i])) and \
             (matchDriverEndWithLocation(driver, bus_stop_passenger[1-i]) or

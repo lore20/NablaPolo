@@ -1,4 +1,3 @@
-import datetime
 from datetime import datetime
 from datetime import timedelta
 import time
@@ -23,11 +22,17 @@ def get_last_week():
 def get_date_days_ago(days):
     return datetime.now() - timedelta(days=days)
 
+def get_date_hours_ago(days):
+    return datetime.now() - timedelta(hours=days)
 
 def get_date_CET(date):
     if date is None: return None
-    newdate = date + timedelta(hours=1)
+    newdate = date  + timedelta(hours=2)
     return newdate
+
+def get_date_CET_from_DDMMYY(dateString):
+    date = datetime.strptime(dateString,'%d%m%y')
+    return get_date_CET(date)
 
 def get_date_string(date):
     newdate = get_date_CET(date)
@@ -37,7 +42,7 @@ def get_date_string(date):
     return day + " " + time
 
 def get_time_string(date):
-    newdate = date + timedelta(hours=1)
+    newdate = get_date_CET(date)
     return str(newdate).split(" ")[1].split(".")[0]
 
 def isTimeFormat(input):

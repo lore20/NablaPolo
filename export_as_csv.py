@@ -12,7 +12,7 @@ from ride_request import RideRequest
 
 def exportToCsv(query, csvFileName):
     with open(csvFileName, 'wb') as csvFile:
-        csvWriter = csv.writer(csvFile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        csvWriter = csv.writer(csvFile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         #writeHeader(csvWriter)
 
         first_row = True
@@ -42,6 +42,6 @@ def exportToCsv(query, csvFileName):
         print 'Finished saving ' + str(rows) + ' rows.'
 
 
-exportToCsv(query = Person.query().order(-Person.last_mod), csvFileName='data/Person_Table.csv')
-exportToCsv(query = Ride.query().order(-Ride.start_daytime), csvFileName='data/Ride_Table.csv')
-exportToCsv(query = RideRequest.query().order(-RideRequest.passenger_last_seen), csvFileName='data/RideRequest_Table.csv')
+exportToCsv(query = Person.query().order(-Person.last_mod), csvFileName='data/Person_Table.tsv')
+exportToCsv(query = Ride.query().order(-Ride.start_daytime), csvFileName='data/Ride_Table.tsv')
+exportToCsv(query = RideRequest.query().order(-RideRequest.passenger_last_seen), csvFileName='data/RideRequest_Table.tsv')

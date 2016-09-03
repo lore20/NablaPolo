@@ -3,6 +3,8 @@ from google.appengine.ext import ndb
 import itinerary
 import time_util
 
+import utility
+
 class Person(ndb.Model):
     name = ndb.StringProperty()
     active = ndb.BooleanProperty(default=False) # if active driver, passenger
@@ -29,15 +31,58 @@ class Person(ndb.Model):
     prev_state = ndb.IntegerProperty()
     basic_route = ndb.StringProperty()
 
+    def getFirstName(self, escapeMarkdown=True):
+        if escapeMarkdown:
+            return utility.escapeMarkdown(self.name.encode('utf-8'))
+        return self.name.encode('utf-8')
+
+    def getLastName(self, escapeMarkdown=True):
+        if self.last_name == None:
+            return None
+        if escapeMarkdown:
+            return utility.escapeMarkdown(self.last_name.encode('utf-8'))
+        return self.last_name.encode('utf-8')
+
+    def getUsername(self):
+        return self.username.encode('utf-8') if self.username else None
+
+    def getUserInfoString(self, escapeMarkdown=True):
+        info = self.getFirstName(escapeMarkdown)
+        if self.last_name:
+            info += ' ' + self.getLastName(escapeMarkdown)
+        if self.username:
+            info += ' @' + self.getUsername()
+        info += ' ({})'.format(self.chat_id)
+        return info
+
+    def getBusStartStr(self):
+        return None if self.bus_stop_start is None else self.bus_stop_start.encode('utf-8')
+
+    def getBusEndStr(self):
+        return None if self.bus_stop_end is None else self.bus_stop_end.encode('utf-8')
+
+    def getBusStopMidGoingStr(self):
+        return ' '.join([x.encode('utf-8') for x in self.bus_stop_mid_going])
+
+    def getBusStopMidBackStr(self):
+        return ' '.join([x.encode('utf-8') for x in self.bus_stop_mid_back])
+
+    def setEnabled(self, enabled, put=False):
+        self.enabled = enabled
+        if put:
+            self.put()
+
 def addPerson(chat_id, name):
-    p = Person.get_or_insert(str(chat_id))
-    p.name = name
-    p.chat_id = chat_id
-    #p.state = -1
-    #p.location = '-'
-    #p.language = 'IT'
+    p = Person(
+        id=str(chat_id),
+        name=name,
+        chat_id=chat_id,
+    )
     p.put()
     return p
+
+def getPersonByChatId(chat_id):
+    return Person.get_by_id(str(chat_id))
 
 def updateUsername(p, username):
     if (p.username!=username):
