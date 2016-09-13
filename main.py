@@ -289,28 +289,29 @@ def checkEnabled():
         sleep(0.035) # no more than 30 messages per second
 
 def broadcast(msg, language='ALL', check_notification=False, curs=None, count = 0, markdown=False, restart=False):
-    #return
-    users, next_curs, more = Person.query().fetch_page(50, start_cursor=curs) #.order(-Person.last_mod)
+
     try:
-        for p in users:
-            if p.enabled and (not check_notification or p.notification_enabled):
-                if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
-                    setLanguage(p.language)
-                    #logging.debug("Sending message to chat id " + str(p.chat_id))
-                    tell(p.chat_id, _("Listen listen...") + _(' ') + _(msg), markdown=markdown)
-                    #tell(p.chat_id, msg)
-                    count += 1
-                    if restart:
-                        restartUser(p)
-                    sleep(0.050) # no more than 20 messages per second
+        users, next_curs, more = Person.query().fetch_page(50, start_cursor=curs)  # .order(-Person.last_mod)
     except datastore_errors.Timeout:
         sleep(1)
         deferred.defer(broadcast, msg, language, check_notification, curs, count, markdown=markdown, restart=restart)
         return
+
+    for p in users:
+        if p.enabled and (not check_notification or p.notification_enabled):
+            if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
+                setLanguage(p.language)
+                tell(p.chat_id, _("Listen listen...") + ' ' + msg, markdown=markdown)
+                count += 1
+                if restart:
+                    restartUser(p)
+                sleep(0.050) # no more than 20 messages per second
+
     if more:
-        deferred.defer(broadcast, msg, language, check_notification, next_curs, count, _queue='default', markdown=markdown, restart=restart)
+        deferred.defer(broadcast, msg, language, check_notification, next_curs, count, markdown=markdown, restart=restart)
     else:
-        logging.debug('broadcasted to people ' + str(count))
+        msg = "Mesage sent to {} people".format(count)
+        tell(key.FEDE_CHAT_ID, msg)
 
 
 def getInfoCount(lang='EN'):
@@ -367,7 +368,7 @@ def getInfoWeek(language):
     if driversCount==0:
         msg += _("Many thanks to all of you! " ) + emoij.CLAPPING_HANDS
     elif driversCount==1:
-        msg += _("Many thanks to our favorite driver: ") + nameSetStr + emoij.CLAPPING_HANDS
+        msg += _("Many thanks to our favorite driver: ") + nameSetStr + emoij.CLAPPING_HANDS * driversCount
     else:
         msg += _("Many thanks to our special drivers: ") + nameSetStr + emoij.CLAPPING_HANDS * driversCount
     return msg
@@ -936,7 +937,7 @@ def notify_potential_passengers(driver, time=None):
 def getDriverRideDetails(driver, id=True):
     text = driver.name.encode('utf-8') + _(" ride start: ") + \
            time_util.get_time_string(driver.last_seen) + \
-           _(" itinerary: ") + person.getItinerary(driver,driver=True)
+           _(" itinerary: ") + person.getItineraryString(driver, driver=True)
     if id:
         text += _(" (id: ") + driver.ticket_id + _(")")
     if (driver.username and driver.username!='-'):
@@ -945,7 +946,7 @@ def getDriverRideDetails(driver, id=True):
 
 def getDriverRideScheduleDetails(driver, time_text):
     text = driver.name.encode('utf-8') + _(" ride start: ") + \
-           time_text + _(" itinerary: ") + person.getItinerary(driver,driver=True)
+           time_text + _(" itinerary: ") + person.getItineraryString(driver, driver=True)
     if (driver.username and driver.username!='-'):
         text +=  _(" username: @") + driver.username
     return text
@@ -954,7 +955,7 @@ def getDriverRideScheduleDetails(driver, time_text):
 def getPassengerRideDetails(passenger, id = True):
     text = passenger.name.encode('utf-8') +\
            _(" waiting since ") + time_util.get_time_string(passenger.last_seen) +\
-           _(" itinerary: ") + person.getItinerary(passenger,driver=False)
+           _(" itinerary: ") + person.getItineraryString(passenger, driver=False)
     if id:
         text += _(" (id: ") + passenger.ticket_id + _(")")
     if (passenger.username and passenger.username!='-'):
@@ -1191,12 +1192,12 @@ def tell(chat_id, msg, kb=None, markdown=False, inlineKeyboardMarkup=False,
         resp_json = json.loads(resp)
         return resp_json['result']['message_id']
     except urllib2.HTTPError, err:
+        p = person.getPersonByChatId(chat_id)
         if err.code == 403:
-            p = person.getPersonByChatId(chat_id)
             p.setEnabled(False, put=True)
             # logging.info('Disabled user: ' + p.name.encode('utf-8') + ' ' + str(chat_id))
         else:
-            logging.debug('Raising unknown err in tell() with msg = ' + msg)
+            logging.debug('Raising unknown err in tell() with msg = {} and kb={} to {}'.format(msg, kb, p))
             raise err
     if sleepDelay:
         sleep(0.1)
@@ -1399,7 +1400,7 @@ class InfoWeekAllHandler(webapp2.RequestHandler):
     def get(self):
         if key.TEST:
             return
-        urlfetch.set_default_fetch_deadline(60)
+        #urlfetch.set_default_fetch_deadline(60)
         broadcast(getInfoWeek('IT'), language='IT', check_notification=True)
         broadcast(getInfoWeek('EN'), language='EN', check_notification=True)
 

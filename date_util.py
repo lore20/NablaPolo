@@ -1,7 +1,29 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-from datetime import datetime
+from datetime import datetime as datetime
+from pytz.gae import pytz
+
+UTC_ZONE = pytz.timezone('UTC')
+CET_ZONE = pytz.timezone('CET')
+
+def now():
+    #return datetime.now()
+    utc = datetime.now()
+    utc = utc.replace(tzinfo=UTC_ZONE)
+    return utc.astimezone(CET_ZONE)
+
+def timeString(datetime=now(), ms=False):
+    if ms:
+        return datetime.strftime('%H:%M:%S.%f')[:-3]
+    return datetime.strftime('%H:%M:%S')
+
+def dateString(datetime=now()):
+    return datetime.strftime('%d/%m/%y')
+
+def dateTimeString(datetime=now()):
+    return datetime.strftime('%d/%m/%y %H:%M:%S')
+
 
 def removeOverlapping(timeIntervals):
     timeIntervals = sorted(timeIntervals, key=lambda tup: tup[0])

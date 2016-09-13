@@ -72,6 +72,17 @@ class Person(ndb.Model):
         if put:
             self.put()
 
+    def getDestination(p):
+        if p.location == p.bus_stop_start:
+            return p.getBusEndStr()
+        return p.getBusStartStr()
+
+    def getDeparture(p):
+        if p.location == p.bus_stop_start:
+            return p.getBusStartStr()
+        return p.getBusEndStr()
+
+
 def addPerson(chat_id, name):
     p = Person(
         id=str(chat_id),
@@ -121,19 +132,14 @@ def setLastCity(p, last_city):
     p.last_city = last_city
     p.put()
 
-def getDestination(p):
-    if p.location==p.bus_stop_start:
-        return p.bus_stop_end
-    return p.bus_stop_start
-
 def getMidPoints(p):
     if p.location==p.bus_stop_start:
         return p.bus_stop_mid_going
     return p.bus_stop_mid_back
 
-def getItinerary(p, driver):
-    start = p.location
-    end = getDestination(p)
+def getItineraryString(p, driver):
+    start = p.getDeparture()
+    end = p.getDestination()
     midPoints = []
     if driver:
         midPoints = getMidPoints(p)
@@ -147,7 +153,7 @@ def getLocationCluster(p):
     return itinerary.getBusStop(p.last_city, p.location).cluster
 
 def getDestinationCluster(p):
-    return itinerary.getBusStop(p.last_city, getDestination(p)).cluster
+    return itinerary.getBusStop(p.last_city, p.getDestination()).cluster
 
 def getBusStop(p):
     return itinerary.getBusStop(p.last_city, p.location)

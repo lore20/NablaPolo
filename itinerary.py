@@ -318,7 +318,7 @@ def matchDriverStartWithLocation(driver, bus_stop_name):
     return matchClusterLocation(bs_start_d, bs_start_p)
 
 def matchDriverEndWithLocation(driver, bus_stop_name):
-    bs_end_d = getBusStop(driver.last_city, person.getDestination(driver))
+    bs_end_d = getBusStop(driver.last_city, driver.getDestination())
     bs_end_p = getBusStop(driver.last_city, bus_stop_name)
     if (bs_end_d is None or bs_end_p is None):
         return False

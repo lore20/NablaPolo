@@ -34,7 +34,7 @@ def recordRide(driver, minutes_to_pickup):
     r.start_daytime = datetime.now()
     r.minutes_to_pickup = minutes_to_pickup
     r.start_location = driver.location
-    r.end_location = person.getDestination(driver)
+    r.end_location = driver.getDestination()
     r.passengers_ids = [] #ids
     r.passengers_names = [] #names
     k = r.put()
