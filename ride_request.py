@@ -25,7 +25,7 @@ def recordRideRequest(passenger):
     request.passenger_id = passenger.chat_id
     request.passenger_last_seen = passenger.last_seen
     request.passenger_location = passenger.location
-    request.passenger_destination = person.getDestination(passenger)
+    request.passenger_destination = passenger.getDestination()
     request.passenger_ticket_id = passenger.ticket_id
     k = request.put()
     #logging.debug('New ride. Key:' + str(k))

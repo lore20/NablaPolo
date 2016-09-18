@@ -43,17 +43,23 @@ class Person(ndb.Model):
             return utility.escapeMarkdown(self.last_name.encode('utf-8'))
         return self.last_name.encode('utf-8')
 
-    def getUsername(self):
-        return self.username.encode('utf-8') if self.username else None
+    def getUsernameStringWithAt(self):
+        return '@' + self.username.encode('utf-8') if self.username else None
 
     def getUserInfoString(self, escapeMarkdown=True):
         info = self.getFirstName(escapeMarkdown)
         if self.last_name:
             info += ' ' + self.getLastName(escapeMarkdown)
-        if self.username:
-            info += ' @' + self.getUsername()
+        if self.username and self.username!='-':
+            info += ' ' + self.getUsernameStringWithAt()
         info += ' ({})'.format(self.chat_id)
         return info
+
+    def getTicketIdString(self):
+        return self.ticket_id.encode('utf-8')
+
+    def getTmpArrayUtf8(self):
+        return [x.encode('utf-8') for x in self.tmp]
 
     def getBusStartStr(self):
         return None if self.bus_stop_start is None else self.bus_stop_start.encode('utf-8')
@@ -62,25 +68,36 @@ class Person(ndb.Model):
         return None if self.bus_stop_end is None else self.bus_stop_end.encode('utf-8')
 
     def getBusStopMidGoingStr(self):
-        return ' '.join([x.encode('utf-8') for x in self.bus_stop_mid_going])
+        return ', '.join([x.encode('utf-8') for x in self.bus_stop_mid_going])
 
     def getBusStopMidBackStr(self):
-        return ' '.join([x.encode('utf-8') for x in self.bus_stop_mid_back])
+        return ', '.join([x.encode('utf-8') for x in self.bus_stop_mid_back])
 
     def setEnabled(self, enabled, put=False):
         self.enabled = enabled
         if put:
             self.put()
 
-    def getDestination(p):
-        if p.location == p.bus_stop_start:
-            return p.getBusEndStr()
-        return p.getBusStartStr()
+    def getLocationString(self):
+        return self.location.encode('utf-8')
 
-    def getDeparture(p):
-        if p.location == p.bus_stop_start:
-            return p.getBusStartStr()
-        return p.getBusEndStr()
+    def getDestinationString(self):
+        return self.getDestination().encode('utf-8')
+
+    def getDepartureString(self):
+        return self.getDeparture().encode('utf-8')
+
+
+    def getDestination(self):
+        if self.location == self.bus_stop_start:
+            return self.bus_stop_end
+        return self.bus_stop_start
+
+    def getDeparture(self):
+        if self.location == self.bus_stop_start:
+            return self.bus_stop_start
+        return self.bus_stop_end
+
 
 
 def addPerson(chat_id, name):
@@ -138,14 +155,15 @@ def getMidPoints(p):
     return p.bus_stop_mid_back
 
 def getItineraryString(p, driver):
-    start = p.getDeparture()
-    end = p.getDestination()
+    start = p.getDepartureString()
+    end = p.getDestinationString()
     midPoints = []
     if driver:
         midPoints = getMidPoints(p)
     txt = start + " -> "
-    for mp in midPoints:
-        txt += mp + " -> "
+    txt += ' -> '.join([x.encode('utf-8') for x in midPoints])
+    if len(midPoints)>0:
+        txt += " -> "
     txt += end
     return txt
 
@@ -333,7 +351,7 @@ def listAllDrivers():
         #qry = qry.order(-Person.last_mod)
         text = ""
         for d in qry:
-            text = text + d.name.encode('utf-8') + _(' ') + d.location + _(" (") + str(d.state) + \
+            text = text + d.name.encode('utf-8') + _(' ') + d.getLocationString() + _(" (") + str(d.state) + \
                    _(") ") + time_util.get_time_string(d.last_seen) + _("\n")
         return text
 
@@ -346,7 +364,8 @@ def listAllPassengers():
         #qry = qry.order(-Person.last_mod)
         text = ""
         for p in qry:
-            text = text + p.name.encode('utf-8') + _(' ') + p.location + " (" + str(p.state) + ") " + time_util.get_time_string(p.last_seen) + _("\n")
+            text = text + p.name.encode('utf-8') + _(' ') + p.getLocationString() + " (" + str(p.state) + ") " + \
+                   time_util.get_time_string(p.last_seen) + _("\n")
         return text
 
 """

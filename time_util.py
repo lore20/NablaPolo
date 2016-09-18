@@ -43,7 +43,8 @@ def get_date_string(date):
 
 def get_time_string(date):
     newdate = get_date_CET(date)
-    return str(newdate).split(" ")[1].split(".")[0]
+    result =  str(newdate).split(" ")[1].split(".")[0]
+    return result.encode('utf-8')
 
 def isTimeFormat(input):
     try:

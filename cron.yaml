@@ -32,8 +32,4 @@ cron:
   url: /dayPeopleCount
   schedule: every day 00:00
   timezone: Europe/Rome
-- description: new version released
-  url: /newVersionBroadcast
-  schedule: 14 of dec 09:05
-  timezone: Europe/Rome
 

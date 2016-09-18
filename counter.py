@@ -37,14 +37,15 @@ def getKey(cityBusStop, driver):
 def resetCounter(delete=False):
     if delete:
         ndb.delete_multi(Counter.query().fetch(keys_only=True))
+    to_add = []
     for q in itinerary.BusStop.query():
         for driver in [True, False]:
             cityBusStop = itinerary.getKey(q.city, q.name)
             counterKey = getKey(cityBusStop,driver) #city + bus_stop_name + driver/passenger
             c = Counter.get_or_insert(counterKey)
             c.counter = 0
-            c.put()
-
+            to_add.append(c)
+    ndb.put_multi(to_add)
 
 def increaseQueueCounter(cityBusStop, driver):
     counterKey = getKey(cityBusStop,driver) #city + bus_stop_name + driver/passenger

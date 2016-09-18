@@ -18,8 +18,10 @@ CITIES = [CITY_TRENTO, CITY_PADOVA]
 # http://overpass-turbo.eu/
 # node["highway"="bus_stop"]({{bbox}});
 
-#BUS STOPS TRENTO
-TN_FS = ('Stazione FS', 46.0725463, 11.1199586, 'FS')
+################
+# BUS STOPS TRENTO
+################
+TN_FS = ('Stazione Trento FS', 46.0725463, 11.1199586, 'FS')
 TN_Aquila = ("Venezia Port'Aquila", 46.0695135, 11.1278832, 'P_AQ')
 TN_MesianoIng = ("MESIANO Fac. Ingegneria", 46.0671184, 11.1394574, 'MES_ING')
 TN_Povo_Valoni = ("POVO Valoni", 46.0655767, 11.1462844, 'PV_VA')
@@ -31,17 +33,23 @@ TN_Travai = ('Travai', 46.0645194, 11.1209105, 'Tra')
 TN_Cavallegggeri = ("3 Nov. Ponte Cavalleggeri", 46.0592422, 11.126718, 'CAV')
 TN_Questura = ("Verona Questura", 46.0457542, 11.1309265, 'QSTR')
 
-#new entry
+################
+# new entry
+################
 TN_Pergine_FS = ("Pergine FS", 46.0634661, 11.2315599, 'PER_FS')
 TN_Mattarello_Catorni = ("Mattarello Catoni", 46.009173, 11.128193, 'MAT_CA')
 TN_NORD_ZONA_COMMERCIALE = ("Trento Nord Zona Commerciale", 46.090066, 11.113395, 'NZC')
 
-#RIVA - ARCO
+################
+# RIVA - ARCO
+################
 TN_RIVA_INVIOLATA = ("Riva Inviolata", 45.889042, 10.843240, 'RDG_INV')
-TN_ARCO_CASINO = ("Arco Casinò", 45.917813, 10.885141, 'ARC_CAS')
 TN_ARCO_S_CAT_POLI = ("Arco S.Caterina Poli", 45.909959, 10.870948, 'ARC_CAS')
+TN_ARCO_CASINO = ("Arco Casinò", 45.917813, 10.885141, 'ARC_CAS')
 
-#RIVA - LEDRO
+################
+# RIVA - LEDRO
+################
 TN_RIVA_FLORIANI = ("Riva rotonda Floriani", 45.894707, 10.843048, 'RDG_RFL')
 TN_LEDRO_BIACESA = ("Ledro Biacesa", 45.865099, 10.805401, "LDR_BIA")
 TN_LEDRO_MOLINA = ("Ledro Molina", 45.871800, 10.772175, "LDR_MLN")
@@ -51,14 +59,32 @@ TN_LEDRO_BEZZECCA = ("Bezzecca (albergo da Gino)", 45.895281, 10.715026, "LDR_BZ
 TN_LEDRO_TIARNO_SOTTO = ("Tiarno di sotto (benzinaio)", 45.892677, 10.685424, "LDR_TNA")
 TN_LEDRO_TIARNO_SOPRA = ("Tiarno di sopra (Ribaga)", 45.888336, 10.671004, "LDR_TNB")
 
-#RIVA - TENNO
+################
+# RIVA - TENNO
+################
 TN_RIVA_MALOSSINI = ("Riva v. Oleandri (CS Malossini)", 45.897645, 10.844131, "RDG_CSM")
 TN_TENNO_GAVAZZO = ("Gavazzo (bus stop)", 45.912496, 10.841007, "TEN_GAV")
 TN_TENNO_COLOGNA = ("Cologna alta (chiesa parrocchiale)", 45.914870, 10.842381, "TEN_COL")
 TN_TENNO_FARMACIA = ("Tenno farmacia", 45.918102, 10.832828, "TEN_FAR")
 TN_TENNO_ZANOLLI = ("Ville del monte (Ex albergo Zanolli)", 45.930241, 10.822422, "TEN_ZAN")
 
-#MORI - BESAGNO
+################
+# RIVA - ARCO - TRENTO
+################
+# TN_RIVA_INVIOLATA
+# TN_ARCO_S_CAT_POLI
+# TN_ARCO_CASINO
+TN_DRO = ("Dro (supermarket calzatura)", 45.961463, 10.9148322, "TN_DRO")
+TN_GAGGIOLO = ("Gaggiolo (bar Pareti Zebrate)", 45.993615, 10.9247638, "TN_GAG") # fermata comoda solo viaggiando verso trento in direzione contraria ci sarebbe una piazzola una 20ina di metri prima che facciamo?)
+TN_PIETRAMURATA = ("Pietramurata (farmacia)", 46.016711, 10.9409926, "TN_PTM")
+TN_SARCHE = ("Sarche (supermercato)", 46.046433, 10.9499903, "TN_SRC")
+TN_VEZZANO = ("Vezzano (distributore)", 46.074976, 10.9935043, "TN_VEZ")
+TN_BASELGA_BONDONE = ("Baselga del bondone (albergo Terme)", 46.080869, 11.0424243, "TN_BAS")
+# TN_FS = ('Stazione FS', 46.0725463, 11.1199586, 'FS')
+
+################
+# MORI - BESAGNO
+################
 #TN_MORI_BC = ("Mori Bar Centrale",  45.851634, 10.9788377, "MOR")
 #TN_MORI_BESAGNO = ("Besagno", 45.8380353, 10.965215, "MOR_BS")
 
@@ -66,11 +92,15 @@ TN_TENNO_ZANOLLI = ("Ville del monte (Ex albergo Zanolli)", 45.930241, 10.822422
 FERMATA_TRENTO = TN_Aquila[0]
 FERMATA_POVO = TN_Povo_PoloScientifico[0]
 
-
-#BUS STOPS CALTANISSETTA
+################
+# BUS STOPS CALTANISSETTA
+################
 CL_FS = ('Stazione FS', 37.4885123, 14.0577765, 'CLFS')
 CL_Cefpas = ('Cefpas', 37.490577, 14.0290256, 'CEFPAS')
 
+################
+# BUS STOPS PADOVA
+################
 PD_GZ_VSCH = ("Valsanzibio Chiesa", 45.29052, 11.73018, 'GZ_VSCH')
 PD_GZ_RMCH = ("Galzignano via Roma Chiesa", 45.30802, 11.72967, 'GZ_RMCH')
 PD_GZ_SITA = ("Porto fermata SITA", 45.30534, 11.74185, 'GZ_SITA')
@@ -116,6 +146,13 @@ CITY_BUS_STOPS = {
         #
         #TN_MORI_BC,
         #TN_MORI_BESAGNO
+        #
+        TN_DRO,
+        TN_GAGGIOLO,
+        TN_PIETRAMURATA,
+        TN_SARCHE,
+        TN_VEZZANO,
+        TN_BASELGA_BONDONE
     ),
     CITY_CALTANISSETTA: (
         CL_FS,
@@ -145,6 +182,13 @@ BASIC_ROUTES = {
         TN_ARCO_CASINO[0], #end
         [TN_ARCO_S_CAT_POLI[0]], #mid_going
         [TN_ARCO_S_CAT_POLI[0]], #mid_back
+    ),
+    "/Riva_Arco_Trento": (
+        CITY_TRENTO, #city
+        TN_RIVA_INVIOLATA[0], #start
+        TN_FS[0], #end
+        [TN_ARCO_S_CAT_POLI[0], TN_ARCO_CASINO[0], TN_DRO[0], TN_GAGGIOLO[0], TN_PIETRAMURATA[0], TN_SARCHE[0], TN_VEZZANO[0], TN_BASELGA_BONDONE[0]], #mid_going
+        [TN_BASELGA_BONDONE[0], TN_VEZZANO[0], TN_SARCHE[0], TN_PIETRAMURATA[0], TN_GAGGIOLO[0], TN_DRO[0], TN_ARCO_CASINO[0], TN_ARCO_S_CAT_POLI[0]], #mid_back
     ),
     "/Riva_Ledro": (
         CITY_TRENTO,  #city
@@ -220,6 +264,7 @@ def getBusStop(cityName, bsName):
 def initBusStops(delete=False):
     if delete:
         ndb.delete_multi(BusStop.query().fetch(keys_only=True))
+    to_add = []
     for city_key in CITY_BUS_STOPS:
         for bs_lat_lon in CITY_BUS_STOPS[city_key]:
             bs_name = bs_lat_lon[0]
@@ -229,7 +274,9 @@ def initBusStops(delete=False):
                 bs = BusStop.get_or_insert(key)
                 bs.populate(city=city_key,name=bs_lat_lon[0],location=ndb.GeoPt(bs_lat_lon[1], bs_lat_lon[2]), short_name=bs_lat_lon[3])
             bs.cluster = [bs_name]
-            bs.put()
+            to_add.append(bs)
+    ndb.put_multi(to_add)
+    to_add = []
     for city_key in CITY_BUS_STOPS:
         city_busstops = CITY_BUS_STOPS[city_key]
         for stop_i in city_busstops:
@@ -244,7 +291,8 @@ def initBusStops(delete=False):
                 dst = HaversineDistance(loc_i, loc_j)
                 if (dst<=MAX_CLUSTER_DISTANCE):
                     bs_i.cluster.append(stop_j_name)
-                    bs_i.put()
+                    to_add.append(bs_i)
+    ndb.put_multi(to_add)
 
 class BasicRoutes(ndb.Model):
     city = ndb.StringProperty()
@@ -256,6 +304,7 @@ class BasicRoutes(ndb.Model):
 def initBasicRoutes(delete=False):
     if delete:
         ndb.delete_multi(BasicRoutes.query().fetch(keys_only=True))
+    to_add = []
     for route_cmd in BASIC_ROUTES:
         route = BasicRoutes.get_or_insert(route_cmd)
         route_data = BASIC_ROUTES[route_cmd]
@@ -267,7 +316,8 @@ def initBasicRoutes(delete=False):
             bus_stop_mid_going=route_data[3],
             bus_stop_mid_back=route_data[4]
         )
-        route.put()
+        to_add.append(route)
+    ndb.put_multi(to_add)
 
 def getBasicRoutesCommands(city):
     cmd = []

@@ -19,7 +19,7 @@ import urllib
 import urllib2
 from time import sleep
 import time_util
-# import requests
+import requests
 import googlemaps
 import geopy
 
@@ -41,6 +41,7 @@ import token_factory
 import boolVariable
 #import bus
 import bus_disp
+import utility
 
 from random import shuffle
 
@@ -289,12 +290,11 @@ def checkEnabled():
         sleep(0.035) # no more than 30 messages per second
 
 def broadcast(msg, language='ALL', check_notification=False, curs=None, count = 0, markdown=False, restart=False):
-
     try:
         users, next_curs, more = Person.query().fetch_page(50, start_cursor=curs)  # .order(-Person.last_mod)
     except datastore_errors.Timeout:
         sleep(1)
-        deferred.defer(broadcast, msg, language, check_notification, curs, count, markdown=markdown, restart=restart)
+        deferredSafeHandleException(broadcast, msg, language, check_notification, curs, count, markdown=markdown, restart=restart)
         return
 
     for p in users:
@@ -308,7 +308,7 @@ def broadcast(msg, language='ALL', check_notification=False, curs=None, count = 
                 sleep(0.050) # no more than 20 messages per second
 
     if more:
-        deferred.defer(broadcast, msg, language, check_notification, next_curs, count, markdown=markdown, restart=restart)
+        deferredSafeHandleException(broadcast, msg, language, check_notification, next_curs, count, markdown=markdown, restart=restart)
     else:
         msg = "Mesage sent to {} people".format(count)
         tell(key.FEDE_CHAT_ID, msg)
@@ -533,7 +533,7 @@ def goToState30(p):
 
 def goToInfoPanel(p):
     tell(p.chat_id, _("This is the info panel."),
-          kb=[[_('INFO USERS'),_('DAY SUMMARY')],[_('SEARCH BUS STOPS'),_('SEND FEEDBACK')],[BACK_BUTTON_FUNC()]])
+         kb=[[_('INFO USERS'),_('DAY SUMMARY')],[_('SEARCH BUS STOPS'),_('SEND FEEDBACK')],[BACK_BUTTON_FUNC()]])
     person.setState(p, 80)
 
 def goToSettings(p):
@@ -646,8 +646,7 @@ def askGeoLocationOrListBusStops(p, intro_text, new_state):
 
 def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
 
-    midpoints = p.bus_stop_mid_going if state==9353 else p.bus_stop_mid_back
-    midpoints = [x.encode('UTF8') for x in midpoints]
+    midpoints = p.getBusStopMidGoingStr() if state==9353 else p.getBusStopMidBackStr()
 
     text = _("Select an intermediate point you can stop on the way FORWARD to pick-up other passangers:") + '\n' \
         if state==9353 else _("Select an intermediate point you can stop on the way BACK to pick-up other passangers:") + '\n'
@@ -657,6 +656,9 @@ def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
     if p.last_city:
         text += _(" Alternatively you can request to list the bus stops and select one manually.")
     text += "\n\n"
+
+    #text = utility.escapeMarkdown(text)
+    text += _("*Current midpoints*: ") + midpoints
 
     keyboard = [[_('List All Stops')]] if p.last_city else []
     secondLineButtons = [_('Remove all')] if midpoints else []
@@ -673,7 +675,7 @@ def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
     keyboard.append([BACK_BUTTON_FUNC()])
 
     #logging.debug("goToSettingMidPoints:" + str(keyboard))
-    tell(p.chat_id, text + _("*Current midpoints*: ") + str(midpoints), kb=keyboard, markdown=True)
+    tell(p.chat_id, text, kb=keyboard, markdown=True)
     person.setState(p,state)
 
 
@@ -922,15 +924,14 @@ def notify_potential_passengers(driver, time=None):
             setLanguage(p.language)
             if time:
                 text = _("Scheduled Trip ") + emoij.CAR + _(": There is a driver matching your default route!") + \
-                       '\n\n' + getDriverRideScheduleDetails(driver, time).encode('utf-8')
+                       '\n\n' + getDriverRideScheduleDetails(driver, time)
             else:
                 text = _("Notification ") + emoij.CAR + _(": There is a driver matching your default route!") + \
-                       '\n\n' + getDriverRideDetails(driver).encode('utf-8')
-            tell(p.chat_id,text)
+                       '\n\n' + getDriverRideDetails(driver)
+            tell(p.chat_id, text)
             #logging.debug(getDriverRideDetails(driver))
             sleep(0.035) # no more than 30 messages per second
     setLanguage(driver.language)
-
     tell(driver.chat_id,  _("We have informed ") + str(count) + _(" other people who travel on the same route."))
     logging.debug("Notified potential passengers: " + str(count))
 
@@ -939,16 +940,18 @@ def getDriverRideDetails(driver, id=True):
            time_util.get_time_string(driver.last_seen) + \
            _(" itinerary: ") + person.getItineraryString(driver, driver=True)
     if id:
-        text += _(" (id: ") + driver.ticket_id + _(")")
+        text += _(" (id: ") + driver.getTicketIdString() + _(")")
     if (driver.username and driver.username!='-'):
-        text +=  _(" username: @") + driver.username
+        text +=  _(" username: ") + driver.getUsernameStringWithAt()
+    logging.debug("getDriverRideDetails output: " + text)
     return text
 
 def getDriverRideScheduleDetails(driver, time_text):
     text = driver.name.encode('utf-8') + _(" ride start: ") + \
            time_text + _(" itinerary: ") + person.getItineraryString(driver, driver=True)
     if (driver.username and driver.username!='-'):
-        text +=  _(" username: @") + driver.username
+        text +=  _(" username: ") + driver.getUsernameStringWithAt()
+    logging.debug("getDriverRideScheduleDetails output: " + text)
     return text
 
 
@@ -959,7 +962,7 @@ def getPassengerRideDetails(passenger, id = True):
     if id:
         text += _(" (id: ") + passenger.ticket_id + _(")")
     if (passenger.username and passenger.username!='-'):
-        text +=  _(" username: @") + passenger.username
+        text +=  _(" username: ") + passenger.getUsernameStringWithAt()
     return text
 
 def listDrivers(passenger):
@@ -1061,14 +1064,6 @@ def broadcast_driver_message(driver, msg):
     setLanguage(driver.language)
     return len(matchPassengers)
 
-def tell_person(chat_id, msg, markdown=False):
-    tell(chat_id, msg, markdown=markdown)
-    p = ndb.Key(Person, str(chat_id)).get()
-    if p and p.enabled:
-        return True
-    return False
-
-
 def sendText(p, text, markdown=False):
     split = text.split()
     if len(split)<3:
@@ -1079,7 +1074,7 @@ def sendText(p, text, markdown=False):
         return
     id = int(split[1])
     text = ' '.join(split[2:])
-    if tell_person(id, text, markdown=markdown):
+    if tell(id, text, markdown=markdown):
         user = person.getPerson(id)
         tell(p.chat_id, 'Successfully sent text to ' + user.getFirstName())
     else:
@@ -1121,10 +1116,8 @@ def tell_masters(msg, markdown=False, one_time_keyboard=False):
     for id in key.MASTER_CHAT_ID:
         tell(id, msg, markdown=markdown, one_time_keyboard = one_time_keyboard, sleepDelay=True)
 
-def tell_fede(msg):
-    for i in range(100):
-        tell(key.FEDE_CHAT_ID, "prova " + str(i))
-        sleep(0.1)
+#def tell_fede(msg):
+#    tell(key.FEDE_CHAT_ID, msg)
 
 def sendVoice(chat_id, file_id):
     try:
@@ -1168,7 +1161,7 @@ def sendLocation(chat_id, loc):
 
 
 def tell(chat_id, msg, kb=None, markdown=False, inlineKeyboardMarkup=False,
-         one_time_keyboard=True, sleepDelay=False):
+         one_time_keyboard=False, sleepDelay=False):
     replyMarkup = {
         'resize_keyboard': True,
         'one_time_keyboard': one_time_keyboard
@@ -1179,89 +1172,45 @@ def tell(chat_id, msg, kb=None, markdown=False, inlineKeyboardMarkup=False,
         else:
             replyMarkup['keyboard'] = kb
     try:
-        resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
+        data = {
             'chat_id': chat_id,
-            'text': msg,  # .encode('utf-8'),
+            'text': msg,
             'disable_web_page_preview': 'true',
             'parse_mode': 'Markdown' if markdown else '',
-            # 'reply_to_message_id': str(message_id),
             'reply_markup': json.dumps(replyMarkup),
-        })).read()
-        logging.info('send response: ')
-        logging.info(resp)
-        resp_json = json.loads(resp)
-        return resp_json['result']['message_id']
-    except urllib2.HTTPError, err:
-        p = person.getPersonByChatId(chat_id)
-        if err.code == 403:
-            p.setEnabled(False, put=True)
-            # logging.info('Disabled user: ' + p.name.encode('utf-8') + ' ' + str(chat_id))
+        }
+        resp = requests.post(BASE_URL + 'sendMessage', data)
+        logging.info('Response: {}'.format(resp.text))
+        logging.info('Json: {}'.format(resp.json()))
+        respJson = json.loads(resp.text)
+        success = respJson['ok']
+        if success:
+            if sleepDelay:
+                sleep(0.1)
+            return True
         else:
-            logging.debug('Raising unknown err in tell() with msg = {} and kb={} to {}'.format(msg, kb, p))
-            raise err
-    if sleepDelay:
-        sleep(0.1)
-
-'''
-def tell(chat_id, msg, kb=None, hideKb=True, markdown=False):
-    #logging.debug('msg: ' + str(type(msg)))
-    msg = msg if isinstance(msg, str) else msg.encode('utf-8')
-    try:
-        if kb:
-            resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
-                'chat_id': chat_id,
-                'text': msg, #msg.encode('utf-8'),
-                'disable_web_page_preview': 'true',
-                'parse_mode': 'Markdown' if markdown else '',
-                #'reply_to_message_id': str(message_id),
-                'reply_markup': json.dumps({
-                    #'one_time_keyboard': True,
-                    'resize_keyboard': True,
-                    'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
-                    'reply_markup': json.dumps({'hide_keyboard': True})
-                }),
-            })).read()
-        else:
-            if hideKb:
-                resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
-                    'chat_id': str(chat_id),
-                    'text': msg, #msg.encode('utf-8'),
-                    'disable_web_page_preview': 'true',
-                    'parse_mode': 'Markdown' if markdown else '',
-                    #'reply_to_message_id': str(message_id),
-                    'reply_markup': json.dumps({
-                        #'one_time_keyboard': True,
-                        'resize_keyboard': True,
-                        #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
-                        'reply_markup': json.dumps({'hide_keyboard': True})
-                }),
-                })).read()
+            status_code = resp.status_code
+            error_code = respJson['error_code']
+            description = respJson['description']
+            if error_code == 403:
+                # Disabled user
+                p = person.getPersonByChatId(chat_id)
+                p.setEnabled(False, put=True)
+                logging.info('Disabled user: ' + p.getUserInfoString())
+            elif error_code == 400 and description == "INPUT_USER_DEACTIVATED":
+                p = person.getPersonByChatId(chat_id)
+                p.setEnabled(False, put=True)
+                debugMessage = '❗ Input user disactivated: ' + p.getUserInfoString()
+                logging.debug(debugMessage)
+                tell(key.FEDE_CHAT_ID, debugMessage)
             else:
-                resp = urllib2.urlopen(BASE_URL + 'sendMessage', urllib.urlencode({
-                    'chat_id': str(chat_id),
-                    'text': msg, #.encode('utf-8'),
-                    'disable_web_page_preview': 'true',
-                    'parse_mode': 'Markdown' if markdown else '',
-                    #'reply_to_message_id': str(message_id),
-                    'reply_markup': json.dumps({
-                        #'one_time_keyboard': True,
-                        'resize_keyboard': True,
-                        #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
-                        'reply_markup': json.dumps({'hide_keyboard': False})
-                }),
-                })).read()
-        logging.info('send response: ')
-        logging.info(resp)
-    except urllib2.HTTPError, err:
-        if err.code == 403:
-            p = Person.query(Person.chat_id==chat_id).get()
-            p.enabled = False
-            p.put()
-            logging.info('Disabled user: ' + p.getName() + _(' ') + str(chat_id))
-        else:
-            logging.debug('Raising unknown err in tell() with msg = ' + msg)
-            raise err
-'''
+                debugMessage = '❗ Raising unknown err in tell().' \
+                          '\nStatus code: {}\nerror code: {}\ndescription: {}.'.format(status_code, error_code, description)
+                logging.debug(debugMessage)
+                tell(key.FEDE_CHAT_ID, debugMessage)
+    except:
+        report_exception()
+
 
 # ================================
 # ================================
@@ -1324,79 +1273,30 @@ def tellBusTimes(p):
     tell(p.chat_id, text)
 
 # ================================
-# ================================
-# ================================
-
-
-gmaps = googlemaps.Client(key=key.GOOGLE_API_KEY)
-
-def test_Google_Map_Api():
-    # Geocoding an address
-    #geocode_result = gmaps.geocode('1600 Amphitheatre Parkway, Mountain View, CA')
-    #return geocode_result
-
-    # Look up an address with reverse geocoding
-    #reverse_geocode_result = gmaps.reverse_geocode((40.714224, -73.961452))
-
-    # Request directions via public transit
-    #now = datetime.now()
-    #directions_result = gmaps.directions("Sydney Town Hall",
-    #                                 "Parramatta, NSW",
-    #                                 mode="transit",
-    #                                 departure_time=now)
-
-
-    """
-    def distance_matrix(client, origins, destinations,
-                    mode=None, language=None, avoid=None, units=None,
-                    departure_time=None, arrival_time=None, transit_mode=None,
-                    transit_routing_preference=None, traffic_model=None):
-    """
-
-    orig_coord = "45.29037,11.73045"
-    dest_coord = "45.32724,11.79545"
-    result = gmaps.distance_matrix(orig_coord, dest_coord, mode="driving", units='metric')
-    if result[u'status']==[u'OK']:
-        driving_dst = result[u'rows'][0][u'elements'][0][u'distance'][u'value'] #meters
-        return driving_dst/1000
-    else:
-        return 0
-
-
-# ================================
-# ================================
+# HANDLERS
 # ================================
 
-class MeHandler(webapp2.RequestHandler):
+class SafeRequestHandler(webapp2.RequestHandler):
+    def handle_exception(self, exception, debug_mode):
+        report_exception()
+
+
+class TestHandler(SafeRequestHandler):
+    def get(self):
+        tell(key.FEDE_CHAT_ID, "Test Handler")
+
+
+class MeHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getMe'))))
 
-class TiramisuHandler(webapp2.RequestHandler):
+class TiramisuHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         #tell(key.MASTER_CHAT_ID, msg = "Lottery test")
 
-'''
-class InfouserTiramisuHandler(webapp2.RequestHandler):
-    def get(self):
-        if key.TEST:
-            return
-        urlfetch.set_default_fetch_deadline(60)
-        tell(key.TIRAMISU_CHAT_ID, getInfoCount())
-'''
-
-'''
-class InfouserAllHandler(webapp2.RequestHandler):
-    def get(self):
-        if key.TEST:
-            return
-        urlfetch.set_default_fetch_deadline(60)
-        broadcast(getInfoCount('IT'), language='IT', check_notification=True)
-        broadcast(getInfoCount('EN'), language='EN', check_notification=True)
-'''
-
-class InfoWeekAllHandler(webapp2.RequestHandler):
+class InfoWeekAllHandler(SafeRequestHandler):
     def get(self):
         if key.TEST:
             return
@@ -1405,60 +1305,18 @@ class InfoWeekAllHandler(webapp2.RequestHandler):
         broadcast(getInfoWeek('EN'), language='EN', check_notification=True)
 
 
-class DayPeopleCountHandler(webapp2.RequestHandler):
+class DayPeopleCountHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         date_counter.addPeopleCount()
 
-'''
-class InfodayTiramisuHandler(webapp2.RequestHandler):
-    def get(self):
-        if key.TEST:
-            return
-        urlfetch.set_default_fetch_deadline(60)
-        tell(key.TIRAMISU_CHAT_ID, getInfoDay('IT'))
-'''
-
-'''
-class InfoWeekPrices(webapp2.RequestHandler):
-    def get(self):
-        if key.TEST:
-            return
-        urlfetch.set_default_fetch_deadline(60)
-        msg, debug = getWeekWinners()
-        broadcast(msg, language='ALL', check_notification=True, markdown=True)
-        tell_masters(debug)
-'''
-
-class ResetCountersHandler(webapp2.RequestHandler):
+class ResetCountersHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         counter.resetCounter()
 
-class NewVersionBroadcastHandler(webapp2.RequestHandler):
 
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        return
-
-"""
-        text_it = "Da oggi @PickMeUp_bot ha una marcia in più!" + '\n' + \
-                  "- Nuove tratte e nuove fermate completamente flessibili (welcome to Sanba, Mesiano & Pergine!)" + '\n' +\
-                  "- Geolocalizzazione: trova automaticamente la fermata più vicina a te!" + '\n' +\
-                  "- Col nuovo sistema di notifiche, ricevi le offerte di passaggi in tempo reale anche se non hai nessuna richiesta attiva." + '\n\n' + \
-                  "Scopri tutte le novità e diffondi @PickMeUp_bot a tutti i tuoi amici!"
-
-        text_en = "Today @PickMeUp_bot is much more powerful!" + '\n' + \
-                  "- New routes and pickup locations (welcome to Sanba, Mesiano & Pergine!)" + '\n' +\
-                  "- Geolocalization: automatically find pickup locations near you!" + '\n' +\
-                  "- New notification system: get ride offers in real time even when you don't have active requests." + '\n\n' + \
-                  "Find out what's new and tell about @PickMeUp_bot to all your friends!"
-
-        broadcast(text_it, 'IT')
-        broadcast(text_en, 'EN')
-"""
-
-class DashboardHandler(webapp2.RequestHandler):
+class DashboardHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         data = counter.getDashboardData()
@@ -1470,7 +1328,7 @@ class DashboardHandler(webapp2.RequestHandler):
         logging.debug("Requested Dashboard. Created new token.")
         self.response.write(template.render(data))
 
-class GetTokenHandler(webapp2.RequestHandler):
+class GetTokenHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         token_id = token_factory.createToken()
@@ -1478,33 +1336,33 @@ class GetTokenHandler(webapp2.RequestHandler):
         self.response.headers['Content-Type'] = 'application/json'
         self.response.write(json.dumps({'token': token_id}))
 
-class DashboardConnectedHandler(webapp2.RequestHandler):
+class DashboardConnectedHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         client_id = self.request.get('from')
         logging.debug("Channel connection request from client id: " + client_id)
 
-class DashboardDisconnectedHandler(webapp2.RequestHandler):
+class DashboardDisconnectedHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         client_id = self.request.get('from')
         logging.debug("Channel disconnection request from client id: " + client_id)
 
-class CheckExpiredUsersHandler(webapp2.RequestHandler):
+class CheckExpiredUsersHandler(SafeRequestHandler):
     def get(self):
         checkExpiredUsers()
 
-class RestartOldUsersHandler(webapp2.RequestHandler):
+class RestartOldUsersHandler(SafeRequestHandler):
     def get(self):
         restartOldUsers()
 
-class GetUpdatesHandler(webapp2.RequestHandler):
+class GetUpdatesHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getUpdates'))))
 
 
-class SetWebhookHandler(webapp2.RequestHandler):
+class SetWebhookHandler(SafeRequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         url = self.request.get('url')
@@ -1513,11 +1371,10 @@ class SetWebhookHandler(webapp2.RequestHandler):
                 json.dumps(json.load(urllib2.urlopen(BASE_URL + 'setWebhook', urllib.urlencode({'url': url})))))
 
 # ================================
-# ================================
+# WEBHOOK HANDLER
 # ================================
 
-
-class WebhookHandler(webapp2.RequestHandler):
+class WebhookHandler(SafeRequestHandler):
 
     def post(self):
         urlfetch.set_default_fetch_deadline(60)
@@ -1534,7 +1391,8 @@ class WebhookHandler(webapp2.RequestHandler):
         #    return
 
         #text = message.get('text').encode('utf-8') if "text" in message else ""
-        text = message.get('text').encode('utf-8') if "text" in message else ""
+        text_uni = message.get('text') if "text" in message else ""
+        text = text_uni.encode('utf-8')
 
 
         # fr = message.get('from')
@@ -1550,8 +1408,9 @@ class WebhookHandler(webapp2.RequestHandler):
         text_location = message["location"] if "location" in message else None
         voice = message["voice"] if "voice" in message else None
 
-        def reply(msg=None, kb=None, markdown=False, inlineKeyboardMarkup=False):
-            tell(chat_id, msg, kb=kb, markdown=markdown, inlineKeyboardMarkup=inlineKeyboardMarkup)
+        def reply(msg=None, kb=None, markdown=False, inlineKeyboardMarkup=False,  one_time_keyboard=True):
+            tell(chat_id, msg, kb=kb, markdown=markdown,
+                 inlineKeyboardMarkup=inlineKeyboardMarkup, one_time_keyboard = one_time_keyboard)
 
         def replyLocation(location):
             sendLocation(chat_id, location)
@@ -1682,8 +1541,10 @@ class WebhookHandler(webapp2.RequestHandler):
                     elif text == '/resetBasicRoutes':
                         itinerary.initBasicRoutes()
                         reply('Succeffully reinitiated basic routes')
-                    elif text == '/test':
-                        return
+                    elif text == '/testSafeDeferred':
+                        #deferredSafeHandleException(tell_fede, 'Safe call of deferred')
+                        #deferredSafeHandleException(tell, p.chat_id, 'Safe call of deferred 2')
+                        raise ValueError
                         #km = test_Google_Map_Api()
                         #reply('test ok: ' + str(km))
                     elif text == '/testBus':
@@ -1693,21 +1554,21 @@ class WebhookHandler(webapp2.RequestHandler):
                         reply("Now: " + nowTxt)
                     elif text.startswith('/tellRecentDrivers '):
                         msg = text[19:]
-                        deferred.defer(sendRecentDriversMessage, 100, msg)
+                        deferredSafeHandleException(sendRecentDriversMessage, 100, msg)
                     elif text == '/getAllInfo':
                         reply(getInfoAllRequestsOffers())
                     elif text.startswith('/broadcastRestart ') and len(text) > 18:
                         msg = text[18:]  # .encode('utf-8')
-                        deferred.defer(broadcast, msg, check_notification=True, restart=True)
+                        deferredSafeHandleException(broadcast, msg, check_notification=True, restart=True)
                     elif text.startswith('/broadcast ') and len(text)>11:
                         msg = text[11:] #.encode('utf-8')
-                        deferred.defer(broadcast, msg, check_notification=True)
+                        deferredSafeHandleException(broadcast, msg, check_notification=True)
                     elif text.startswith('/broadcast_it ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        deferred.defer(broadcast, msg, 'IT', check_notification=True)
+                        deferredSafeHandleException(broadcast, msg, 'IT', check_notification=True)
                     elif text.startswith('/broadcast_en ') and len(text)>14:
                         msg = text[14:] #.encode('utf-8')
-                        deferred.defer(broadcast, msg, 'EN', check_notification=True)
+                        deferredSafeHandleException(broadcast, msg, 'EN', check_notification=True)
                     elif text.startswith('/self ') and len(text)>6:
                         msg = text[6:] #.encode('utf-8')
                         tellmyself(p,msg)
@@ -1771,8 +1632,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     goToState20(p)
                     # state = 9351
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     itinerary.setBasicRoute(p, p.basic_route)
@@ -1787,8 +1648,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     goToState20(p)
                     # state = 9351
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.setBusStopEnd(p,text) #,swap_active=True
@@ -1881,8 +1742,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 # PASSANGERS, ASKED FOR CHANGING START LOCATION
                 if text == BACK_BUTTON_FUNC():
                     goToState30(p)
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.setBusStopStart(p,text) #,swap_active=True
@@ -1894,8 +1755,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 # PASSANGERS, ASKED FOR CHANGING END LOCATION
                 if text == BACK_BUTTON_FUNC():
                     goToState30(p)
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.setBusStopEnd(p,text) #,swap_active=True
@@ -1910,7 +1771,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     ticket_id = assignNextTicketId(p, is_driver=True)
                     reply(_("Your driver ID is: ") + ticket_id.encode('utf-8') + '\n')
                     connect_with_matchin_passengers(p)
-                    deferred.defer(notify_potential_passengers,p)
+                    deferredSafeHandleException(notify_potential_passengers,p)
                     ride.recordRide(p, int(text))
                     person.setState(p, 32)
                     person.setActive(p, True)
@@ -1934,7 +1795,7 @@ class WebhookHandler(webapp2.RequestHandler):
             elif p.state == 315:
                 # Choose time
                 if (len(text)==5 and time_util.isTimeFormat(text)):
-                    deferred.defer(notify_potential_passengers,p, time=text)
+                    deferredSafeHandleException(notify_potential_passengers,p, time=text)
                     reply(_("Thanks for scheduling the trip! "))
                     restartUser(p)
                 elif text == ABORT_BUTTON_FUNC():
@@ -2021,8 +1882,8 @@ class WebhookHandler(webapp2.RequestHandler):
                         person.setState(p,81)
                     else:
                         reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     bus_stop = p.tmp[j]
                     replyLocation(itinerary.getBusStopLocation(p.last_city, bus_stop))
@@ -2185,8 +2046,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     askToInsertLocation(p, _('the START location'), 9351, PAPER_CLIP_INSTRUCTIONS)
                     # state = 9351
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.setBusStopStart(p,text) #,swap_active=True
@@ -2223,8 +2084,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     askToInsertLocation(p, _('the END location'), 9352, PAPER_CLIP_INSTRUCTIONS)
                     # state = 9352
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.setBusStopEnd(p,text) #,swap_active=True
@@ -2271,8 +2132,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == BACK_BUTTON_FUNC():
                      goToSettingMidPoints(p,9353,PAPER_CLIP_INSTRUCTIONS)
                     # state = 9353
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.appendBusStopMidGoing(p,text)
@@ -2319,8 +2180,8 @@ class WebhookHandler(webapp2.RequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     goToSettingMidPoints(p,9354,PAPER_CLIP_INSTRUCTIONS)
                     # state = 9354
-                elif text in p.tmp:
-                    i = p.tmp.index(text)
+                elif text_uni in p.tmp:
+                    i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
                     person.appendBusStopMidBack(p,text)
@@ -2351,7 +2212,7 @@ class WebhookHandler(webapp2.RequestHandler):
                     boolVariable.disableTurkMode()
                     reply("Turk mode disabled")
                     restartUser(p)
-                    deferred.defer(restartUserInTurkMode)
+                    deferredSafeHandleException(restartUserInTurkMode)
                 elif text == '/activeDrivers':
                     reply(listActiveDrivers())
                 elif text == '/activePassengers':
@@ -2384,9 +2245,17 @@ class WebhookHandler(webapp2.RequestHandler):
                       _("If the problem presists, please write a message to @kercos"))
                 restartUser(p)
 
-    def handle_exception(self, exception, debug_mode):
-        logging.exception(exception)
-        tell(key.FEDE_CHAT_ID, "❗ Detected Exception: " + str(exception))
+
+def deferredSafeHandleException(obj, *args, **kwargs):
+    #return
+    try:
+        deferred.defer(obj, *args, **kwargs)
+    except: # catch *all* exceptions
+        report_exception()
+
+def report_exception():
+    import traceback
+    tell(key.FEDE_CHAT_ID, "❗ Detected Exception: " + traceback.format_exc())
 
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
@@ -2407,5 +2276,5 @@ app = webapp2.WSGIApplication([
     ('/restartOldUsers', RestartOldUsersHandler),
     ('/tiramisulottery', TiramisuHandler),
     ('/dayPeopleCount', DayPeopleCountHandler),
-    ('/newVersionBroadcast', NewVersionBroadcastHandler),
+    ('/test', TestHandler),
 ], debug=True)
