@@ -9,7 +9,7 @@ from google.appengine.api import taskqueue
 from google.appengine.ext import deferred
 from google.appengine.api import mail
 from google.appengine.ext.db import datastore_errors
-
+from google.appengine.ext.db import InternalError
 
 from operator import itemgetter
 
@@ -1181,7 +1181,7 @@ def tell(chat_id, msg, kb=None, markdown=False, inlineKeyboardMarkup=False,
         }
         resp = requests.post(BASE_URL + 'sendMessage', data)
         logging.info('Response: {}'.format(resp.text))
-        logging.info('Json: {}'.format(resp.json()))
+        #logging.info('Json: {}'.format(resp.json()))
         respJson = json.loads(resp.text)
         success = respJson['ok']
         if success:
@@ -1350,7 +1350,12 @@ class DashboardDisconnectedHandler(SafeRequestHandler):
 
 class CheckExpiredUsersHandler(SafeRequestHandler):
     def get(self):
-        checkExpiredUsers()
+        try:
+            checkExpiredUsers()
+        except InternalError:
+            msg = "Internal error in CheckExpiredUsersHandler"
+            logging.debug(msg)
+            tell(key.FEDE_CHAT_ID, msg)
 
 class RestartOldUsersHandler(SafeRequestHandler):
     def get(self):
@@ -1632,7 +1637,7 @@ class WebhookHandler(SafeRequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     goToState20(p)
                     # state = 9351
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -1648,7 +1653,7 @@ class WebhookHandler(SafeRequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     goToState20(p)
                     # state = 9351
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -1742,7 +1747,7 @@ class WebhookHandler(SafeRequestHandler):
                 # PASSANGERS, ASKED FOR CHANGING START LOCATION
                 if text == BACK_BUTTON_FUNC():
                     goToState30(p)
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -1755,7 +1760,7 @@ class WebhookHandler(SafeRequestHandler):
                 # PASSANGERS, ASKED FOR CHANGING END LOCATION
                 if text == BACK_BUTTON_FUNC():
                     goToState30(p)
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -1882,7 +1887,7 @@ class WebhookHandler(SafeRequestHandler):
                         person.setState(p,81)
                     else:
                         reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     bus_stop = p.tmp[j]
@@ -2042,11 +2047,11 @@ class WebhookHandler(SafeRequestHandler):
             elif p.state == 93511:
                 #ITINERARY ADVANCED CHECK START LOCATION
                 #logging.debug("text: " + text)
-                #logging.debug("tmp: " + str(p.tmp))
+                logging.debug("tmp: " + str(p.tmp))
                 if text == BACK_BUTTON_FUNC():
                     askToInsertLocation(p, _('the START location'), 9351, PAPER_CLIP_INSTRUCTIONS)
                     # state = 9351
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -2084,7 +2089,7 @@ class WebhookHandler(SafeRequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     askToInsertLocation(p, _('the END location'), 9352, PAPER_CLIP_INSTRUCTIONS)
                     # state = 9352
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -2132,7 +2137,7 @@ class WebhookHandler(SafeRequestHandler):
                 if text == BACK_BUTTON_FUNC():
                      goToSettingMidPoints(p,9353,PAPER_CLIP_INSTRUCTIONS)
                     # state = 9353
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -2180,7 +2185,7 @@ class WebhookHandler(SafeRequestHandler):
                 if text == BACK_BUTTON_FUNC():
                     goToSettingMidPoints(p,9354,PAPER_CLIP_INSTRUCTIONS)
                     # state = 9354
-                elif text_uni in p.tmp:
+                elif text.startswith('/') and text_uni in p.tmp:
                     i = p.tmp.index(text_uni)
                     j = len(p.tmp)//2+i
                     text = p.tmp[j]
@@ -2255,7 +2260,9 @@ def deferredSafeHandleException(obj, *args, **kwargs):
 
 def report_exception():
     import traceback
-    tell(key.FEDE_CHAT_ID, "❗ Detected Exception: " + traceback.format_exc())
+    msg = "❗ Detected Exception: " + traceback.format_exc()
+    tell(key.FEDE_CHAT_ID, msg, markdown=False)
+    logging.error(msg)
 
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
