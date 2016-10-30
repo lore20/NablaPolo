@@ -109,6 +109,11 @@ def addPerson(chat_id, name):
     p.put()
     return p
 
+
+def deletePerson(chat_id):
+    p = getPersonByChatId(chat_id)
+    p.key.delete()
+
 def getPersonByChatId(chat_id):
     return Person.get_by_id(str(chat_id))
 

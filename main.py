@@ -747,7 +747,8 @@ def restartOldUsers():
     qry = Person.query(Person.state>=0)
     count = 0
     for p in qry:
-        if (p.last_mod<past_date):
+        if p.last_mod < past_date:
+            setLanguage(p.language)
             tell(p.chat_id, _('Resetting interface to initial state'))
             restartUser(p)
             sleep(0.035)
@@ -1200,9 +1201,10 @@ def tell(chat_id, msg, kb=None, markdown=False, inlineKeyboardMarkup=False,
             elif error_code == 400 and description == "INPUT_USER_DEACTIVATED":
                 p = person.getPersonByChatId(chat_id)
                 p.setEnabled(False, put=True)
-                debugMessage = '❗ Input user disactivated: ' + p.getUserInfoString()
+                debugMessage = '❗ Input user disactivated: {}.'.format(p.getUserInfoString())
                 logging.debug(debugMessage)
                 tell(key.FEDE_CHAT_ID, debugMessage)
+                # person.deletePerson(chat_id)
             else:
                 debugMessage = '❗ Raising unknown err in tell().' \
                           '\nStatus code: {}\nerror code: {}\ndescription: {}.'.format(status_code, error_code, description)
