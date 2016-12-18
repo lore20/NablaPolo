@@ -1368,14 +1368,32 @@ class GetUpdatesHandler(SafeRequestHandler):
         urlfetch.set_default_fetch_deadline(60)
         self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getUpdates'))))
 
-
-class SetWebhookHandler(SafeRequestHandler):
+class SetWebhookHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        url = self.request.get('url')
-        if url:
-            self.response.write(
-                json.dumps(json.load(urllib2.urlopen(BASE_URL + 'setWebhook', urllib.urlencode({'url': url})))))
+        allowed_updates = ["message", "inline_query", "chosen_inline_result", "callback_query"]
+        data = {
+            'url': key.WEBHOOK_URL,
+            'allowed_updates': json.dumps(allowed_updates),
+        }
+        resp = requests.post(key.BASE_URL + 'setWebhook', data)
+        logging.info('SetWebhook Response: {}'.format(resp.text))
+        self.response.write(resp.text)
+
+class GetWebhookInfo(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        resp = requests.post(key.BASE_URL + 'getWebhookInfo')
+        logging.info('GetWebhookInfo Response: {}'.format(resp.text))
+        self.response.write(resp.text)
+
+class DeleteWebhook(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        resp = requests.post(key.BASE_URL + 'deleteWebhook')
+        logging.info('DeleteWebhook Response: {}'.format(resp.text))
+        self.response.write(resp.text)
+
 
 # ================================
 # WEBHOOK HANDLER
@@ -2274,7 +2292,9 @@ app = webapp2.WSGIApplication([
     ('/notify_token', GetTokenHandler),
     ('/updates', GetUpdatesHandler),
     ('/set_webhook', SetWebhookHandler),
-    ('/webhook', WebhookHandler),
+    ('/get_webhook_info', GetWebhookInfo),
+    ('/delete_webhook', DeleteWebhook),
+    (key.WEBHOOK_PATH, WebhookHandler),
     #('/infousers_tiramisu', InfouserTiramisuHandler),
     #('/infouser_weekly_all', InfouserAllHandler),
     # ('/infoday_tiramisu', InfodayTiramisuHandler),
