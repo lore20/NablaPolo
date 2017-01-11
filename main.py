@@ -35,8 +35,6 @@ from ride import Ride
 import ride_request
 from ride_request import RideRequest
 import itinerary
-import polls
-from polls import PollAnswer
 import token_factory
 import boolVariable
 #import bus
@@ -348,29 +346,34 @@ def getInfoDay(language=None):
         msg += _("Let's make it happen! ") + emoij.SMILING_FACE
     return msg
 
-def getInfoWeek(language):
-    setLanguage(language)
-    lastweek = time_util.get_last_week()
+def getOffersRequestsDriversNamesDaysAgo(daysAgo):
+    lastweek = time_util.get_date_days_ago(daysAgo)
     qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > lastweek)
     qryRide = Ride.query(Ride.start_daytime > lastweek)
     driverNameSet = set()
     for r in qryRide:
         driverNameSet.add(r.getDriverName())
+    requestsCount = qryRideRequest.count()
     driversCount = qryRide.count()
-    nameSetStr = ', '.join(driverNameSet)
-    #qryRideCompleted = Ride.query(Ride.start_daytime > lastweek and Ride.end_daytime > lastweek)
-    #qryRideCompletedCount = qryRideCompleted.count()
+    driversNames = ', '.join(driverNameSet)
+    # qryRideCompleted = Ride.query(Ride.start_daytime > lastweek and Ride.end_daytime > lastweek)
+    # qryRideCompletedCount = qryRideCompleted.count()
+    return requestsCount, driversCount, driversNames
+
+def getInfoWeek(language):
+    setLanguage(language)
+    requestsCount, offersCount, driversNames = getOffersRequestsDriversNamesDaysAgo(7)
     c = Person.query().count()
     msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!")
     msg += "\n"
-    msg += _("This week there were a total of ") + str(qryRideRequest.count()) +\
-          _(" ride requests and ") + str(driversCount) + _(" ride offers.") + "\n"
-    if driversCount==0:
+    msg += _("This week there were a total of ") + str(requestsCount) +\
+          _(" ride requests and ") + str(offersCount) + _(" ride offers.") + "\n"
+    if offersCount==0:
         msg += _("Many thanks to all of you! " ) + emoij.CLAPPING_HANDS
-    elif driversCount==1:
-        msg += _("Many thanks to our favorite driver: ") + nameSetStr + emoij.CLAPPING_HANDS * driversCount
+    elif offersCount==1:
+        msg += _("Many thanks to our favorite driver: ") + driversNames + emoij.CLAPPING_HANDS
     else:
-        msg += _("Many thanks to our special drivers: ") + nameSetStr + emoij.CLAPPING_HANDS * driversCount
+        msg += _("Many thanks to our special drivers: ") + driversNames + emoij.CLAPPING_HANDS * offersCount
     return msg
 
 price_message = \
