@@ -1,405 +1,290 @@
+# coding=utf-8
+
 import logging
 from google.appengine.ext import ndb
-import itinerary
-import time_util
+from geo import geomodel, geotypes
 
 import utility
+import params
 
-class Person(ndb.Model):
-    name = ndb.StringProperty()
-    active = ndb.BooleanProperty(default=False) # if active driver, passenger
-    last_name = ndb.StringProperty(default='-')
-    username = ndb.StringProperty(default='-')
-    last_mod = ndb.DateTimeProperty(auto_now=True)
-    last_seen = ndb.DateTimeProperty()
+# ------------------------
+# TMP_VARIABLES NAMES
+# ------------------------
+VAR_LAST_KEYBOARD = 'last_keyboard'
+VAR_PASSAGGIO_PATH = 'passaggio_path'  # [start luogo, start fermata, dest luogo, dest fermata]
+VAR_PASSAGGIO_TIME = 'passaggio_time' # [hour, min]
+VAR_PASSAGGIO_DAYS = 'passaggio_days' # [1,2]
+VAR_RIDE_SEARCH_SORTED_PER_DAY = 'ride_search_sorted' # see ride_offer.getRideOffers
+VAR_RIDE_SEARCH_DAY = 'ride_search_day'
+VAR_MY_RIDES = 'my_rides'
+VAR_CURSOR = 'cursor'
+VAR_STAGE = 'stage' # stage within state
+
+
+class Person(geomodel.GeoModel, ndb.Model):
     chat_id = ndb.IntegerProperty()
+    name = ndb.StringProperty()
+    last_name = ndb.StringProperty()
+    username = ndb.StringProperty()
+    last_mod = ndb.DateTimeProperty(auto_now=True)
     state = ndb.IntegerProperty()
-    ticket_id = ndb.StringProperty()
-    last_type = ndb.StringProperty(default='-1')
-    location = ndb.StringProperty(default='-')
     language = ndb.StringProperty(default='IT')
     enabled = ndb.BooleanProperty(default=True)
     agree_on_terms = ndb.BooleanProperty(default=False)
-    notification_enabled = ndb.BooleanProperty(default=True)
-    bus_stop_start = ndb.StringProperty()
-    bus_stop_end = ndb.StringProperty()
-    bus_stop_mid_going = ndb.StringProperty(repeated=True)
-    bus_stop_mid_back = ndb.StringProperty(repeated=True)
-    tmp = ndb.StringProperty(repeated=True)
-    last_city = ndb.StringProperty()
-    notified = ndb.BooleanProperty(default=False)
-    prev_state = ndb.IntegerProperty()
-    basic_route = ndb.StringProperty()
+    notification_mode = ndb.StringProperty(default=params.NOTIFICATION_MODE_ALL)
+
+    itinerari_start_fermata = ndb.StringProperty(repeated=True)
+    itinerari_start_place = ndb.StringProperty(repeated=True)
+    itinerari_end_place = ndb.StringProperty(repeated=True)
+
+    # location = ndb.GeoPtProperty() # inherited from geomodel.GeoModel
+    latitude = ndb.ComputedProperty(lambda self: self.location.lat if self.location else None)
+    longitude = ndb.ComputedProperty(lambda self: self.location.lon if self.location else None)
+
+    tmp_variables = ndb.PickleProperty()
+
+    def updateUserInfo(self, name, last_name, username):
+        modified = False
+        if self.getFirstName() != name:
+            self.name = name
+            modified = True
+        if self.getLastName() != last_name:
+            self.last_name = last_name
+            modified = True
+        if self.username != username:
+            self.username = username
+            modified = True
+        if not self.enabled:
+            self.enabled = True
+            modified = True
+        if modified:
+            self.put()
+
+    def getPropertyUtfMarkdown(self, property, escapeMarkdown=True):
+        if property == None:
+            return None
+        result = property.encode('utf-8')
+        if escapeMarkdown:
+            result = utility.escapeMarkdown(result)
+        return result
 
     def getFirstName(self, escapeMarkdown=True):
-        if escapeMarkdown:
-            return utility.escapeMarkdown(self.name.encode('utf-8'))
-        return self.name.encode('utf-8')
+        return self.getPropertyUtfMarkdown(self.name, escapeMarkdown=escapeMarkdown)
 
     def getLastName(self, escapeMarkdown=True):
+        return self.getPropertyUtfMarkdown(self.last_name, escapeMarkdown=escapeMarkdown)
+
+    def getUsername(self, escapeMarkdown=True):
+        return self.getPropertyUtfMarkdown(self.username, escapeMarkdown=escapeMarkdown)
+
+    def getFirstNameLastName(self, escapeMarkdown=True):
         if self.last_name == None:
-            return None
-        if escapeMarkdown:
-            return utility.escapeMarkdown(self.last_name.encode('utf-8'))
-        return self.last_name.encode('utf-8')
+            return self.getFirstName(escapeMarkdown=escapeMarkdown)
+        return self.getFirstName(escapeMarkdown=escapeMarkdown) + \
+               ' ' + self.getLastName(escapeMarkdown=escapeMarkdown)
 
-    def getUsernameStringWithAt(self):
-        return '@' + self.username.encode('utf-8') if self.username else None
+    def getNotificationMode(self, escapeMarkdown=True):
+        return self.getPropertyUtfMarkdown(self.notification_mode, escapeMarkdown=escapeMarkdown)
 
-    def getUserInfoString(self, escapeMarkdown=True):
-        info = self.getFirstName(escapeMarkdown)
-        if self.last_name:
-            info += ' ' + self.getLastName(escapeMarkdown)
-        if self.username and self.username!='-':
-            info += ' ' + self.getUsernameStringWithAt()
-        info += ' ({})'.format(self.chat_id)
-        return info
 
-    def getTicketIdString(self):
-        return self.ticket_id.encode('utf-8')
-
-    def getTmpArrayUtf8(self):
-        return [x.encode('utf-8') for x in self.tmp]
-
-    def getBusStartStr(self):
-        return None if self.bus_stop_start is None else self.bus_stop_start.encode('utf-8')
-
-    def getBusEndStr(self):
-        return None if self.bus_stop_end is None else self.bus_stop_end.encode('utf-8')
-
-    def getBusStopMidGoingStr(self):
-        return ', '.join([x.encode('utf-8') for x in self.bus_stop_mid_going])
-
-    def getBusStopMidBackStr(self):
-        return ', '.join([x.encode('utf-8') for x in self.bus_stop_mid_back])
+    def setNotificationMode(self, mode, put=True):
+        self.notification_mode = mode
+        if put:
+            self.put()
 
     def setEnabled(self, enabled, put=False):
         self.enabled = enabled
         if put:
             self.put()
 
-    def getLocationString(self):
-        return self.location.encode('utf-8')
+    def setState(self, newstate, put=True):
+        self.state = newstate
+        if put:
+            self.put()
 
-    def getDestinationString(self):
-        return self.getDestination().encode('utf-8')
+    def setNotificheMode(self, mode):
+        self.notification_mode = mode
 
-    def getDepartureString(self):
-        return self.getDeparture().encode('utf-8')
+    def setLastKeyboard(self, kb, put=True):
+        self.setTmpVariable(VAR_LAST_KEYBOARD, value=kb, put=put)
 
+    def getLastKeyboard(self):
+        return self.getTmpVariable(VAR_LAST_KEYBOARD)
 
-    def getDestination(self):
-        if self.location == self.bus_stop_start:
-            return self.bus_stop_end
-        return self.bus_stop_start
+    def setTmpVariable(self, var_name, value, put=False):
+        self.tmp_variables[var_name] = value
+        if put:
+            self.put()
 
-    def getDeparture(self):
-        if self.location == self.bus_stop_start:
-            return self.bus_stop_start
-        return self.bus_stop_end
+    def getTmpVariable(self, var_name, initValue=None):
+        if var_name in self.tmp_variables:
+            return self.tmp_variables[var_name]
+        self.tmp_variables[var_name] = initValue
+        return initValue
 
+    def getItineraryNumber(self):
+        return len(self.itinerari_start_place)
 
+    def getItineraryStrList(self, start_fermata=True):
+        if start_fermata:
+            return ["{} ({}) → {}".format(
+                start_place.encode('utf-8'), start_fermata.encode('utf-8'), end_place.encode('utf-8'))
+                    for start_place, start_fermata, end_place in
+                    zip(self.itinerari_start_place, self.itinerari_start_fermata, self.itinerari_end_place)]
+        else:
+            return ["{} → {}".format(
+                start_place.encode('utf-8'), end_place.encode('utf-8'))
+                    for start_place, end_place in
+                    zip(self.itinerari_start_place, self.itinerari_end_place)]
 
-def addPerson(chat_id, name):
+    def getItineraryFromCommand(self, command, fermata):
+        logging.debug("In getItineraryFromCommand")
+        logging.debug("input: {}".format(command))
+        index = params.getIndexFromCommand(command, params.ITINERARI_COMMAND_PREFIX)
+        logging.debug("index: {}".format(index))
+        if index is None:
+            return None
+        index -= 1  # zero-based
+        if len(self.itinerari_start_place)<=index:
+            return None
+        start, start_fermata, end = self.itinerari_start_place[index].encode('utf-8'), \
+                                    self.itinerari_start_fermata[index].encode('utf-8'), \
+                                    self.itinerari_end_place[index].encode('utf-8')
+        if fermata:
+            return start, start_fermata, end
+        else:
+            return start, end
+
+    def appendItinerary(self, start_place, start_fermata, end_place):
+        if self.itinerari_start_place is None:
+            self.itinerari_start_place = []
+            self.itinerari_start_fermata = []
+            self.itinerari_end_place = []
+        self.itinerari_start_place.append(start_place)
+        self.itinerari_start_fermata.append(start_fermata)
+        self.itinerari_end_place.append(end_place)
+
+    def removeItinerario(self, index):
+        start = self.itinerari_start_place.pop(index).encode('utf-8')
+        fermata = self.itinerari_start_fermata.pop(index).encode('utf-8')
+        end = self.itinerari_end_place.pop(index).encode('utf-8')
+        return start, fermata, end
+
+    def saveMyRideOffers(self):
+        import ride_offer
+        import pickle
+        offers = ride_offer.getActiveRideOffersDriver(self.chat_id)
+        pkl_offers = pickle.dumps(offers)
+        self.setTmpVariable(VAR_MY_RIDES, pkl_offers)
+        return offers
+
+    def deleteMyOfferAtCursor(self):
+        import pickle
+        pkl_offers = self.getTmpVariable(VAR_MY_RIDES)
+        offers = pickle.loads(pkl_offers)
+        cursor = self.getTmpVariable(VAR_CURSOR)
+        o = offers.pop(cursor[0])
+        o.disactivate()
+        pkl_offers = pickle.dumps(offers)
+        self.setTmpVariable(VAR_MY_RIDES, pkl_offers)
+        cursor[1] -= 1
+
+    def loadMyRideOffers(self):
+        import pickle
+        pkl_offers = self.getTmpVariable(VAR_MY_RIDES)
+        offers = pickle.loads(pkl_offers)
+        return offers
+
+    def saveRideOffersStartEndPlace(self, start_place, end_place):
+        import ride_offer
+        import pickle
+        offers = ride_offer.getActiveRideOffersSortedPerDay(start_place, end_place)
+        pkl_offers = pickle.dumps(offers)
+        self.setTmpVariable(VAR_RIDE_SEARCH_SORTED_PER_DAY, pkl_offers)
+        return offers
+
+    def loadRideOffersStartEndPlace(self):
+        import pickle
+        pkl_offers = self.getTmpVariable(VAR_RIDE_SEARCH_SORTED_PER_DAY)
+        offers = pickle.loads(pkl_offers)
+        return offers
+
+    def saveRideOffersStartEndPlaceChosenDay(self, dayIndex):
+        import pickle
+        offers = self.loadRideOffersStartEndPlace()
+        #logging.debug("In saveRideOffersChosenDay. dayIndex={} offers={}".format(dayIndex, offers))
+        offers_chosen_day = offers[dayIndex]
+        pkl_offers_chosen_day = pickle.dumps(offers_chosen_day)
+        self.setTmpVariable(VAR_RIDE_SEARCH_DAY, pkl_offers_chosen_day)
+        return offers_chosen_day
+
+    def loadRideOffersStartEndDayChosenDay(self):
+        import pickle
+        pkl_offers = self.getTmpVariable(VAR_RIDE_SEARCH_DAY)
+        offers = pickle.loads(pkl_offers)
+        return offers
+
+    def decreaseCursor(self):
+        cursor = self.getTmpVariable(VAR_CURSOR)
+        cursor[0] -= 1
+        if cursor[0] == -1:
+            cursor[0] = cursor[1] - 1
+
+    def increaseCursor(self):
+        cursor = self.getTmpVariable(VAR_CURSOR)
+        cursor[0] += 1
+        if cursor[0] == cursor[1]:
+            cursor[0] = 0
+
+def addPerson(chat_id, name, last_name, username):
     p = Person(
         id=str(chat_id),
-        name=name,
         chat_id=chat_id,
+        name=name,
+        last_name=last_name,
+        username=username,
+        notification_mode = params.DEFAULT_NOTIFICATIONS_MODE,
+        tmp_variables={}
     )
     p.put()
     return p
 
 
 def deletePerson(chat_id):
-    p = getPersonByChatId(chat_id)
+    p = getPersonById(chat_id)
     p.key.delete()
 
-def getPersonByChatId(chat_id):
+
+def getPersonById(chat_id):
     return Person.get_by_id(str(chat_id))
 
-def updateUsername(p, username):
-    if (p.username!=username):
-        p.username = username
-        p.put()
+def getPeopleMatchingRideQry(start_place, intermediate_places, end_place):
+    #logging.debug("In getPeopleMatchingRide")
+    #logging.debug("start_place: {}".format(start_place))
+    #logging.debug("intermediate_places: {}".format(intermediate_places))
+    #logging.debug("end_place: {}".format(end_place))
+    start_places = intermediate_places + [start_place]
+    end_places = intermediate_places + [end_place]
+    qry = Person.query(
+        ndb.OR(
+            Person.notification_mode == params.NOTIFICATION_MODE_ALL,
+            ndb.AND(
+                Person.notification_mode == params.NOTIFICATION_MODE_ITINERARIES,
+                Person.itinerari_start_place.IN(start_places),
+                Person.itinerari_end_place == end_place
+            ),
+            ndb.AND(
+                Person.notification_mode == params.NOTIFICATION_MODE_ITINERARIES,
+                Person.itinerari_start_place == start_place,
+                Person.itinerari_end_place.IN(end_places),
+            )
+        )
+    )
+    return qry.order(Person._key)
 
-def getPerson(chat_id):
-    return Person.query(Person.chat_id==chat_id).get()
-
-def setActive(p, active):
-    p.active = active
-    p.put()
-
-def setType(p, type):
-    p.last_type = type
-    p.put()
-
-def setState(p, state):
-    p.prev_state = p.state
-    p.state = state
-    p.put()
-
-def setLastSeen(p, date):
-    p.last_seen = date
-    p.put()
-
-def updateLastSeen(p):
-    p.last_seen = time_util.now()
-    p.put()
-
-def setNotified(p, value):
-    p.notified = value
-    p.put()
-
-def setLastCity(p, last_city):
-    p.last_city = last_city
-    p.put()
-
-def getMidPoints(p):
-    if p.location==p.bus_stop_start:
-        return p.bus_stop_mid_going
-    return p.bus_stop_mid_back
-
-def getItineraryString(p, driver):
-    start = p.getDepartureString()
-    end = p.getDestinationString()
-    midPoints = []
-    if driver:
-        midPoints = getMidPoints(p)
-    txt = start + " -> "
-    txt += ' -> '.join([x.encode('utf-8') for x in midPoints])
-    if len(midPoints)>0:
-        txt += " -> "
-    txt += end
-    return txt
-
-def getLocationCluster(p):
-    return itinerary.getBusStop(p.last_city, p.location).cluster
-
-def getDestinationCluster(p):
-    return itinerary.getBusStop(p.last_city, p.getDestination()).cluster
-
-def getBusStop(p):
-    return itinerary.getBusStop(p.last_city, p.location)
-
-def setLocation(p, loc):
-    p.location = loc
-    p.put()
-
-def setStateLocation(p, state, loc):
-    p.state = state
-    p.location = loc
-    p.put()
-
-def setNotifications(p,value):
-    p.notification_enabled = value
-    p.put()
-
-def setAgreeOnTerms(p):
-    p.agree_on_terms = True
-    p.put()
-
-def clearTmp(p):
-    p.tmp = []
-    p.put()
-
-
-def setTmp(p, value):
-    p.tmp = value
-    p.put()
-
-def appendTmp(p, value):
-    # value mus be a list
-    for x in value:
-        p.tmp.append(x)
-    p.put()
-
-
-def isItinerarySet(p):
-    return p.bus_stop_start!=None and p.bus_stop_end!=None
-
-def setBusStopStart(p, bs): #, swap_active=False
-    swapped = False
-    if bs == p.bus_stop_end:
-        p.bus_stop_end = p.bus_stop_start
-        tmp = p.bus_stop_mid_going
-        p.bus_stop_mid_going = p.bus_stop_mid_back
-        p.bus_stop_mid_back = tmp
-        swapped = True
-    p.bus_stop_start = bs
-    #if swap_active:
-    if bs in p.bus_stop_mid_going:
-        index = p.bus_stop_mid_going.index(bs)
-        p.bus_stop_mid_going = p.bus_stop_mid_going[index+1:]
-        swapped = True
-    if bs in p.bus_stop_mid_back:
-        index = p.bus_stop_mid_back.index(bs)
-        p.bus_stop_mid_back = p.bus_stop_mid_back[:index]
-        swapped = True
-    if not swapped:
-        p.basic_route = None
-    p.put()
-
-def setBusStopEnd(p, bs): #, swap_active=False
-    swapped = False
-    if bs == p.bus_stop_start:
-        p.bus_stop_start = p.bus_stop_end
-        tmp = p.bus_stop_mid_going
-        p.bus_stop_mid_going = p.bus_stop_mid_back
-        p.bus_stop_mid_back = tmp
-        swapped = True
-    p.bus_stop_end = bs
-    #if swap_active:
-    if bs in p.bus_stop_mid_going:
-        index = p.bus_stop_mid_going.index(bs)
-        p.bus_stop_mid_going = p.bus_stop_mid_going[:index]
-        swapped = True
-    if bs in p.bus_stop_mid_back:
-        index = p.bus_stop_mid_back.index(bs)
-        p.bus_stop_mid_back = p.bus_stop_mid_back[index+1:]
-        swapped = True
-    if not swapped:
-        p.basic_route = None
-    p.put()
-
-def appendBusStopMidGoing(p, bs):
-    #if p.bus_stop_intermediate_going is None:
-    #    p.bus_stop_intermediate_going = []
-    p.bus_stop_mid_going.append(bs)
-    p.basic_route = None
-    p.put()
-
-def appendBusStopMidBack(p, bs):
-    #if p.bus_stop_intermediate_back is None:
-    #    p.bus_stop_intermediate_back = []
-    p.bus_stop_mid_back.append(bs)
-    p.basic_route = None
-    p.put()
-
-def emptyBusStopMidGoing(p):
-    p.bus_stop_mid_going = []
-    p.basic_route = None
-    p.put()
-
-def emptyBusStopMidBack(p):
-    p.bus_stop_mid_back = []
-    p.basic_route = None
-    p.put()
-
-def resetTermsAndNotification():
-    qry = Person.query()
-    count = 0
-    for p in qry:
-        p.agree_on_terms = False
-        p.notification_enabled = True
-        p.put()
-        count+=1
-    return count
-
-def resetBasicRoutes():
-    qry = Person.query()
-    count = 0
-    for p in qry:
-        p.basic_routes = None
-        p.put()
-        count+=1
-    return count
-
-
-def resetActive():
-    qry = Person.query()
-    count = 0
-    for p in qry:
-        p.active = False
-        p.put()
-        count+=1
-    return count
-
-def resetAllState(s):
-    qry = Person.query()
-    count = 0
-    for p in qry:
-        p.state = s
-        p.put()
-        count+=1
-    logging.debug("Reset all states to " + str(s) + ": " + str(count))
-    return count
-
-def resetNullStatesUsers():
-    qry = Person.query()
-    count = 0
-    for p in qry:
-        if (p.state is None): # or p.state>-1
-            setState(p,-1)
-            count+=1
-    return count
-
-def resetLanguages():
-    qry = Person.query()
-    for p in qry:
-        p.language = 'IT'
-        p.put()
-
-def resetEnabled():
-    qry = Person.query()
-    for p in qry:
-        p.enabled = True
-        p.put()
-
-def isDriverOrPassenger(p):
-    return p.state in [21, 22, 23, 30, 31, 32, 33]
-
-def listAllDrivers():
-    qry = Person.query().filter(Person.state.IN([30, 31, 32, 33]))
-    if qry.get() is None:
-        return "No drivers found"
-    else:
-        #qry = qry.order(-Person.last_mod)
-        text = ""
-        for d in qry:
-            text = text + d.name.encode('utf-8') + _(' ') + d.getLocationString() + _(" (") + str(d.state) + \
-                   _(") ") + time_util.get_time_string(d.last_seen) + _("\n")
-        return text
-
-
-def listAllPassengers():
-    qry = Person.query().filter(Person.state.IN([21, 22, 23]))
-    if qry.get() is None:
-        return _("No passangers found")
-    else:
-        #qry = qry.order(-Person.last_mod)
-        text = ""
-        for p in qry:
-            text = text + p.name.encode('utf-8') + _(' ') + p.getLocationString() + " (" + str(p.state) + ") " + \
-                   time_util.get_time_string(p.last_seen) + _("\n")
-        return text
-
-"""
-ACTIVE PERSON
-"""
-"""
-class ActivePerson(ndb.Model):
-    #person = ndb.StructuredProperty(Person)
-    state = ndb.IntegerProperty()
-    last_city = ndb.StringProperty()
-    last_type = ndb.StringProperty()
-    last_seen = ndb.DateTimeProperty()
-
-def addActivePerson(p):
-    #ap.key = ndb.Key(ActivePerson, str(person.chat_id))
-    ap = ActivePerson(id=str(p.chat_id), state=p.state, last_city=p.last_city,
-                      last_type=p.last_type, last_seen=p.last_seen)
-    #person=p,
-    ap.put()
-    #return ap
-
-def setStateActivePerson(person, state):
-    ap = ndb.Key(ActivePerson, str(person.chat_id)).get()
-    ap.state = state
-    ap.put()
-    person.state = state
-    person.put()
-
-def removeActivePerson(person):
-    ndb.Key(ActivePerson, str(person.chat_id)).delete()
-
-"""
+def updatePeople():
+    all_people = Person.query().fetch()
+    for p in all_people:
+        p.tmp_variables = {}
+    create_futures = ndb.put_multi_async(all_people)
+    ndb.Future.wait_all(create_futures)

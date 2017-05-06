@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import re
 import logging
+import string
 import textwrap
-
-from datetime import datetime, timedelta
+from collections import OrderedDict
 
 def representsInt(s):
     try:
@@ -19,22 +19,24 @@ def representsFloat(s):
     except ValueError:
         return False
 
-
 re_digits = re.compile('^\d+$')
 
 def hasOnlyDigits(s):
     return re_digits.match(s) != None
-
-def fixWhiteSpaces(s):
-    s = re.sub(r'\s+', ' ', s)
-    s = s.replace("\xc2\xa0",' ')
-    return s
 
 def representsIntBetween(s, low, high):
     if not representsInt(s):
         return False
     sInt = int(s)
     if sInt>=low and sInt<=high:
+        return True
+    return False
+
+def representsFloatBetween(s, low, high):
+    if not representsFloat(s):
+        return False
+    sFloat = float(s)
+    if sFloat>=low and sFloat<=high:
         return True
     return False
 
@@ -57,6 +59,8 @@ def makeArray2D(data_list, length=2):
     return [data_list[i:i+length] for i in range(0, len(data_list), length)]
 
 def distributeElementMaxSize(seq, maxSize=5):
+    if len(seq)==0:
+        return []
     lines = len(seq) / maxSize
     if len(seq) % maxSize > 0:
         lines += 1
@@ -110,16 +114,67 @@ def containsMarkdown(text):
             return True
     return False
 
-def now(addMinutes=0):
-    return datetime.now() + timedelta(minutes=int(addMinutes))
+# minutes should be positive
+def getHourMinFromMin(minutes):
+    hh = int(minutes / 60)
+    mm = minutes % 60
+    return hh, mm
 
-def timeString(datetime=now(), ms=False):
-    if ms:
-        return datetime.strftime('%H:%M:%S.%f')[:-3]
-    return datetime.strftime('%H:%M:%S')
 
-def dateString(datetime=now()):
-    return datetime.strftime('%d/%m/%y')
+def getSiNoFromBoolean(bool_value):
+    return 'SI' if bool_value else 'NO'
+
+def getTimeStringFormatHHMM(minutes, rjust=False):
+    hh, mm = getHourMinFromMin(abs(minutes))
+    #return "{}h {}min".format(str(hh).zfill(2), str(mm).zfill(2))
+    sign = '-' if minutes<0 else ''
+    signHH = sign+str(hh)
+    if rjust:
+        signHH = signHH.rjust(3)
+    return "{}:{}".format(signHH, str(mm).zfill(2))
 
 def unindent(s):
     return re.sub('[ ]+', ' ', textwrap.dedent(s))
+
+# sheet_tables is a dict mapping sheet names to 2array
+def convert_data_to_spreadsheet(sheet_tables):
+    import StringIO
+    from pyexcel_xls import save_data
+    xls_data = OrderedDict()
+    for name, array in sheet_tables.iteritems():
+        xls_data.update({name: array})
+        #xls_data.update({"Sheet 1": sheet_tables})
+    output = StringIO.StringIO()
+    save_data(output, xls_data, encoding="UTF-8")
+    return output.getvalue()
+
+def convert_arrayData_to_tsv(array):
+    import csv
+    import StringIO
+    output = StringIO.StringIO()
+    writer = csv.writer(output, dialect='excel-tab')
+    writer.writerows(array)
+    return output.getvalue()
+
+def roundup(x, upTo):
+    import math
+    return int(math.ceil(x / float(upTo))) * upTo
+
+def emptyStringIfNone(x):
+    return '' if x==None else x
+
+def emptyStringIfZero(x):
+    return '' if x==0 else x
+
+def flatten(L):
+    ret = []
+    for i in L:
+        if isinstance(i,list):
+            ret.extend(flatten(i))
+        else:
+            ret.append(i)
+    return ret
+
+def makeListOfList(L):
+    result = [[l] for l in L]
+    return result

@@ -1,26 +1,6 @@
 #https://cloud.google.com/appengine/docs/python/config/cron?hl=en
 
 cron:
-#- description: tiramisu lottery job
-#  url: /tiramisulottery
-#  schedule: every 1 hours from 09:00 to 19:00
-#  timezone: Europe/Rome
-#- description: info user tiramisu group
-#  url: /infousers_tiramisu
-#  schedule: every day 09:15
-#  timezone: Europe/Rome
-#- description: info dayly ride
-#- description: info user weekly for all
-#  url: /infouser_weekly_all
-#  schedule: every monday 09:00
-#  timezone: Europe/Rome
-- description: reset counters
-  url: /resetcounters
-  schedule: every day 04:00
-  timezone: Europe/Rome
-- description: checking drivers and passengers that are expired
-  url: /checkExpiredUsers
-  schedule: every 1 minutes
 - description: restart users in non-start states for over a week
   url: /restartOldUsers
   schedule: every sunday 12:00

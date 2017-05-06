@@ -1,54 +1,34 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
 
-# standard app engine imports
 from google.appengine.api import urlfetch
 from google.appengine.ext import ndb
-from google.appengine.api import channel
-from google.appengine.api import taskqueue
 from google.appengine.ext import deferred
-from google.appengine.api import mail
 from google.appengine.ext.db import datastore_errors
-from google.appengine.ext.db import InternalError
-
-from operator import itemgetter
 
 import json
+import jsonUtil
 import logging
 import urllib
 import urllib2
 from time import sleep
-import time_util
 import requests
-import googlemaps
-import geopy
-
-import re
+import emoji
+import utility
+import geoUtils
 import key
-import emoij
-import counter
 import person
 from person import Person
-import date_counter
-import ride
-from ride import Ride
-import ride_request
-from ride_request import RideRequest
 import itinerary
-import token_factory
-import boolVariable
-#import bus
-import bus_disp
-import utility
+import fermate
+import date_time_util as dtu
+import requests.packages.urllib3
+import ride_offer
+import params
 
-from random import shuffle
-
-
-#from google.appengine.ext import vendor
-#vendor.add('lib')
+requests.packages.urllib3.disable_warnings()
 
 import webapp2
-#from flask import Flask, jsonify
+# from flask import Flask, jsonify
 
 import gettext
 
@@ -60,1222 +40,1183 @@ from jinja2 import Environment, FileSystemLoader
 
 BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
 
-DASHBOARD_DIR_ENV = Environment(loader=FileSystemLoader('dashboard'), autoescape = True)
-
 STATES = {
-    -2:    'Initial without Start',
-    -1:    'Initial with Start',
-    0:     'Started',
-    20:    'Passenger Asked For Location',
-    201:   'Passenger Asked For Changing Start Location',
-    202:   'Passenger Asked For Changing Start Location',
-    21:    'Passenger with no driver matching journey',
-    22:    'Passenger with driver(s) matching journey',
-    23:    'Passenger who has confirmed a ride',
-    30:    'Driver asked for location',
-    301:   'Driver Asked For Changing Start Location',
-    302:   'Driver Asked For Changing Start Location',
-    31:    'Driver asked for time',
-    32:    'Driver without borded passengers',
-    325:   'Driver sending message',
-    33:    'Driver with boarded passengers',
-    80:    'Info',
-    81:    'Info -> SEARCH BUS STOPS',
-    82:    'Info -> SEND FEEDBACK',
-    90:    'Settings',
-    91:    'Settings -> Language',
-    92:    'Settings -> Terms and Conditions',
-    93:    'Settings -> Itinerary',
-    930:   'Settings -> Itinerary -> ChangeCity',
-    931:   'Settings -> Itinerary (Simple)',
-    935:   'Settings -> Itinerary (Advanced)',
-    9351:  'Settings -> Itinerary (Advanced) -> Start Location',
-    93511: 'Settings -> Itinerary (Advanced) -> Start Location -> Check',
-    9352:  'Settings -> Itinerary (Advanced) -> End Location',
-    93521: 'Settings -> Itinerary (Advanced) -> End Location -> Check',
-    9353:  'Settings -> Itinerary (Advanced) -> Mid Points Going',
-    93531: 'Settings -> Itinerary (Advanced) -> Mid Points Going -> Check',
-    9354:  'Settings -> Itinerary (Advanced) -> Mid Points Back',
-    93541: 'Settings -> Itinerary (Advanced) -> Mid Points Back -> Check',
-    94:    'Settings -> Notification',
-    -50:   'TurkMode On (MASTER)',
-    -55:   'TurkMode On (USER)',
-
+    0: 'Initial state',
+    1: 'Offri Passaggio',
+    11:   'Passaggio a Breve (24 ore)',
+    12:   'Passaggio Programmato (ripetuto)',
+    2: 'Cerca Passaggio - da/a',
+    21:   'Cerca Passaggio - Quando',
+    22:   'Cerca Passaggio - Risultati',
+    3: 'Impostazioni',
+    31:   'Itinerari',
+    311:     'Aggiungi Itinerario',
+    312:     'Rimuovi Itinerario',
+    32:   'Notifiche',
+    33:   'Modifica Offerte',
+    9: 'Info',
+    91:   'Info Fermate',
 }
 
-DRIVER_STATES = [30, 31, 32, 325, 33]
-PASSENGER_STATES = [20,21,22,23]
+RESTART_STATE = 0
 
 LANGUAGES = {'IT': 'it_IT',
              'EN': 'en',
-             #'FR': 'fr_FR',
-             #'DE': 'de',
-             #'NL': 'nl',
-             #'PL': 'pl',
-             #'RU': 'ru'
+             # 'FR': 'fr_FR',
+             # 'DE': 'de',
+             # 'NL': 'nl',
+             # 'PL': 'pl',
+             # 'RU': 'ru'
              }
 
 LANGUAGE_FLAGS = {
-    "IT": emoij.FLAG_IT,
-    "EN": emoij.FLAG_EN,
-    #"RU", emoij.FLAG_RU,
-    #"DE", emoij.FLAG_DE,
-    #"FR", emoij.FLAG_FR,
-    #"PL", emoij.FLAG_PL
+    "IT": emoji.FLAG_IT,
+    "EN": emoji.FLAG_EN,
+    # "RU", emoji.FLAG_RU,
+    # "DE", emoji.FLAG_DE,
+    # "FR", emoji.FLAG_FR,
+    # "PL", emoji.FLAG_PL
 }
 
-
-
-MAX_WAITING_PASSENGER_MIN = 25
-MAX_PICKUP_DRIVER_MIN = 15
-MAX_COMPLETE_DRIVER_MIN = 20
-
 # ================================
-# ================================
-# ================================
-
-###########
 # BUTTONS
-###########
+# ================================
 
 START_BUTTON = "🚩 START"
 HELP_BUTTON = "🆘 HELP"
-ABORT_BUTTON_FUNC = lambda: "❌ " + _('Abort')
-BACK_BUTTON_FUNC = lambda: "🔙 " + _('Back')
-SETTINGS_BUTTON_FUNC = lambda: "⚙ " + _('SETTINGS')
-INFO_BUTTON_FUNC = lambda: "ℹ " + _('INFO')
-INVITE_FRIEND_BUTTON_FUNC = lambda: "🗣 " + _('INVITE A FRIEND')
-ITINERARY_BUTTON_FUNC = lambda: "🛣 " + _('ITINERARY')
-NOTIFICATIONS_BUTTON_FUNC = lambda: "🔔 " + _('NOTIFICATIONS')
-LANGUAGE_BUTTON_FUNC = lambda: "🇮🇹🇬🇧🇩🇪 " + _('LANGUAGE')
-ENABLE_NOTIFICATIONS_BUTTON_FUNC = lambda: "🔔 " + _('ENABLE NOTIFICATIONS')
-DISABLE_NOTIFICATIONS_BUTTON_FUNC = lambda: "🔕 " + _('DISABLE NOTIFICATIONS')
-CHANGE_START_BUTTON_FUNC = lambda: "🚩 " + _('Change Start')
-CHANGE_END_BUTTON_FUNC = lambda: "🏁 " + _('Change End')
-CHANGE_ITINERARY_BUTTON_FUNC = lambda: "🛣 " + _('Change ITINERARY')
+
+'''
+ABORT_BUTTON_LANG = lambda: "❌ " + _('Abort')
+BACK_BUTTON_LANG = lambda: "🔙 " + _('Back')
+SETTINGS_BUTTON_LANG = lambda: "⚙ " + _('SETTINGS')
+INFO_BUTTON_LANG = lambda: "ℹ " + _('INFO')
+INVITE_FRIEND_BUTTON_LANG = lambda: "🗣 " + _('INVITE A FRIEND')
+ITINERARY_BUTTON_LANG = lambda: "🛣 " + _('ITINERARY')
+NOTIFICATIONS_BUTTON_LANG = lambda: "🔔 " + _('NOTIFICATIONS')
+LANGUAGE_BUTTON_LANG = lambda: "🇮🇹🇬🇧🇩🇪 " + _('LANGUAGE')
+ENABLE_NOTIFICATIONS_BUTTON_LANG = lambda: "🔔 " + _('ENABLE NOTIFICATIONS')
+DISABLE_NOTIFICATIONS_BUTTON_LANG = lambda: "🔕 " + _('DISABLE NOTIFICATIONS')
+CHANGE_START_BUTTON_LANG = lambda: "🚩 " + _('Change Start')
+CHANGE_END_BUTTON_LANG = lambda: "🏁 " + _('Change End')
+CHANGE_ITINERARY_BUTTON_LANG = lambda: "🛣 " + _('Change ITINERARY')
+'''
+
+CHECK_ICON = '✅'
+PREV_ICON = '⏪'
+NEXT_ICON = '⏩'
+BULLET_SYMBOL = '∙'
+RIGHT_ARROW_SYMBOL = '→'
+
+BOTTONE_INDIETRO = "🔙 INDIETRO"
+BOTTONE_INFO = "ℹ INFO"
+BOTTONE_FERMATE = "🚏 FERMATE"
+BOTTONE_MAPPA = "🗺 MAPPA COMPLETA"
+BOTTENE_OFFRI_PASSAGGIO = "🚘 OFFRI"
+BOTTENE_CERCA_PASSAGGIO = "👍 CERCA"
+BOTTONE_IMPOSTAZIONI = "⚙ IMPOSTAZIONI"
+BOTTONE_AGGIUNGI_ITINERARIO = "➕ AGGIUNGI ITINERARIO"
+BOTTONE_RIMUOVI_ITINERARIO = "➖ RIMUOVI ITINERARIO"
+BOTTONE_ITINERARI = "🛣 ITINERARI"
+BOTTONE_NOTIFICHE = "🔔 NOTIFICHE"
+BOTTONE_ANNULLA = "❌ ANNULLA"
+BOTTONE_ADESSO = "👇 ADESSO"
+BOTTONE_A_BREVE = "⏰ A BREVE"
+BOTTONE_PERIODICO = "📆 PERIODICO"
+BOTTONE_CONFERMA = "👌 CONFERMA"
+BOTTONE_ELIMINA_OFFERTE = "✖ 🚘ELIMINA MIE OFFERTE"
+BOTTONE_ATTIVA_NOTIFICHE_TUTTE = "🔔🔔🔔 ATTIVA TUTTE"
+BOTTONE_DISTATTIVA_NOTIFICHE = "🔕 DISATTIVA TUTTE"
+BOTTONE_ATTIVA_NOTIFICHE_ITINERARI = "🔔🛣 ATTIVA NOTIFICHE MIEI ITINERARI"
+BOTTONE_ELIMINA = "🗑 ELIMINA"
 
 # ================================
+# MESSAGES
 # ================================
-# ================================
 
+'''
+INSTRUCTIONS = (
+    _("PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for small journeys within a city).") + "\n\n" +
+    _("You need to agree on terms and conditions in SETTINGS  and insert an ITINERARY to start a new journey.") + "\n" +
+    _("Once all is set, you can press START to request or offer a ride.") + "\n\n" +
+    _("Please visit our website at http://pickmeup.trentino.it " +
+      "read the pdf instructions at http://tiny.cc/pickmeup_info " +
+      "and if you want to promote this initiative do like us on FaceBook https://www.fb.com/321pickmeup ") + "\n\n" +
+    _("If you want to join our discussions come to the tiramisu group at the following link: " +
+      "https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g") + "\n\n" +
+    _("Any feedback or contribution is highly appreciated (go to INFO -> SEND FEEDBACK)! :D"))  # .encode('utf-8')
 
-def getTodayTimeline():
+TERMS_AND_CONDITIONS = (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + "\n" +
+                        _("It is currently  under testing.") + "\n\n" +
+                        _("WARNINGS:") + "\n" +
+                        _("Drivers: please offer rides before starting the ride. " +
+                          "DO NOT use your phone while you drive.") + "\n" +
+                        _("Passengers: please ask for rides when you are at the bus stop. ") +
+                        _("Be kind with the driver and the other passengers.") + "\n\n" +
+                        _(
+                            "PickMeUp is a non-profit service and it is totally money-free between passengers and drivers.") + "\n" +
+                        _("The current version is under testing: ") +
+                        _(
+                            "no review system has been implemented yet and ride traceability is still limited. ") + "\n\n" +
+                        _("PickMeUp developers decline any responsibility for the use of the service.") + "\n" +
+                        _(
+                            "If you want to use this service you have to agree on these terms by pressing the button below."))
 
-    todayEvents = {itinerary.FERMATA_TRENTO: {}, itinerary.FERMATA_POVO: {}}
+MESSAGE_FOR_FRIENDS = _("Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! ") + \
+                      _("It's like BlaBlaCar, but for commuting within a city. ") + \
+                      _("The system is currently under testing but the community is getting larger every day. ") + \
+                      _("You can try it by clicking on @PickMeUp_bot and press START! ")
 
-    today = time_util.get_today()
-    #today = today - timedelta(days=1)
-
-    for loc in [itinerary.FERMATA_TRENTO, itinerary.FERMATA_POVO]:
-
-        requests = []
-        qryRideRequests = RideRequest.query(RideRequest.passenger_last_seen > today)
-        for r in qryRideRequests:
-            #RideRequest.passenger_location==loc
-            #logging.debug(r.passenger_location + " " + str(r.passenger_location==loc))
-            if (r.passenger_location==loc):
-                start = r.passenger_last_seen
-                end = r.abort_time
-                if (end is not None):
-                    requests.append([start.isoformat(), end.isoformat()])
-
-        todayEvents[loc][loc + ' Ride Requests'] = requests
-
-        offers = []
-        qryRideOffers = Ride.query(Ride.start_daytime > today)
-        for r in qryRideOffers:
-            if (r.start_location==loc):
-                start = r.start_daytime
-                end = r.abort_daytime if r.abort_daytime is not None else r.end_daytime
-                if (end is not None):
-                    offers.append([start.isoformat(), end.isoformat()])
-
-        #requests = date_util.removeOverlapping(requests)
-        #offers = date_util.removeOverlapping(offers)
-
-        todayEvents[loc][loc + ' Ride Offers'] = offers
-
-    return todayEvents
-
-
+PAPER_CLIP_INSTRUCTIONS = _("Please attach a location by 1) pressing the ") + emoji.PAPER_CLIP + \
+                          _(" icon below and 2) chosing a position in the map.")
+'''
 
 
 # ================================
+# GENERAL FUNCTIONS
 # ================================
-# ================================
 
-def registerUser(p, name, last_name, username):
-    #logging.debug('registering user')
-    #logging.debug(p.name + _(' ') + cmd + _(' ') + str(p.enabled))
-    #if (p.name.decode('utf-8') != name.decode('utf-8')):
-    modified = False
-    if p.getFirstName() != name:
-        p.name = name
-        modified = True
-    #if (p.last_name.decode('utf-8') != last_name.decode('utf-8')):
-    if p.getLastName() != last_name:
-        p.last_name = last_name
-        modified = True
-    if p.username != username:
-        p.username = username
-        modified = True
-    if not p.enabled:
-        p.enabled = True
-        modified = True
-    if modified:
-        p.put()
+# ---------
+# BROADCAST
+# ---------
 
+BROADCAST_COUNT_REPORT = utility.unindent(
+    """
+    Messaggio inviato a {} persone
+    Ricevuto da: {}
+    Non rivevuto da : {} (hanno disattivato il bot)
+    """
+)
 
-
-def start(p):
-    if boolVariable.turkMode():
-        tell(p.chat_id, _("Hi, you are now in an experimental mode in which you can type or record any ride offer or request. "
-                          "The bot will analyze what you write or say and answer you as soon as possible. "
-                          "Use the chat to input text or press the microphone to record any message. "),
-             kb=[[ABORT_BUTTON_FUNC()]])
-        person.setState(p,-55)
-    else:
-        tell(p.chat_id, _("Hi") + _(' ') + p.getFirstName() + _('! ') + _("Are you a driver or a passenger?"),
-             kb=[[emoij.CAR + _(' ') + _('Driver'), emoij.FOOTPRINTS + _(' ') + _('Passenger')],[ABORT_BUTTON_FUNC()]])
-        person.setNotified(p,False)
-        person.setState(p,0)
-
-def getUsers():
-    query = Person.query() #.order(-Person.last_mod)
-    if query.get() is None:
-        return "No users found"
-    text = ""
-    for p in query.iter():
-        text = text + p.getFirstName() + " (" + str(p.state) + ") " + time_util.get_date_string(p.last_mod) + "\n"
-    return text
-
-def restartUserInTurkMode():
-    qry = Person.query(Person.state==-55)
-    count = 0
-    for p in qry:
-        #if (p.state is None): # or p.state>-1
-        if (p.enabled): # or p.state>-1
-            msg = _("The system has been restored in non-experiemntal mode")
-            tell(p.chat_id, msg)
-            restartUser(p)
-            sleep(0.100) # no more than 10 messages per second
-    logging.debug("Succeffully restarted users: " + str(count))
-    return count
-
-def restartLanguages():
-    qry = Person.query(ndb.AND(Person.language != 'IT', Person.language != 'EN'))
-    count = 0
-    for p in qry:
-        p.language = 'IT'
-        p.put()
-        if (p.enabled):
-            count +=1
-            tell(p.chat_id, 'Risettata lingua in italiano (solo italiano e inglese attualmente supportate).')
-            restartUser(p)
-            sleep(0.50) # no more than 10 messages per second
-    logging.debug("Succeffully reset languages for users: " + str(count))
-    return count
-
-def checkEnabled():
-    qry = Person.query(Person.enabled==True)
-    for p in qry:
-        try:
-            tell(p.chat_id, "test")
-        except urllib2.HTTPError, err:
-            if err.code == 403:
-                p.enabled = False
-                p.put()
-        sleep(0.035) # no more than 30 messages per second
-
-def broadcast(msg, language='ALL', check_notification=False, curs=None, count = 0, markdown=False, restart=False):
+def broadcast(sender, msg, qry = None,
+              restart_user=False, curs=None, enabledCount=0, total=0,
+              blackList_ids=(), sendNotification=True):
+    # return
+    if qry is None:
+        qry = Person.query()
+    users, next_curs, more = qry.fetch_page(50, start_cursor=curs)
     try:
-        users, next_curs, more = Person.query().fetch_page(50, start_cursor=curs)  # .order(-Person.last_mod)
+        for p in users:
+            if p.chat_id in blackList_ids:
+                continue
+            total += 1
+            if tell(p.chat_id, msg, sleepDelay=True): #p.enabled
+                enabledCount += 1
+                if restart_user:
+                    restart(p)
+
     except datastore_errors.Timeout:
         sleep(1)
-        deferredSafeHandleException(broadcast, msg, language, check_notification, curs, count, markdown=markdown, restart=restart)
+        deferredSafeHandleException(broadcast, sender, msg, qry, restart_user, curs, enabledCount, total, blackList_ids, sendNotification)
         return
-
-    for p in users:
-        if p.enabled and (not check_notification or p.notification_enabled):
-            if language=='ALL' or p.language==language or (language=='EN' and p.language!='IT'):
-                setLanguage(p.language)
-                tell(p.chat_id, _("Listen listen...") + ' ' + msg, markdown=markdown)
-                count += 1
-                if restart:
-                    restartUser(p)
-                sleep(0.050) # no more than 20 messages per second
-
     if more:
-        deferredSafeHandleException(broadcast, msg, language, check_notification, next_curs, count, markdown=markdown, restart=restart)
-    else:
-        msg = "Mesage sent to {} people".format(count)
-        tell(key.FEDE_CHAT_ID, msg)
+        deferredSafeHandleException(broadcast, sender, msg, qry, restart_user, next_curs, enabledCount, total, blackList_ids, sendNotification)
+    elif sendNotification:
+        disabled = total - enabledCount
+        msg_debug = BROADCAST_COUNT_REPORT.format(total, enabledCount, disabled)
+        tell(sender.chat_id, msg_debug)
 
 
-def getInfoCount(lang='EN'):
-    setLanguage(lang)
-    c = Person.query().count()
-    msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!")
+# ---------
+# INFO COUNT
+# ---------
+
+def getInfoCount():
+    count = Person.query().count()
+    msg = "Attualmente siamo in {} persone iscritte a BancaTempoBot! " \
+          "Vogliamo crescere assieme! Invita altre persone ad aunirsi!".format(count)
     return msg
 
 
-def getInfoAllRequestsOffers():
-    setLanguage('IT')
-    qryRideRequestCount = RideRequest.query().count()
-    qryRideCount = Ride.query().count()
-    qryRideCompletedCount = Ride.query(Ride.passengers_names_str != None).count()
-    msg = _("Since the beginning of time there were a total of ") + str(qryRideRequestCount) +\
-          _(" ride requests and ") + str(qryRideCount) + _(" ride offers, of which ") +\
-          str(qryRideCompletedCount) + _(" confirmed!") + "\n"
-    return msg
-
-def getInfoDay(language=None):
-    if language:
-        setLanguage(language)
-    today = time_util.get_today()
-    qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > today)
-    qryRide = Ride.query(Ride.start_daytime > today)
-    qryRideCompleted = Ride.query(Ride.start_daytime > today and Ride.end_daytime > today)
-    qryRideCompletedCount = qryRideCompleted.count()
-    msg = _("Today there were a total of ") + str(qryRideRequest.count()) +\
-          _(" ride requests and ") + str(qryRide.count()) + _(" ride offers, of which ") +\
-          str(qryRideCompletedCount) + _(" confirmed!") + "\n"
-    if qryRideCompletedCount>0:
-        msg += _("Many thanks to all of you! ") + emoij.CLAPPING_HANDS
-    else:
-        msg += _("Let's make it happen! ") + emoij.SMILING_FACE
-    return msg
-
-def getOffersRequestsDriversNamesDaysAgo(daysAgo):
-    lastweek = time_util.get_date_days_ago(daysAgo)
-    qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > lastweek)
-    qryRide = Ride.query(Ride.start_daytime > lastweek)
-    driverNameSet = set()
-    for r in qryRide:
-        driverNameSet.add(r.getDriverName())
-    requestsCount = qryRideRequest.count()
-    driversCount = qryRide.count()
-    driversNames = ', '.join(driverNameSet)
-    # qryRideCompleted = Ride.query(Ride.start_daytime > lastweek and Ride.end_daytime > lastweek)
-    # qryRideCompletedCount = qryRideCompleted.count()
-    return requestsCount, driversCount, driversNames
-
-def getInfoWeek(language):
-    setLanguage(language)
-    requestsCount, offersCount, driversNames = getOffersRequestsDriversNamesDaysAgo(7)
-    c = Person.query().count()
-    msg = _("We are now") + _(' ') + str(c) + _(' ') + _("people subscribed to PickMeUp!")
-    msg += "\n"
-    msg += _("This week there were a total of ") + str(requestsCount) +\
-          _(" ride requests and ") + str(offersCount) + _(" ride offers.") + "\n"
-    if offersCount==0:
-        msg += _("Many thanks to all of you! " ) + emoij.CLAPPING_HANDS
-    elif offersCount==1:
-        msg += _("Many thanks to our favorite driver: ") + driversNames + emoij.CLAPPING_HANDS
-    else:
-        msg += _("Many thanks to our special drivers: ") + driversNames + emoij.CLAPPING_HANDS * offersCount
-    return msg
-
-price_message = \
-"""
-Nelle ultime settimane ci sono state in totale {0} richieste di passaggio e {1} offerte di passaggio.
-Un grazie enorme ai nostri  autisti: {2} {3}
-
-🎁🎁🎁
-
-🏅L’autista più virtuoso/a di questa settimana è stato/a *{4}*, che si è aggiudicato un lavaggio gratis presso *REPSOL* (viale Verona 196)! Tutti gli altri utenti (autisti o passeggeri) potranno usufruire di uno sconto di 3 € sul lavaggio esterno della macchina dicendo al gestore la parola segreta ‘SCONTO PICKMEUP’.
-
-🏅Il secondo classificato è stato/a *{5}* che si è aggiudicato/a un aperitivo gratis presso il *Social Stone* (Via Gorizia 18).
-
-In arrivo altri premi per tutti i nostri utenti: seguiteci su twitter e facebook per saperne di più!
-
-Graze a *REPSOL* e al *Social Stone*!
-"""
-
-PREVIOUS_WINNERS = [162491524, 140299529, 126124516, 119936816, 78774534, 20651034]
-#Roberto, Giacomo, Stefano, Gabriele, Matteo, Martina
-
-def getWeekWinners():
-    #startDate = time_util.get_last_week()
-    startDate = time_util.get_date_CET_from_DDMMYY('060516')
-    qryRideRequest = RideRequest.query(RideRequest.passenger_last_seen > startDate)
-    qryRide = Ride.query(Ride.start_daytime > startDate)
-    driverDict = {}
-    for r in qryRide:
-        id = r.driver_id
-        if id in driverDict.keys():
-            dicEntry = driverDict[id]
-        else:
-            driverDict[id] = dicEntry = {
-                'name': r.getDriverName(),
-                'rides': 0,
-                'confirmed': 0,
-            }
-        dicEntry['rides'] += 1
-        if r.end_daytime and r.end_daytime > startDate:
-            dicEntry['confirmed'] += 1
-    nameSetStr = ', '.join([dicEntry['name'] for dicEntry in driverDict.itervalues()])
-    clapsHands = emoij.CLAPPING_HANDS * len(driverDict)
-
-    confirmed_winners = keysWithSortedValInSubDict(driverDict, 'confirmed')
-    ride_winners = keysWithSortedValInSubDict(driverDict, 'rides')
-
-    logging.debug('ride winners: ' + str(ride_winners))
-    logging.debug('confirmed winners: ' + str(confirmed_winners))
-
-    winners_keys = keysWithSortedValInSubDict(driverDict, 'confirmed')
-    for w in keysWithSortedValInSubDict(driverDict, 'rides'):
-        if w not in winners_keys:
-            winners_keys.append(w)
-
-    logging.debug('all winners: ' + str(winners_keys))
-
-    for w in PREVIOUS_WINNERS:
-        if w in winners_keys:
-            winners_keys.remove(w)
-
-    logging.debug('all winners after removing previous winners: ' + str(winners_keys))
-
-    if len(winners_keys) >= 2:
-        first_place_id = winners_keys[0]
-        first_place_name = driverDict[first_place_id]['name']
-        second_place_id = winners_keys[1]
-        second_place_name = driverDict[second_place_id]['name']
-
-    debug = "----- info for masters -----\n"
-    for k,v in driverDict.iteritems():
-        debug += "Id " + str(k) + " Name:%(name)s Rides:%(rides)d Confermed:%(confirmed)d\n" %v
-    if len(winners_keys) >= 2:
-        debug += "Winner 1st position: " + str(first_place_id) + ' ' + first_place_name + "\n"
-        debug += "Winner 2nd position: " + str(second_place_id) + ' ' + second_place_name + "\n"
-
-    if len(winners_keys)<2:
-        msg = "Questa settimana non abbiamo vincitori."
-    else:
-        msg = price_message.format(str(qryRideRequest.count()), str(qryRide.count()), nameSetStr,
-                                   clapsHands, first_place_name, second_place_name)
-
-    return msg, debug
-
-
-def keysWithMaxValInSubDict(dict, label):
-    k = dict.keys()
-    v = [x[label] for x in dict.values()]
-    return [k[i] for i, x in enumerate(v) if x == max(v)]
-
-def keysWithSortedValInSubDict(dict, label):
-    k = dict.keys()
-    v = [x[label] for x in dict.values()]
-    enumValues = [(i,j) for i,j in enumerate(v)]
-    shuffle(enumValues)
-    return [k[i] for i, x in sorted(enumValues, key=itemgetter(1), reverse=True) if x > 0]
-
-
-
-def sendRecentDriversMessage(daysAgo, msg):
-    drivers_id_set = set()
-    someTimeAgo = time_util.get_date_days_ago(daysAgo)
-    qry = Ride.query(Ride.start_daytime > someTimeAgo)
-    for q in qry:
-        drivers_id_set.add(q.driver_id)
-    count = 0
-    for driver_id in drivers_id_set:
-        p = person.getPerson(driver_id)
-        if p.enabled:
-            count += 1
-            #tell(p.chat_id, "Ciao " + p.name.encode("utf-8") + "! " + msg.encode("utf-8"))
-            tell(p.chat_id, msg.encode("utf-8"))
-            sleep(0.050) # no more than 20 messages per second
-    logging.debug('Sente message to drivers ' + str(count))
-
-def tellmyself(p, msg):
-    tell(p.chat_id, "Listen listen... " + msg)
-
-
-def restartUser(p):
-    agree = p.agree_on_terms
-    itn = person.isItinerarySet(p)
-    if not agree and not itn:
-        tell(p.chat_id, _("In order to start, please go to SETTINGS to agree on terms and conditions and setup your default ITINERARY."),
-             kb=[[HELP_BUTTON], [SETTINGS_BUTTON_FUNC(),INFO_BUTTON_FUNC()]])
-        person.setStateLocation(p, -2, '-')
-    elif not agree:
-        tell(p.chat_id, _("In order to start, please go to SETTINGS to agree on terms and conditions."),
-             kb=[[HELP_BUTTON], [SETTINGS_BUTTON_FUNC(),INFO_BUTTON_FUNC()]])
-        person.setStateLocation(p, -2, '-')
-    elif not itn:
-        tell(p.chat_id, _("In order to start, please go to SETTINGS to setup your default ITINERARY. " +
-                          "You only need to do this once but you can always change it later."),
-             kb=[[HELP_BUTTON], [SETTINGS_BUTTON_FUNC(),INFO_BUTTON_FUNC()],[INVITE_FRIEND_BUTTON_FUNC()]])
-        person.setStateLocation(p, -2, '-')
-    else:
-        textEnabled = _("(You have notifications ENABLED)") if p.notification_enabled else _("(You have notifications DISABLED)")
-        tell(p.chat_id, _("Press START if you want to start a new journey! ") + textEnabled,
-             kb=[[START_BUTTON,HELP_BUTTON], [SETTINGS_BUTTON_FUNC(),INFO_BUTTON_FUNC()],[INVITE_FRIEND_BUTTON_FUNC()]]    )
-        person.setStateLocation(p, -1, '-')
-
-
-def goToState20(p):
-    person.setState(p, 20)
-    #logging.debug("In goToState20, p.basic_route: " + str(p.basic_route))
-    secondRow = [CHANGE_START_BUTTON_FUNC(), CHANGE_ITINERARY_BUTTON_FUNC(), CHANGE_END_BUTTON_FUNC()] if p.basic_route else [CHANGE_ITINERARY_BUTTON_FUNC()]
-    tell(p.chat_id, _("Hi! I can try to help you to get a ride. Which bus stop are you waiting at?"),
-          kb=[
-              [p.getBusStartStr(), p.getBusEndStr()],
-              secondRow,
-              [ABORT_BUTTON_FUNC()]])
-
-def goToState30(p):
-    person.setState(p, 30)
-    secondRow = [CHANGE_START_BUTTON_FUNC(), CHANGE_ITINERARY_BUTTON_FUNC(), CHANGE_END_BUTTON_FUNC()] if p.basic_route else [CHANGE_ITINERARY_BUTTON_FUNC()]
-    tell(p.chat_id, _("Hi! Glad you can give a ride. Where can you start picking up passengers?"),
-         kb=[
-              [p.getBusStartStr(), p.getBusEndStr()],
-              secondRow,
-              [ABORT_BUTTON_FUNC()]])
-
-def goToInfoPanel(p):
-    tell(p.chat_id, _("This is the info panel."),
-         kb=[[_('INFO USERS'),_('DAY SUMMARY')],[_('SEARCH BUS STOPS'),_('SEND FEEDBACK')],[BACK_BUTTON_FUNC()]])
-    person.setState(p, 80)
-
-def goToSettings(p):
-    keyboard = []
-    text = _("This is the settings panel.")
-    if not p.agree_on_terms:
-        text += '\n' + _("You have not agreed on Terms and Conditions, please press the button below.")
-        keyboard.append([_('TERMS AND CONDITIONS')])
-        keyboard.append([LANGUAGE_BUTTON_FUNC()])
-    else:
-        #keyboard.append([_('ITINERARY (simple)'), _('ITINERARY (advanced)')])
-        keyboard.append([ITINERARY_BUTTON_FUNC()])
-        keyboard.append([NOTIFICATIONS_BUTTON_FUNC(), LANGUAGE_BUTTON_FUNC()])
-
-    keyboard.append([BACK_BUTTON_FUNC()])
-
-    tell(p.chat_id, text, kb=keyboard)
-    person.setState(p, 90)
-
-def goToSettingNotification(p):
-    keyboard = []
-    if p.notification_enabled:
-        tell(p.chat_id, _("You have the notifications ENABLED: "
-                          "you will be informed when a driver going through your route inserts a new journey, "
-                          "(even though you have no active requests) and we will send you weekly statistics."),
-             kb=[[DISABLE_NOTIFICATIONS_BUTTON_FUNC()],[BACK_BUTTON_FUNC()]])
-    else:
-        tell(p.chat_id, _("You have the notifications DISABLED: "
-                          "you will NOT be informed when a driver going through your route inserts a new journey, "
-                          "(unless you have an active request) and we will NOT send you weekly statistics."),
-             kb=[[ENABLE_NOTIFICATIONS_BUTTON_FUNC()],[BACK_BUTTON_FUNC()]])
-    person.setState(p, 94)
-
-def goToChangeCity(p):
-    text = _("Select the city where you are located")
-    keyboard = [
-            itinerary.CITIES,
-            [BACK_BUTTON_FUNC()]
-        ]
-    tell(p.chat_id, text, kb=keyboard)
-    person.setState(p, 930)
-
-def goToSettingItinerary(p):
-    if p.last_city is None:
-        goToChangeCity(p)
-    else:
-        text = getItinerary(p)
-        text += _("Click on 'ITINERARY (simple)' for predefined routes or 'ITINERARY (advanced)' "
-                 "for manually setting departure, destinations and intermediate points.")
-        keyboard = [
-            [_('ITINERARY (simple)'), _('ITINERARY (advanced)')],
-            [BACK_BUTTON_FUNC()]
-        ]
-        if key.TEST:
-            keyboard.insert(1, [_('Change City')])
-        tell(p.chat_id, text, kb=keyboard, markdown=True)
-        person.setState(p, 93)
-
-def goToSettingItinerarySimple(p):
-    #commands = '\n\n'.join(itinerary.BASIC_ROUTES.keys())
-    commandList = itinerary.getBasicRoutesCommands(p.last_city)
-    commands = '\n\n'.join(commandList)
-    tell(p.chat_id, _("Click on one of the following routes: ") + "\n\n" + commands,
-         kb=[[BACK_BUTTON_FUNC()]])
-    person.setState(p, 931)
-
-def getItinerary(p):
-    start = '?' if p.getBusStartStr() is None else p.getBusStartStr()
-    end = '?' if p.getBusEndStr() is None else p.getBusEndStr()
-    itn_txt = _("*Your current itinerary*: ") + start + _(' <-> ') + end + '\n\n'
-    if start!='?' and end!='?':
-        itn_txt += _("Drivers can optionally add intermediate points where to pick up passengers:") + "\n\n" +\
-                   _("*Mid Points Going*: ") + p.getBusStopMidGoingStr() + '\n' +\
-                   _("*Mid Points Back*: ") + p.getBusStopMidBackStr() + '\n\n'
-    return itn_txt
-
-def goToSettingItineraryAdvanced(p):
-    itn_txt = getItinerary(p)
-    firstRowButtons = [
-        _('Change Start Location') if p.getBusStartStr() else _('Set Start Location'),
-        _('Change End Location') if p.getBusEndStr() else _('Set End Location')
-    ]
-    keyboard = [firstRowButtons]
-    if p.getBusStartStr() and p.getBusEndStr():
-        keyboard.append([_('Change Mid Points Going'), _('Change Mid Points Back')],)
-    keyboard.append([BACK_BUTTON_FUNC()])
-    tell(p.chat_id, itn_txt, kb=keyboard, markdown=True)
-    person.setState(p, 935)
-
-def askToInsertLocation(p, text_prefix, new_state, PAPER_CLIP_INSTRUCTIONS):
-    if (p.last_city is None):
-        tell(p.chat_id, _("Please insert ") +  text_prefix + '. ' + PAPER_CLIP_INSTRUCTIONS,
-             kb=[[BACK_BUTTON_FUNC()]])
-    else:
-        first_row_button = [_('List All Stops')]
-        if p.basic_route:
-            first_row_button.append(_('List Itinerary Stops'))
-        tell(p.chat_id, _("Please insert ") +  text_prefix + '. ' + PAPER_CLIP_INSTRUCTIONS + ' ' +
-               _("Alternatevely you can request to list the bus stops and select one manually."),
-             kb=[first_row_button,[BACK_BUTTON_FUNC()]])
-    person.setState(p,new_state)
-
-def askGeoLocationOrListBusStops(p, intro_text, new_state):
-    # p.last_city but exist
-    tell(p.chat_id,
-         intro_text + _("You can enter a location using GEOLOCATION or ask for a LIST of bus stops in your city"),
-         kb = [[_('Geolocation'),_('List All Stops')],[BACK_BUTTON_FUNC()]])
-    person.setState(p,new_state)
-
-
-def goToSettingMidPoints(p,state, PAPER_CLIP_INSTRUCTIONS):
-
-    midpoints = p.getBusStopMidGoingStr() if state==9353 else p.getBusStopMidBackStr()
-
-    text = _("Select an intermediate point you can stop on the way FORWARD to pick-up other passangers:") + '\n' \
-        if state==9353 else _("Select an intermediate point you can stop on the way BACK to pick-up other passangers:") + '\n'
-
-    text += PAPER_CLIP_INSTRUCTIONS
-
-    if p.last_city:
-        text += _(" Alternatively you can request to list the bus stops and select one manually.")
-    text += "\n\n"
-
-    #text = utility.escapeMarkdown(text)
-    text += _("*Current midpoints*: ") + midpoints
-
-    keyboard = [[_('List All Stops')]] if p.last_city else []
-    secondLineButtons = [_('Remove all')] if midpoints else []
-
-    if (p.bus_stop_mid_going != list(reversed(p.bus_stop_mid_back))):
-        if state==9353:
-            if p.bus_stop_mid_back:
-                secondLineButtons.append(_('Same as other direction'))
-        else:
-            if p.bus_stop_mid_going:
-                secondLineButtons.append(_('Same as other direction'))
-
-    keyboard.append(secondLineButtons)
-    keyboard.append([BACK_BUTTON_FUNC()])
-
-    #logging.debug("goToSettingMidPoints:" + str(keyboard))
-    tell(p.chat_id, text, kb=keyboard, markdown=True)
-    person.setState(p,state)
-
-
-def removeSpaces(str):
-    #return re.sub(r'[^\w]','',str,re.UNICODE)
-    str = re.sub(r"[\s'.]",'',str,re.UNICODE)
-    str = str.replace('ò','o')
-    str = str.replace('(','_')
-    str = str.replace(')','')
-    return str
-
-def replyListAllBusStops(p,new_state):
-    #bus_stops = itinerary.getOtherBusStops(p)
-    bus_stops = itinerary.getAllBusStops(p)
-    bus_stops_formatted = ['/' + removeSpaces(x.encode('UTF8')) for x in bus_stops]
-    bus_stops_str = '\n'.join(bus_stops_formatted)
-    person.setTmp(p,bus_stops_formatted)
-    person.appendTmp(p,bus_stops)
-    tell(p.chat_id,
-         _("Found the following bus stop(s) in your city:") + "\n"
-         + bus_stops_str + "\n\n" + _("Press on one of them to set it."),
-         kb = [[BACK_BUTTON_FUNC()]])
-    person.setState(p,new_state)
-
-def replyListItineraryBusStops(p,new_state):
-    bus_stops = itinerary.getItineraryBusStops(p)
-    bus_stops_formatted = ['/' + removeSpaces(x.encode('UTF8')) for x in bus_stops]
-    bus_stops_str = '\n'.join(bus_stops_formatted)
-    person.setTmp(p,bus_stops_formatted)
-    person.appendTmp(p,bus_stops)
-    tell(p.chat_id,
-         _("Found the following bus stop(s) in your current itinerary:") + "\n"
-         + bus_stops_str + "\n\n" + _("Press on one of them to set it."),
-         kb = [[BACK_BUTTON_FUNC()]])
-    person.setState(p,new_state)
-
-
 # ================================
+# Telegram Send Request
 # ================================
-# ================================
-
-def escape_markdown(text):
-    for char in '*_`[':
-        text = text.replace(char, '\\'+char)
-    return text
-
-def assignNextTicketId(p, is_driver):
-    ticketId = None
-    bus_stop = person.getBusStop(p)
-    ticketId = 'D_' if is_driver else 'P_'
-    ticketId += bus_stop.short_name
-    bus_stop_label = itinerary.getKeyFromBusStop(bus_stop)
-    #logging.debug(bus_stop_label)
-    number = counter.increaseQueueCounter(bus_stop_label, is_driver)
-    ticketId += str(number)
-    p.ticket_id = ticketId
-    p.put()
-    #return escape_markdown(ticketId)
-    return ticketId
-
-# ================================
-# ================================
-# ================================
-
-MAX_MIN_IN_NON_START_STATE = 60 * 24 * 7
-
-def restartOldUsers():
-    past_date = time_util.now(-MAX_MIN_IN_NON_START_STATE)
-    qry = Person.query(Person.state>=0)
-    count = 0
-    for p in qry:
-        if p.last_mod < past_date:
-            setLanguage(p.language)
-            tell(p.chat_id, _('Resetting interface to initial state'))
-            restartUser(p)
-            sleep(0.035)
-            count += 1
-    logging.debug('Restatered old users: ' + str(count))
-
-
-def checkExpiredUsers():
-    checkExpiredDrivers()
-    checkExpiredPassengers()
-
-def checkExpiredDrivers():
-    qry = Person.query(Person.active==True, Person.state.IN([32,33]))
-    oldDrivers = {
-        32: [],
-        33: []
-    }
-    for d in qry:
-        if d.state==32: #picking up drivers
-            if (time_util.ellapsed_min(d.last_seen) > MAX_PICKUP_DRIVER_MIN):
-                oldDrivers[d.state].append(d)
-        else:
-            if (time_util.ellapsed_min(d.last_seen) > MAX_COMPLETE_DRIVER_MIN):
-                oldDrivers[d.state].append(d)
-    for d in oldDrivers[32]:
-        setLanguage(d.language)
-        tell(d.chat_id, _("The ride offer has been aborted: you were expected to give a ride some time ago!"))
-        ride.abortRideOffer(d, True)
-        removeDriver(d)
-    for d in oldDrivers[33]:
-        setLanguage(d.language)
-        tell(d.chat_id, _("The ride has been completed automatically: you were supposed to arrive some time ago!"))
-        ride.endRide(d,auto_end=True)
-        removeDriver(d)
-
-def checkExpiredPassengers():
-    qry = Person.query(Person.active==True, Person.state.IN([21, 22]))
-    oldPassengers = []
-    for p in qry:
-        if (time_util.ellapsed_min(p.last_seen) > MAX_WAITING_PASSENGER_MIN):
-            oldPassengers.append(p)
-    for p in oldPassengers:
-        setLanguage(p.language)
-        tell(p.chat_id, _("The ride request has been aborted: ") +
-             _("after some time the requests automatically expire.") + "\n" +
-             _("We believe and hope you have already reached your destination, \
-               otherwise feel free to start another request")
-        )
-        ride_request.abortRideRequest(p, auto_end=True)
-        removePassenger(p)
-
-# ================================
-# ================================
-# ================================
-
-def putPassengerOnHold(passenger):
-    kb = [[ABORT_BUTTON_FUNC()]]
-    if key.TEST and passenger.last_city == itinerary.CITY_TRENTO:
-        kb.insert(0,[_('Show Bus Times')])
-    tell(passenger.chat_id, _("Currently there are no drivers matching your journey.") + ' '
-         + _("You will be notified as soon as one is available.") + ' '
-         + _("If you find another solution, please abort your request."), kb)
-    person.setState(passenger, 21)
-
-def getActiveDrivers():
-    match = []
-    qry = Person.query(Person.active==True, Person.state.IN([32,33]))#.order(-Person.last_mod)
-    for d in qry:
-        match.append(d)
-    return match
-
-def getActivePassengers():
-    match = []
-    qry = Person.query(Person.active==True, Person.state.IN([21,22]))#.order(-Person.last_mod)
-    for p in qry:
-        match.append(p)
-    return match
-
-
-def getMatchingDrivers(passenger):
-    match = []
-    qry = Person.query(Person.active==True, Person.last_city==passenger.last_city, Person.state.IN([32,33]))#.order(-Person.last_mod)
-    for d in qry:
-        if itinerary.matchDriverAndPassenger(d, passenger):
-            match.append(d)
-    return match
-
-def getMatchingPassengers(driver):
-    match = []
-    qry = Person.query(Person.active==True, Person.last_city==driver.last_city, Person.state.IN([21,22]))#.order(-Person.last_mod)
-    for p in qry:
-        if itinerary.matchDriverAndPassenger(driver, p):
-            match.append(p)
-    return match
-
-def getMatchingPotentialPassengers(driver):
-    match = []
-    qry = Person.query(Person.active==False, Person.last_city==driver.last_city)#.order(-Person.last_mod)
-    for p in qry:
-        if itinerary.matchDriverAndPotentialPassenger(driver, p):
-            match.append(p)
-    return match
-
-def hasMatchingDrivers(passenger):
-    qry = Person.query(Person.active==True, Person.last_city==passenger.last_city, Person.state.IN([32,33]))
-    for d in qry:
-        if itinerary.matchDriverAndPassenger(d, passenger):
-            return True
-    return False
-
-def hasMatchingPassengers(driver):
-    qry = Person.query(Person.active==True, Person.last_city==driver.last_city, Person.state.IN([21,22]))
-    for p in qry:
-        if itinerary.matchDriverAndPassenger(driver, p):
-            return True
-    return False
-
-
-def connect_with_matching_drivers(passenger):
-    # a passenger is at a certain location and we want to check if there is a driver engaged matching the journey of the passenger
-    matchDrivers = getMatchingDrivers(passenger)
-    for d in matchDrivers:
-       if not d.notified:
-           setLanguage(d.language)
-           tell(d.chat_id, _("There is a passenger matching your journey ") + emoij.PEDESTRIAN,
-                kb=[[_('List Passengers'), _('Send Message')],[ABORT_BUTTON_FUNC()]])
-           person.setNotified(d,True)
-
-    setLanguage(passenger.language)
-    person.setActive(passenger, True)
-
-    if matchDrivers:
-        tell(passenger.chat_id, _("There is a driver matching your journey."),
-              kb=[[_('List Drivers'), _('Got the Ride!')],[ABORT_BUTTON_FUNC()]])
-        person.setState(passenger, 22)
-    else:
-        putPassengerOnHold(passenger)
-        # state = 21
-
-
-def connect_with_matchin_passengers(driver):
-
-    matchPassengers = getMatchingPassengers(driver)
-
-    for p in matchPassengers:
-        if (p.state==21):
-            person.setState(p, 22)
-            setLanguage(p.language)
-            tell(p.chat_id, _("The is a driver matching your journey! " + emoij.CAR),
-                 kb=[[_('List Drivers'), _('Got the Ride!')],[ABORT_BUTTON_FUNC()]])
-
-    setLanguage(driver.language)
-
-    if matchPassengers:
-        tell(driver.chat_id, _("There is some passenger(s) matching your journey ") + emoij.PEDESTRIAN + '\n' +
-              _("Have a nice trip!") + emoij.SMILING_FACE,
-              kb=[[_('List Passengers'), _('Send Message')],[ABORT_BUTTON_FUNC()]])
-    else:
-        tell(driver.chat_id, _("There is currently no passenger matching your journey.") + _(" ") +
-             _("If a new passege request matches your journey we will notify you.") + "\n" +
-             _("Have a nice trip! ") + emoij.SMILING_FACE,
-        kb=[[ABORT_BUTTON_FUNC()]])
-
-def notify_potential_passengers(driver, time=None):
-    matchPassengers = getMatchingPotentialPassengers(driver)
-    if not matchPassengers:
-        return
-    count = 0
-    for p in matchPassengers:
-        if p.chat_id==driver.chat_id:
-            continue
-        if p.notification_enabled:
-            count+=1
-            setLanguage(p.language)
-            if time:
-                text = _("Scheduled Trip ") + emoij.CAR + _(": There is a driver matching your default route!") + \
-                       '\n\n' + getDriverRideScheduleDetails(driver, time)
-            else:
-                text = _("Notification ") + emoij.CAR + _(": There is a driver matching your default route!") + \
-                       '\n\n' + getDriverRideDetails(driver)
-            tell(p.chat_id, text)
-            #logging.debug(getDriverRideDetails(driver))
-            sleep(0.035) # no more than 30 messages per second
-    setLanguage(driver.language)
-    tell(driver.chat_id,  _("We have informed ") + str(count) + _(" other people who travel on the same route."))
-    logging.debug("Notified potential passengers: " + str(count))
-
-def getDriverRideDetails(driver, id=True):
-    text = driver.name.encode('utf-8') + _(" ride start: ") + \
-           time_util.get_time_string(driver.last_seen) + \
-           _(" itinerary: ") + person.getItineraryString(driver, driver=True)
-    if id:
-        text += _(" (id: ") + driver.getTicketIdString() + _(")")
-    if (driver.username and driver.username!='-'):
-        text +=  _(" username: ") + driver.getUsernameStringWithAt()
-    logging.debug("getDriverRideDetails output: " + text)
-    return text
-
-def getDriverRideScheduleDetails(driver, time_text):
-    text = driver.name.encode('utf-8') + _(" ride start: ") + \
-           time_text + _(" itinerary: ") + person.getItineraryString(driver, driver=True)
-    if (driver.username and driver.username!='-'):
-        text +=  _(" username: ") + driver.getUsernameStringWithAt()
-    logging.debug("getDriverRideScheduleDetails output: " + text)
-    return text
-
-
-def getPassengerRideDetails(passenger, id = True):
-    text = passenger.name.encode('utf-8') +\
-           _(" waiting since ") + time_util.get_time_string(passenger.last_seen) +\
-           _(" itinerary: ") + person.getItineraryString(passenger, driver=False)
-    if id:
-        text += _(" (id: ") + passenger.ticket_id + _(")")
-    if (passenger.username and passenger.username!='-'):
-        text +=  _(" username: ") + passenger.getUsernameStringWithAt()
-    return text
-
-def listDrivers(passenger):
-    matchDrivers = getMatchingDrivers(passenger)
-    if matchDrivers:
-        text = ""
-        for d in matchDrivers:
-            if itinerary.matchDriverAndPassenger(d, passenger):
-                text = text + getDriverRideDetails(d) + '\n'
-        return text
-    else:
-        return _("No drivers found matching your journey")
-
-def listActiveDrivers():
-    matchDrivers = getActiveDrivers()
-    if matchDrivers:
-        text = ""
-        for d in matchDrivers:
-            text = text + getDriverRideDetails(d) + '\n'
-        return text
-    else:
-        return _("No active drivers found")
-
-
-def listPassengers(driver):
-    matchPassengers = getMatchingPassengers(driver)
-    if matchPassengers:
-        text = ""
-        for p in matchPassengers:
-            if itinerary.matchDriverAndPassenger(driver, p):
-                text = text + getPassengerRideDetails(p) + '\n'
-        return text
-    else:
-       return _("No passengers found matching your journey")
-
-def listActivePassengers():
-    matchPassengers = getActivePassengers()
-    if matchPassengers:
-        text = ""
-        for p in matchPassengers:
-            text = text + getPassengerRideDetails(p) + '\n'
-        return text
-    else:
-       return _("No active passengers found")
-
-
-def removePassenger(p, driver=None):
-    person.setActive(p, False)
-    matchDrivers = getMatchingDrivers(p)
-    logging.debug('Found Drivers: ' + str(len(matchDrivers)))
-    for d in matchDrivers:
-        if d!=driver:
-            dMatchPass = getMatchingPassengers(d)
-            if len(dMatchPass)==1: #only this passenger
-                setLanguage(d.language)
-                tell(d.chat_id, _("Oops... there are no more passage requests matching your journey!"))
-                person.setNotified(d, False)
-    setLanguage(p.language)
-    #updateDashboard()
-    restartUser(p)
-
-def removeDriver(d):
-    person.setActive(d, False)
-    matchPassengers = getMatchingPassengers(d)
-    #logging.debug('Found Drivers: ' + str(len(matchPassengers)))
-    for p in matchPassengers:
-        pMatchDrivers = getMatchingDrivers(p)
-        if len(pMatchDrivers)==1:  #only this driver
-            setLanguage(p.language)
-            tell(p.chat_id, _("Oops... there are no more drivers matching your journey!"))
-            putPassengerOnHold(p)
-    setLanguage(d.language)
-    restartUser(d)
-
-def askToSelectDriverByNameAndId(p):
-    match = getMatchingDrivers(p)
-    if match:
-        buttons = []
-        for d in match:
-            buttons.append([d.name.encode('utf-8') + _(" (id: ") + d.ticket_id + _(")")])
-        buttons.append([_("Someone else")])
-        tell(p.chat_id, _("Great, which driver gave you a ride?"), kb=buttons)
-        person.setState(p, 23)
-    else: # no matching drivers
-        tell(p.chat_id, _("Thanks, have a good ride!")) # cannot ask you which driver cause they are all gone
-        removePassenger(p)
-
-def getDriverSelectionId(passenger, ticket_id):
-    id_str = ticket_id[ticket_id.index("(id:")+5:-1]
-    qry = Person.query().filter(Person.last_city==passenger.last_city, Person.ticket_id==id_str)
-    return qry.get()
-
-def broadcast_driver_message(driver, msg):
-    matchPassengers = getMatchingPassengers(driver)
-    for p in matchPassengers:
-        setLanguage(p.language)
-        tell(p.chat_id, _("Message from " + driver.name) + _(': ') + msg)
-        sleep(0.035) # no more than 30 messages per second
-    setLanguage(driver.language)
-    return len(matchPassengers)
-
-def sendText(p, text, markdown=False):
-    split = text.split()
-    if len(split)<3:
-        tell(p.chat_id, 'Commands should have at least 2 spaces')
-        return
-    if not split[1].isdigit():
-        tell(p.chat_id, 'Second argumnet should be a valid chat_id')
-        return
-    id = int(split[1])
-    text = ' '.join(split[2:])
-    if tell(id, text, markdown=markdown):
-        user = person.getPerson(id)
-        tell(p.chat_id, 'Successfully sent text to ' + user.getFirstName())
-    else:
-        tell(p.chat_id, 'Problems in sending text')
-
-def restartSingleUser(p, text):
-    split = text.split()
-    if len(split)<2:
-        tell(p.chat_id, 'Commands should have at least 1 space')
-        return
-    if not split[1].isdigit():
-        tell(p.chat_id, 'Second argumnet should be a valid chat_id')
-        return
-    chat_id = split[1]
-    text = ' '.join(split[2:])
-    u = ndb.Key(Person, chat_id).get()
-    if u:
-        restartUser(u)
-        tell(p.chat_id, 'Successfully restarted user: ' + u.name)
-    else:
-        tell(p.chat_id, 'Problems in sending text')
-
-# ================================
-# ================================
-# ================================
-
-
-def setLanguage(langId):
-    lang = LANGUAGES[langId] if langId is not None else LANGUAGES['IT']
-    gettext.translation('PickMeUp', localedir='locale', languages=[lang]).install()
-
-# ================================
-# ================================
-# ================================
-
-def tell_masters(msg, markdown=False, one_time_keyboard=False):
-    if key.TEST:
-        return
-    for id in key.MASTER_CHAT_ID:
-        tell(id, msg, markdown=markdown, one_time_keyboard = one_time_keyboard, sleepDelay=True)
-
-#def tell_fede(msg):
-#    tell(key.FEDE_CHAT_ID, msg)
-
-def sendVoice(chat_id, file_id):
+def sendRequest(url, data, recipient_chat_id, debugInfo):
     try:
-        resp = urllib2.urlopen(BASE_URL + 'sendVoice', urllib.urlencode({
-            'chat_id': str(chat_id),
-            'voice': str(file_id), #.encode('utf-8'),
-        })).read()
-        logging.info('send voice: ')
-        logging.info(resp)
-    except urllib2.HTTPError, err:
-        if err.code == 403:
-            p = Person.query(Person.chat_id==chat_id).get()
-            p.enabled = False
-            p.put()
-            logging.info('Disabled user: ' + p.getFirstName() + ' ' + str(chat_id))
-        else:
-            logging.info('Error occured: ' + str(err))
-
-
-def sendLocation(chat_id, loc):
-    try:
-        resp = urllib2.urlopen(BASE_URL + 'sendLocation', urllib.urlencode({
-            'chat_id': chat_id,
-            'latitude': loc.lat,
-            'longitude': loc.lon,
-            #'reply_markup': json.dumps({
-                #'one_time_keyboard': True,
-                #'resize_keyboard': True,
-                #'keyboard': kb,  # [['Test1','Test2'],['Test3','Test8']]
-                #'reply_markup': json.dumps({'hide_keyboard': True})
-            #}),
-        })).read()
-        logging.info('send location: ')
-        logging.info(resp)
-    except urllib2.HTTPError, err:
-        if err.code == 403:
-            p = Person.query(Person.chat_id==chat_id).get()
-            p.enabled = False
-            p.put()
-            logging.info('Disabled user: ' + p.getFirstName() + _(' ') + str(chat_id))
-
-
-def tell(chat_id, msg, kb=None, markdown=False, inlineKeyboardMarkup=False,
-         one_time_keyboard=False, sleepDelay=False):
-    replyMarkup = {
-        'resize_keyboard': True,
-        'one_time_keyboard': one_time_keyboard
-    }
-    if kb:
-        if inlineKeyboardMarkup:
-            replyMarkup['inline_keyboard'] = kb
-        else:
-            replyMarkup['keyboard'] = kb
-    try:
-        data = {
-            'chat_id': chat_id,
-            'text': msg,
-            'disable_web_page_preview': 'true',
-            'parse_mode': 'Markdown' if markdown else '',
-            'reply_markup': json.dumps(replyMarkup),
-        }
-        resp = requests.post(BASE_URL + 'sendMessage', data)
+        resp = requests.post(url, data)
         logging.info('Response: {}'.format(resp.text))
-        #logging.info('Json: {}'.format(resp.json()))
         respJson = json.loads(resp.text)
         success = respJson['ok']
         if success:
-            if sleepDelay:
-                sleep(0.1)
             return True
         else:
             status_code = resp.status_code
             error_code = respJson['error_code']
             description = respJson['description']
+            p = person.getPersonById(recipient_chat_id)
             if error_code == 403:
                 # Disabled user
-                p = person.getPersonByChatId(chat_id)
                 p.setEnabled(False, put=True)
                 logging.info('Disabled user: ' + p.getUserInfoString())
             elif error_code == 400 and description == "INPUT_USER_DEACTIVATED":
-                p = person.getPersonByChatId(chat_id)
+                p = person.getPersonById(recipient_chat_id)
                 p.setEnabled(False, put=True)
-                debugMessage = '❗ Input user disactivated: {}.'.format(p.getUserInfoString())
+                debugMessage = '❗ Input user disactivated: ' + p.getUserInfoString()
                 logging.debug(debugMessage)
-                tell(key.FEDE_CHAT_ID, debugMessage)
-                # person.deletePerson(chat_id)
+                tell(key.FEDE_CHAT_ID, debugMessage, markdown=False)
             else:
-                debugMessage = '❗ Raising unknown err in tell().' \
-                          '\nStatus code: {}\nerror code: {}\ndescription: {}.'.format(status_code, error_code, description)
-                logging.debug(debugMessage)
-                tell(key.FEDE_CHAT_ID, debugMessage)
+                debugMessage = '❗ Raising unknown err ({}).' \
+                               '\nStatus code: {}\nerror code: {}\ndescription: {}.'.format(
+                    debugInfo, status_code, error_code, description)
+                logging.error(debugMessage)
+                # logging.debug('recipeint_chat_id: {}'.format(recipient_chat_id))
+                logging.debug('Telling to {} who is in state {}'.format(p.chat_id, p.state))
+                tell(key.FEDE_CHAT_ID, debugMessage, markdown=False)
     except:
         report_exception()
 
 
 # ================================
-# ================================
+# TELL FUNCTIONS
 # ================================
 
+def tellMaster(msg, markdown=False, one_time_keyboard=False):
+    for id in key.MASTER_CHAT_ID:
+        tell(id, msg, markdown=markdown, one_time_keyboard=one_time_keyboard, sleepDelay=True)
 
-def updateDashboard():
-    #logging.debug('updateDashboard')
-    data = counter.getDashboardData()
-    qry = token_factory.Token.query()
-    removeKeys = []
-    now = time_util.now()
-    for t in qry:
-        duration_sec = (now - t.start_daytime).seconds
-        if (duration_sec>token_factory.TOKEN_DURATION_SEC):
-            removeKeys.append(t.token_id)
+
+def tellInputNonValidoUsareBottoni(chat_id, kb=None):
+    msg = '⛔️ È possibile inserire testo solo quando il programma lo richiede.\n\n' \
+          'Proseguire utilizzando i bottoni qui sotto 🎛.'
+    tell(chat_id, msg, kb)
+
+def tellInputNonValido(chat_id, kb=None):
+    msg = '⛔️ Input non riconosciuto.'
+    tell(chat_id, msg, kb)
+
+def tellInputNonValidoRepeatState(p):
+    msg = "Input non valido, leggi bene le istruzioni."
+    sendWaitingAction(p.chat_id, sleep_time=1.0)
+    tell(p.chat_id, msg)
+    repeatState(p)
+
+
+def tell(chat_id, msg, kb=None, markdown=True, inline_keyboard=False, one_time_keyboard=False,
+         sleepDelay=False, hide_keyboard=False, force_reply=False):
+    # reply_markup: InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardHide or ForceReply
+    if inline_keyboard:
+        replyMarkup = {  # InlineKeyboardMarkup
+            'inline_keyboard': kb
+        }
+    elif kb:
+        replyMarkup = {  # ReplyKeyboardMarkup
+            'keyboard': kb,
+            'resize_keyboard': True,
+            'one_time_keyboard': one_time_keyboard,
+        }
+    elif hide_keyboard:
+        replyMarkup = {  # ReplyKeyboardHide
+            'hide_keyboard': hide_keyboard
+        }
+    elif force_reply:
+        replyMarkup = {  # ForceReply
+            'force_reply': force_reply
+        }
+    else:
+        replyMarkup = {}
+
+    data = {
+        'chat_id': chat_id,
+        'text': msg,
+        'disable_web_page_preview': 'true',
+        'parse_mode': 'Markdown' if markdown else '',
+        'reply_markup': json.dumps(replyMarkup),
+    }
+    debugInfo = "tell function with msg={} and kb={}".format(msg, kb)
+    success = sendRequest(key.TELEGRAM_API_URL + 'sendMessage', data, chat_id, debugInfo)
+    if success:
+        if sleepDelay:
+            sleep(0.1)
+        return True
+
+
+def tell_person(chat_id, msg, markdown=False):
+    tell(chat_id, msg, markdown=markdown)
+    p = person.getPersonById(chat_id)
+    if p and p.enabled:
+        return True
+    return False
+
+
+def sendText(p, text, markdown=False, restartUser=False):
+    split = text.split()
+    if len(split) < 3:
+        tell(p.chat_id, 'Commands should have at least 2 spaces')
+        return
+    if not split[1].isdigit():
+        tell(p.chat_id, 'Second argument should be a valid chat_id')
+        return
+    id = int(split[1])
+    text = ' '.join(split[2:])
+    if tell_person(id, text, markdown=markdown):
+        user = person.getPersonById(id)
+        if restartUser:
+            restart(user)
+        tell(p.chat_id, 'Successfully sent text to ' + user.getFirstName())
+    else:
+        tell(p.chat_id, 'Problems in sending text')
+
+
+# ================================
+# SEND LOCATION
+# ================================
+
+def sendLocation(chat_id, latitude, longitude, kb=None):
+    try:
+        resp = urllib2.urlopen(key.TELEGRAM_API_URL + 'sendLocation', urllib.urlencode({
+            'chat_id': chat_id,
+            'latitude': latitude,
+            'longitude': longitude,
+        })).read()
+        logging.info('send location: {}'.format(resp))
+    except urllib2.HTTPError, err:
+        if err.code == 403:
+            p = Person.query(Person.chat_id == chat_id).get()
+            p.enabled = False
+            p.put()
+            logging.info('Disabled user: ' + p.getUserInfoString())
         else:
-            channel.send_message(t.token_id, json.dumps(data))
-    for k in removeKeys:
-        ndb.Key(token_factory.Token, k).delete()
+            logging.info('Unknown exception: ' + str(err))
+
 
 # ================================
-# ================================
-# ================================
-
-"""
-def getActiveDrivers(master_id):
-    match = []
-    qry = Person.query(Person.active == True, Person.state.IN(DRIVER_STATES))#.order(-Person.last_mod)
-    for d in qry:
-        if itinerary.matchDriverAndPassenger(d, passenger):
-            match.append(d)
-    return match
-
-def getActivePassengers(master_id):
-    match = []
-    qry = Person.query(Person.active==True, Person.state.IN(PASSENGER_STATES))#.order(-Person.last_mod)
-    for d in qry:
-        if itinerary.matchDriverAndPassenger(d, passenger):
-            match.append(d)
-    return match
-"""
-
-# ================================
-# ================================
+# SEND VOICE
 # ================================
 
-def testOrariBus(p):
-    #TN_Rosmini_SMM = ('Rosmini S.Maria Maggiore', 46.0678403, 11.1188594, 'RSM')
-    #location.latitude,location.longitude
-    point = geopy.point.Point(46.0678403, 11.1188594)
-    text = bus_disp.gettrip(point)
-    tell(p.chat_id, text)
+def sendVoice(chat_id, file_id):
+    try:
+        data = {
+            'chat_id': chat_id,
+            'voice': file_id,
+        }
+        resp = requests.post(key.TELEGRAM_API_URL + 'sendVoice', data)
+        logging.info('Response: {}'.format(resp.text))
+    except urllib2.HTTPError, err:
+        report_exception()
 
-def tellBusTimes(p):
-    bus_stop = person.getBusStop(p)
-    bus_location = bus_stop.location
-    point = geopy.point.Point(bus_location.lat, bus_location.lon)
-    text = bus_disp.gettrip(point)
-    tell(p.chat_id, text)
+
+# ================================
+# SEND PHOTO
+# ================================
+
+def sendPhotoViaUrlOrId(chat_id, url_id, kb=None):
+    try:
+        if kb:
+            replyMarkup = {  # ReplyKeyboardMarkup
+                'keyboard': kb,
+                'resize_keyboard': True,
+            }
+        else:
+            replyMarkup = {}
+        data = {
+            'chat_id': chat_id,
+            'photo': url_id,
+            'reply_markup': json.dumps(replyMarkup),
+        }
+        resp = requests.post(key.TELEGRAM_API_URL + 'sendPhoto', data)
+        logging.info('Response: {}'.format(resp.text))
+    except urllib2.HTTPError, err:
+        report_exception()
+
+
+# ================================
+# SEND DOCUMENT
+# ================================
+
+def sendDocument(chat_id, file_id):
+    try:
+        data = {
+            'chat_id': chat_id,
+            'document': file_id,
+        }
+        resp = requests.post(key.TELEGRAM_API_URL + 'sendDocument', data)
+        logging.info('Response: {}'.format(resp.text))
+    except urllib2.HTTPError, err:
+        report_exception()
+
+
+# ================================
+# SEND WAITING ACTION
+# ================================
+
+def sendWaitingAction(chat_id, action_tipo='typing', sleep_time=None):
+    try:
+        resp = urllib2.urlopen(key.TELEGRAM_API_URL + 'sendChatAction', urllib.urlencode({
+            'chat_id': chat_id,
+            'action': action_tipo,
+        })).read()
+        logging.info('send venue: {}'.format(resp))
+        if sleep_time:
+            sleep(sleep_time)
+    except urllib2.HTTPError, err:
+        if err.code == 403:
+            p = Person.query(Person.chat_id == chat_id).get()
+            p.enabled = False
+            p.put()
+            logging.info('Disabled user: ' + p.getUserInfoString())
+        else:
+            logging.info('Unknown exception: ' + str(err))
+
+
+# ================================
+# RESTART
+# ================================
+def restart(p, msg=None):
+    if msg:
+        tell(p.chat_id, msg)
+    redirectToState(p, RESTART_STATE)
+
+
+# ================================
+# SWITCH TO STATE
+# ================================
+def redirectToState(p, new_state, **kwargs):
+    if p.state != new_state:
+        logging.debug("In redirectToState. current_state:{0}, new_state: {1}".format(str(p.state), str(new_state)))
+        # p.firstCallCategoryPath()
+        p.setState(new_state)
+    repeatState(p, **kwargs)
+
+
+# ================================
+# REPEAT STATE
+# ================================
+def repeatState(p, put=False, **kwargs):
+    methodName = "goToState" + str(p.state)
+    method = possibles.get(methodName)
+    if not method:
+        tell(p.chat_id, "Si è verificato un problema (" + methodName +
+             "). Segnalamelo mandando una messaggio a @kercos" + '\n' +
+             "Ora verrai reindirizzato/a nella schermata iniziale.")
+        restart(p)
+    else:
+        if put:
+            p.put()
+        method(p, **kwargs)
+
+
+## +++++ BEGIN OF STATES +++++ ###
+
+# ================================
+# GO TO STATE 0: Initial State
+# ================================
+
+def goToState0(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    kb = [
+        [BOTTENE_OFFRI_PASSAGGIO, BOTTENE_CERCA_PASSAGGIO],
+        [BOTTONE_IMPOSTAZIONI],
+        [BOTTONE_INFO]
+    ]
+    if giveInstruction:
+        msg = '*Schermata iniziale*'
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTENE_OFFRI_PASSAGGIO:
+            if p.username is None or p.username == '-':
+                msg = '⚠️ Non hai uno *username pubblico* impostato su Telegram. ' \
+                      'Questo è necessario per far sì che i passeggeri ti possano contattare.\n\n' \
+                      'Ti preghiamo di *scegliere uno username nelle impostazioni di Telegram* e riprovare.'
+                tell(p.chat_id, msg, kb)
+            else:
+                redirectToState(p, 1, firstCall=True)
+        elif input == BOTTENE_CERCA_PASSAGGIO:
+            redirectToState(p, 2, firstCall=True)
+        elif input == BOTTONE_IMPOSTAZIONI:
+            redirectToState(p, 3)
+        elif input == BOTTONE_INFO:
+            redirectToState(p, 9)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 1: Offri Passaggio - Partenza - Destinazione
+# ================================
+
+def goToState1(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+    PASSAGGIO_PATH = [] if firstCall else p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
+    if firstCall:
+        p.setTmpVariable(person.VAR_PASSAGGIO_PATH, PASSAGGIO_PATH)
+    giveInstruction = input is None
+    stage = len(PASSAGGIO_PATH)
+    #logging.debug("State 1. PASSAGGIO_PATH: {}, STAGE: {}".format(PASSAGGIO_PATH, stage))
+    if giveInstruction:
+        if stage == 0:
+            itinerariCmds = getItinerariCommands(p, start_fermata=True)
+            if itinerariCmds:
+                msg = 'Seleziona uno dei tuoi itinerari:\n\n{}\n\n'.format(itinerariCmds)
+                msg += 'oppure dimmi da dove parti.'
+            else:
+                msg = '*Da dove parti?*'
+            kb = utility.makeListOfList(itinerary.SORTED_LUOGHI)
+        elif stage ==1:
+            fermate = itinerary.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[0])
+            kb = utility.makeListOfList(fermate)
+            if len(fermate)==1:
+                p.setLastKeyboard(kb)
+                repeatState(p, input=fermate[0])
+                return
+            msg = '*Da quale fermata?*'
+        elif stage == 2:
+            msg = '*Dove vai?*'
+            destinazioni = list(itinerary.SORTED_LUOGHI)
+            destinazioni.remove(PASSAGGIO_PATH[0])
+            kb = utility.makeListOfList(destinazioni)
+        else: #stage == 3
+            #time_in_half_hour = dtu.formatTime(dtu.get_datetime_add_minutes(30, dt=dtu.nowCET()), '%H%M')
+            msg = "*Quando parti?*\n\n" \
+                  "Premi *{}* se parti ora, *{}* se parti nelle prossime 24 ore o *{}* " \
+                  "se vuoi programmare un viaggio regolare " \
+                  "(ad esempio ogni lunedì alle 8:00)".format(BOTTONE_ADESSO, BOTTONE_A_BREVE, BOTTONE_PERIODICO)
+            kb = [[BOTTONE_ADESSO], [BOTTONE_A_BREVE, BOTTONE_PERIODICO]]
+        kb.insert(0, [BOTTONE_ANNULLA])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if stage == 0 and input.startswith(params.ITINERARI_COMMAND_PREFIX):
+            itinerary_start_fermata_end = p.getItineraryFromCommand(input, fermata=True)
+            if itinerary_start_fermata_end:
+                PASSAGGIO_PATH.extend(itinerary_start_fermata_end)
+                repeatState(p)
+            else:
+                tellInputNonValido(p.chat_id, kb)
+        else:
+            if input in utility.flatten(kb):
+                if input == BOTTONE_ANNULLA:
+                    restart(p)
+                elif stage<=2:
+                    PASSAGGIO_PATH.append(input)
+                    repeatState(p)
+                else:
+                    if input==BOTTONE_ADESSO: # or dtu.getTime(input, format='%H%M'):
+                        start_place = PASSAGGIO_PATH[0]
+                        start_fermata = PASSAGGIO_PATH[1]
+                        end_place = PASSAGGIO_PATH[2]
+                        dt = dtu.nowCET() #if input==BOTTONE_ADESSO else dtu.getTime(input, format='%H%M')
+                        finalizeOffer(p, start_place, start_fermata, end_place, dt)
+                        sendWaitingAction(p.chat_id) #, sleep_time=1
+                        restart(p)
+                    elif input == BOTTONE_A_BREVE:
+                        redirectToState(p, 11, firstCall=True)
+                    else: # BOTTONE_PROGRAMMATO
+                        redirectToState(p, 12, firstCall=True)
+            else:
+                tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+def finalizeOffer(p, start_place, start_fermata, end_place, date_time, programmato=False, programmato_giorni=()):
+    logging.debug("In finalizeOffer. DAYS: {}".format(programmato_giorni))
+    #date_time = dtu.convertCETtoUTC(date_time)
+    date_time = dtu.removeTimezone(date_time)
+    time_str = dtu.formatTime(date_time, format='%H:%M')
+    date_str = dtu.formatDate(date_time, format='%d.%m.%Y')
+    o = ride_offer.addRideOffer(p, date_time, start_place, start_fermata, end_place,
+                                programmato, programmato_giorni)
+    qry = person.getPeopleMatchingRideQry(o.start_place, o.intermediate_places, o.end_place)
+    msg = "Grazie per aver inserito l'offerta di passaggio\n" \
+          "*{} ({}) ➡ {}* alle {}".format(start_place, start_fermata, end_place, time_str)
+    if programmato:
+        giorni = [params.GIORNI_SETTIMANA_FULL[x] for x in programmato_giorni]
+        giorni_str = ', '.join(giorni)
+        msg += ' ogni {}'.format(giorni_str)
+    else:
+        msg += ' del {}'.format(date_str)
+    #msg += "\n\nOfferta inviata a {} persone".format(qry.count())
+    tell(p.chat_id, msg)
+    msg_broadcast = '🚘 *Nuova offerta di passagio*:\n\n{}'.format(o.getDescription())
+    broadcast(p, msg_broadcast, qry, restart_user=False, curs=None, enabledCount=0, total=0,
+              blackList_ids=[p.chat_id], sendNotification=False)
+
+def getItinerariCommands(p, start_fermata):
+    itinerari = p.getItineraryStrList(start_fermata)
+    commands = ['∙ {}: {}'.format(
+        params.getCommand(params.ITINERARI_COMMAND_PREFIX, n), i)
+                for n, i in enumerate(itinerari, 1)]
+    return '\n'.join(commands)
+
+
+# ================================
+# GO TO STATE 11: Offri passaggio a breve (24 ore)
+# ================================
+
+def goToState11(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+    TIME_HH_MM = [] if firstCall else p.getTmpVariable(person.VAR_PASSAGGIO_TIME)
+    if firstCall:
+        p.setTmpVariable(person.VAR_PASSAGGIO_TIME, TIME_HH_MM)
+    giveInstruction = input is None
+    stage = len(TIME_HH_MM)
+    if giveInstruction:
+        current_hour = dtu.nowCET().hour
+        if stage == 0:
+            msg = '*A che ora parti?*'
+            current_min = dtu.nowCET().minute
+            if current_min > 52:
+                current_hour += 1
+            circular_range = range(current_hour, 24) + range(0, current_hour)
+            hours = [str(x).zfill(2) for x in circular_range]
+            kb = utility.distributeElementMaxSize(hours, 8)
+        else:
+            msg = '*A che minuto parti?*'
+            startNowMinutes = current_hour == TIME_HH_MM[0]
+            if startNowMinutes:
+                current_min_approx = utility.roundup(dtu.nowCET().minute + 2, 5)
+                circular_range = range(current_min_approx, 60, 5)
+                minutes = [str(x).zfill(2) for x in circular_range]
+            else:
+                minutes = [str(x).zfill(2) for x in range(0, 60, 5)]
+            kb = utility.distributeElementMaxSize(minutes, 6)
+        kb.insert(0, [BOTTONE_ANNULLA])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_ANNULLA:
+            restart(p)
+            return
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            TIME_HH_MM.append(int(input))
+            if stage == 0:
+                repeatState(p)
+            else:
+                PASSAGGIO_PATH = p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
+                start_place = PASSAGGIO_PATH[0]
+                start_fermata = PASSAGGIO_PATH[1]
+                end_place = PASSAGGIO_PATH[2]
+                dt = dtu.nowCET()
+                dt = dt.replace(hour=TIME_HH_MM[0], minute=TIME_HH_MM[1])
+                if dt.time() < dtu.nowCET().time():
+                    dt = dtu.get_date_tomorrow(dt)
+                finalizeOffer(p, start_place, start_fermata, end_place, dt)
+                sendWaitingAction(p.chat_id, sleep_time=1)
+                restart(p)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 12: Offri passaggio periodico
+# ================================
+
+def goToState12(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+    logging.debug("firstCall: {}".format(firstCall))
+    TIME_HH_MM = [] if firstCall else p.getTmpVariable(person.VAR_PASSAGGIO_TIME)
+    DAYS = [] if firstCall else p.getTmpVariable(person.VAR_PASSAGGIO_DAYS)
+    STAGE = 0 if firstCall else p.getTmpVariable(person.VAR_STAGE)
+    logging.debug("DAYS: {}".format(DAYS))
+    if firstCall:
+        p.setTmpVariable(person.VAR_PASSAGGIO_TIME, TIME_HH_MM)
+        p.setTmpVariable(person.VAR_PASSAGGIO_DAYS, DAYS)
+        p.setTmpVariable(person.VAR_STAGE, STAGE)
+    giveInstruction = input is None
+    logging.debug("Stage: {}".format(STAGE))
+    if giveInstruction:
+        if STAGE == 0:
+            msg = '*In che giorni effettui il viaggio?*'
+            logging.debug("msg: {}".format(msg))
+            g = lambda x: '{}{}'.format(CHECK_ICON, x) if params.GIORNI_SETTIMANA.index(x) in DAYS else x
+            GIORNI_CHECK = [g(x) for x in params.GIORNI_SETTIMANA]
+            logging.debug("GIORNI_CHECK: {}".format(GIORNI_CHECK))
+            kb = [GIORNI_CHECK]
+            if len(DAYS) > 0:
+                kb.append([BOTTONE_CONFERMA])
+        elif STAGE == 1:
+            msg = '*A che ora parti?*'
+            start_hour = 6
+            circular_range = range(start_hour, 24) + range(0, start_hour)
+            hours = [str(x).zfill(2) for x in circular_range]
+            kb = utility.distributeElementMaxSize(hours, 8)
+        else: # STAGE == 2
+            msg = '*A che minuto parti?*'
+            minutes = [str(x).zfill(2) for x in range(0, 60, 5)]
+            kb = utility.distributeElementMaxSize(minutes, 6)
+        kb.insert(0, [BOTTONE_ANNULLA])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_ANNULLA:
+            restart(p)
+            return
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if STAGE == 0: # DAYS
+                if input == BOTTONE_CONFERMA:
+                    p.setTmpVariable(person.VAR_STAGE, STAGE + 1)
+                    repeatState(p)
+                else:
+                    remove = CHECK_ICON in input
+                    selected_giorno = input[-2:] if remove else input
+                    selected_giorno_index = params.GIORNI_SETTIMANA.index(selected_giorno)
+                    if remove:
+                        DAYS.remove(selected_giorno_index)
+                    else:
+                        DAYS.append(selected_giorno_index)
+                    repeatState(p)
+            elif STAGE == 1: # hour
+                p.setTmpVariable(person.VAR_STAGE, STAGE + 1)
+                TIME_HH_MM.append(int(input))
+                repeatState(p)
+            else: # minute
+                TIME_HH_MM.append(int(input))
+                PASSAGGIO_PATH = p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
+                start_place = PASSAGGIO_PATH[0]
+                start_fermata = PASSAGGIO_PATH[1]
+                end_place = PASSAGGIO_PATH[2]
+                dt = dtu.nowCET()
+                dt = dt.replace(hour=TIME_HH_MM[0], minute=TIME_HH_MM[1])
+                if dt.time() < dtu.nowCET().time():
+                    dt = dtu.get_date_tomorrow(dt)
+                finalizeOffer(p, start_place, start_fermata, end_place, dt, programmato=True, programmato_giorni=DAYS)
+                sendWaitingAction(p.chat_id, sleep_time=1)
+                restart(p)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 2: Cerca Passaggio - Partenza - Destinazione
+# ================================
+
+def goToState2(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+    PASSAGGIO_PATH = [] if firstCall else p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
+    logging.debug("PASSAGGIO_PATH: {}".format(PASSAGGIO_PATH))
+    if firstCall:
+        p.setTmpVariable(person.VAR_PASSAGGIO_PATH, PASSAGGIO_PATH)
+    giveInstruction = input is None
+    stage = len(PASSAGGIO_PATH)
+    if giveInstruction:
+        if stage == 0:
+            itinerariCmds = getItinerariCommands(p, start_fermata=True)
+            if itinerariCmds:
+                msg = 'Seleziona uno dei *tuoi itinerari*:\n\n{}\n\n'.format(itinerariCmds)
+                msg += 'oppure dimmi da *dove parti*.'
+            else:
+                msg = '*Da dove parti?*'
+            kb = utility.makeListOfList(itinerary.SORTED_LUOGHI)
+        else: # stage == 1:
+            msg = '*Dove vai?*'
+            destinazioni = list(itinerary.SORTED_LUOGHI)
+            destinazioni.remove(PASSAGGIO_PATH[0])
+            kb = utility.makeListOfList(destinazioni)
+        kb.insert(0, [BOTTONE_ANNULLA])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if stage == 0 and input.startswith(params.ITINERARI_COMMAND_PREFIX):
+            itinerary_start_end = p.getItineraryFromCommand(input, fermata=False)
+            if itinerary_start_end:
+                PASSAGGIO_PATH.extend(itinerary_start_end)
+                showItinerari(p, PASSAGGIO_PATH)
+            else:
+                tellInputNonValido(p.chat_id, kb)
+        elif input in utility.flatten(kb):
+                if input == BOTTONE_ANNULLA:
+                    restart(p)
+                    return
+                PASSAGGIO_PATH.append(input)
+                if stage == 0:
+                    repeatState(p)
+                else:
+                    showItinerari(p, PASSAGGIO_PATH)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+def showItinerari(p, PASSAGGIO_PATH):
+    start_place = PASSAGGIO_PATH[0]
+    end_place = PASSAGGIO_PATH[1]
+    sendWaitingAction(p.chat_id)
+    offers = p.saveRideOffersStartEndPlace(start_place, end_place)
+    itinerari_num = sum([len(l) for l in offers])
+    msg = "Itinerari trovati: {}".format(itinerari_num)
+    tell(p.chat_id, msg)
+    if itinerari_num > 0:
+        redirectToState(p, 21)
+    else:
+        sendWaitingAction(p.chat_id, sleep_time=1)
+        restart(p)
+
+# ================================
+# GO TO STATE 21: Cerca Passaggio - Quando
+# ================================
+
+def goToState21(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    if giveInstruction:
+        msg = '*Quando vuoi partire?*'
+        offers_per_day = p.loadRideOffersStartEndPlace()
+        today = dtu.getWeekday()
+        giorni_sett_oggi_domani = params.GIORNI_SETTIMANA[today:] + params.GIORNI_SETTIMANA[:today]
+        giorni_sett_oggi_domani[:2] = ['OGGI', 'DOMANI']
+        logging.debug('giorni_sett_oggi_domani: {}'.format(giorni_sett_oggi_domani))
+        offer_days_count = [len(x) for x in offers_per_day]
+        offer_days_count_oggi_domani = offer_days_count[today:] + offer_days_count[:today]
+        offer_giorni_sett_count_oggi_domani = ['{} ({})'.format(d, c) for d,c in zip(giorni_sett_oggi_domani, offer_days_count_oggi_domani)]
+        kb = [[BOTTONE_ANNULLA], offer_giorni_sett_count_oggi_domani[:2], offer_giorni_sett_count_oggi_domani[2:]]
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_ANNULLA:
+            restart(p)
+            return
+        kb = p.getLastKeyboard()
+        flat_kb = utility.flatten(kb)
+        if input in flat_kb:
+            count = int(input[input.index('(')+1:input.index(')')])
+            giorno = input[:input.index(' ')]
+            giorno_full = giorno if len(giorno)>2 else params.GIORNI_SETTIMANA_FULL[params.GIORNI_SETTIMANA.index(giorno)]
+            if count==0:
+                msg = "Nessun passaggio per {}".format(giorno_full)
+                tell(p.chat_id, msg, kb)
+            else:
+                today = dtu.getWeekday()
+                giorno_index = (flat_kb.index(input) - 1 + today) % 7  # -1 because of BOTTONE_ANNULLA
+                p.saveRideOffersStartEndPlaceChosenDay(giorno_index)
+                #msg = "Debug - chosen day: {}".format(params.GIORNI_SETTIMANA[giorno_index])
+                #tell(p.chat_id, msg)
+                sendWaitingAction(p.chat_id, sleep_time=1)
+                redirectToState(p, 22, firstCall=True)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 22: Cerca Passaggio - Risultati
+# ================================
+
+def goToState22(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    if giveInstruction:
+        firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+        offers_chosen_day = p.loadRideOffersStartEndDayChosenDay()
+        cursor = [0, len(offers_chosen_day)] if firstCall else p.getTmpVariable(person.VAR_CURSOR)
+        if firstCall:
+            p.setTmpVariable(person.VAR_CURSOR, cursor)
+        logging.debug('offers_chosen_day: {}'.format(offers_chosen_day))
+        offer = offers_chosen_day[cursor[0]]
+        msg = "Passaggio {}/{}\n\n{}".format(cursor[0]+1, cursor[1], offer.getDescription())
+        kb = [[BOTTONE_INDIETRO]]
+        if len(offers_chosen_day)>1:
+            kb.insert(0, [PREV_ICON, NEXT_ICON])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input==BOTTONE_INDIETRO:
+                redirectToState(p, 21)
+            elif input==PREV_ICON:
+                p.decreaseCursor()
+                repeatState(p, put=True)
+            else: #input==NEXT_ICON:
+                p.increaseCursor()
+                repeatState(p, put=True)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+
+# ================================
+# GO TO STATE 3: Impostazioni
+# ================================
+
+def goToState3(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    if giveInstruction:
+        my_offers = p.saveMyRideOffers()
+        if my_offers:
+            kb = [[BOTTONE_ELIMINA_OFFERTE], [BOTTONE_ITINERARI, BOTTONE_NOTIFICHE], [BOTTONE_INDIETRO]]
+        else:
+            kb = [[BOTTONE_ITINERARI, BOTTONE_NOTIFICHE], [BOTTONE_INDIETRO]]
+        msg = '*Schermata Impostazioni*'
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input == BOTTONE_INDIETRO:
+                restart(p)
+            elif input == BOTTONE_ITINERARI:
+                redirectToState(p, 31)
+            elif input == BOTTONE_NOTIFICHE:
+                redirectToState(p, 32)
+            else: # input == BOTTONE_ELIMINA_OFFERTE:
+                redirectToState(p, 33, firstCall=True)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 31: Itinerari
+# ================================
+
+def goToState31(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    if giveInstruction:
+        itinerari = p.getItineraryStrList()
+        reached_max_itinerari = len(itinerari) > params.MAX_ITINERARI
+        AGGIUNGI_RIMUOVI_BUTTONS = []
+        if not reached_max_itinerari:
+            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_AGGIUNGI_ITINERARIO)
+        if itinerari:
+            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_RIMUOVI_ITINERARIO)
+        kb = [AGGIUNGI_RIMUOVI_BUTTONS, [BOTTONE_INDIETRO]]
+        msg = '*Schermata Itinerari*\n\n'
+        if itinerari:
+            msg += '\n'.join(['∙ {}'.format(i) for i in itinerari])
+            if reached_max_itinerari:
+                msg += '\n\nHai raggiunto il numero massimo di itinerari.'
+        else:
+            msg += 'Nessun itinerario inserito.'
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input == BOTTONE_INDIETRO:
+                redirectToState(p, 3)
+            elif input == BOTTONE_AGGIUNGI_ITINERARIO:
+                redirectToState(p, 311, firstCall=True)
+            else: # input == BOTTONE_RIMUOVI_ITINERARIO
+                redirectToState(p, 312)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 311: Aggiungi Itinerario
+# ================================
+
+def goToState311(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+    PASSAGGIO_PATH = [] if firstCall else p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
+    if firstCall:
+        p.setTmpVariable(person.VAR_PASSAGGIO_PATH, PASSAGGIO_PATH)
+    giveInstruction = input is None
+    stage = len(PASSAGGIO_PATH)
+    if giveInstruction:
+        if stage == 0:
+            # '*Offri Passaggio 1/4*\n\n' \
+            msg = '*Da dove parti?*'
+            kb = utility.makeListOfList(itinerary.SORTED_LUOGHI)
+        elif stage ==1:
+            # '*Offri Passaggio 2/4*\n\n' \
+            fermate = itinerary.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[0])
+            kb = utility.makeListOfList(fermate)
+            if len(fermate)==1:
+                p.setLastKeyboard(kb)
+                repeatState(p, input=fermate[0])
+                return
+            msg = '*Da quale fermata?*'
+        else: # stage == 2:
+            # '*Offri Passaggio 3/4*\n\n' \
+            msg = '*Dove vai?*'
+            destinazioni = list(itinerary.SORTED_LUOGHI)
+            destinazioni.remove(PASSAGGIO_PATH[0])
+            kb = utility.makeListOfList(destinazioni)
+        kb.insert(0, [BOTTONE_INDIETRO])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_INDIETRO:
+            redirectToState(p, 31)
+            return
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            PASSAGGIO_PATH.append(input)
+            if stage <= 1:
+                repeatState(p)
+            else: # stage==3
+                p.appendItinerary(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+                msg = '*Aggiunto itinerario*:\n{} ({}) → {}'.format(
+                    PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+                tell(p.chat_id, msg)
+                sendWaitingAction(p.chat_id, sleep_time=1)
+                redirectToState(p, 31)
+
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 312: Rimuovi Itinerari
+# ================================
+
+def goToState312(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    itinerari = p.getItineraryStrList()
+    if giveInstruction:
+        msg = "*Premi il numero corrispondende all'itinerario che vuoi rimuovere.*\n\n"
+        msg += '\n'.join(['{}. {}'.format(n,i) for n,i in enumerate(itinerari,1)])
+        numberButtons = [str(n) for n in range(1,len(itinerari)+1)]
+        kb = utility.distributeElementMaxSize(numberButtons)
+        kb.insert(0, [BOTTONE_INDIETRO])
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input == BOTTONE_INDIETRO:
+                redirectToState(p, 31)
+            else:  # input == BOTTONE_RIMUOVI_ITINERARIO
+                n = int(input)
+                PASSAGGIO_PATH = p.removeItinerario(n-1)
+                msg = '*Rimosso itinerario*:\n{} ({}) → {}'.format(
+                    PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+                tell(p.chat_id, msg)
+                if p.getItineraryNumber()>0:
+                    repeatState(p)
+                else:
+                    redirectToState(p, 31)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+
+# ================================
+# GO TO STATE 32: Notifiche
+# ================================
+
+def goToState32(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    NOTIFICHE_BUTTONS = [BOTTONE_ATTIVA_NOTIFICHE_TUTTE, BOTTONE_ATTIVA_NOTIFICHE_ITINERARI,
+                         BOTTONE_DISTATTIVA_NOTIFICHE]
+    if giveInstruction:
+        NOTIFICHE_MODES = list(params.NOTIFICATIONS_MODES)
+        NOTIFICA_ATTIVA = p.getNotificationMode()
+        logging.debug("NOTIFICA_ATTIVA: {}".format(NOTIFICA_ATTIVA))
+        active_index = NOTIFICHE_MODES.index(NOTIFICA_ATTIVA)
+        NOTIFICHE_MODES.pop(active_index)
+        NOTIFICHE_BUTTONS.pop(active_index)
+        if NOTIFICA_ATTIVA == params.NOTIFICATION_MODE_NONE:
+            msg = '🔕 Non hai nessuna notifica attiva.'
+        elif NOTIFICA_ATTIVA == params.NOTIFICATION_MODE_ITINERARIES:
+            msg = '🔔🛣 Hai attivato le notifiche dei passaggio corrispondenti ai tuoi itineri.'
+        else: #BOTTONE_NOTIFICHE_TUTTE
+            msg = '🔔🔔🔔 Hai attivato le notifiche per tutti i passaggi.'
+        kb = utility.makeListOfList(NOTIFICHE_BUTTONS)
+        kb.append([BOTTONE_INDIETRO])
+        tell(p.chat_id, msg, kb)
+        p.setLastKeyboard(kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input == BOTTONE_INDIETRO:
+                redirectToState(p, 3)
+            else: #
+                activated_index = NOTIFICHE_BUTTONS.index(input)
+                activated_mode = params.NOTIFICATIONS_MODES[activated_index]
+                p.setNotificationMode(activated_mode)
+                repeatState(p)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 33: Elimina Offerte
+# ================================
+
+def goToState33(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    if giveInstruction:
+        my_offers = p.loadMyRideOffers()
+        if my_offers:
+            firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
+            if firstCall:
+                cursor = [0, len(my_offers)]
+                p.setTmpVariable(person.VAR_CURSOR, cursor)
+            else:
+                cursor = p.getTmpVariable(person.VAR_CURSOR)
+            offer = my_offers[cursor[0]]
+            msg = "Passaggio {}/{}\n\n{}".format(cursor[0] + 1, cursor[1], offer.getDescription())
+            kb = [[BOTTONE_ELIMINA], [BOTTONE_INDIETRO]]
+            if len(my_offers) > 1:
+                kb.insert(0, [PREV_ICON, NEXT_ICON])
+        else:
+            msg = "Hai eliminato tutte le offerte"
+            kb = [[BOTTONE_INDIETRO]]
+        tell(p.chat_id, msg, kb)
+        p.setLastKeyboard(kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input == BOTTONE_INDIETRO:
+                redirectToState(p, 3)
+            elif input == PREV_ICON:
+                p.decreaseCursor()
+                repeatState(p, put=True)
+            elif input==NEXT_ICON:
+                p.increaseCursor()
+                repeatState(p, put=True)
+            else: # input==BOTTONE_ELIMINA:
+                p.deleteMyOfferAtCursor()
+                repeatState(p, put=True)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 9: Info
+# ================================
+
+def goToState9(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    kb = [[BOTTONE_FERMATE], [BOTTONE_INDIETRO]]
+    if giveInstruction:
+        msg = '*Schermata iniziale*\n\n' \
+              'Clicca su {} per vedere le fermate PickMeUp.'.format(BOTTONE_FERMATE)
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_FERMATE:
+            redirectToState(p, 91)
+        elif input == BOTTONE_INDIETRO:
+            restart(p)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+
+# ================================
+# GO TO STATE 91: Info Fermate
+# ================================
+
+def goToState91(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    location = kwargs['location'] if 'location' in kwargs else None
+    giveInstruction = input is None
+    kb = [[BOTTONE_MAPPA], [BOTTONE_INDIETRO]]
+    if giveInstruction:
+        msg = 'Mandami una posizione tramite la graffetta 📎 in basso o scrivi il nome di un posto (ad esempio Trento).'
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_INDIETRO:
+            redirectToState(p, 9)
+            return
+        if input == BOTTONE_MAPPA:
+            sendPhotoViaUrlOrId(p.chat_id, itinerary.FULL_MAP_IMG_URL, kb)
+            return
+        if input:
+            loc = geoUtils.getLocationFromAddress(input)
+            if loc:
+                location = {
+                    'latitude': loc.latitude,
+                    'longitude': loc.longitude
+                }
+        if location:
+            img_url, text = fermate.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
+            if img_url:
+                sendPhotoViaUrlOrId(p.chat_id, img_url, kb)
+            tell(p.chat_id, text)
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+
+## +++++ END OF STATES +++++ ###
 
 # ================================
 # HANDLERS
@@ -1286,114 +1227,37 @@ class SafeRequestHandler(webapp2.RequestHandler):
         report_exception()
 
 
-class TestHandler(SafeRequestHandler):
-    def get(self):
-        tell(key.FEDE_CHAT_ID, "Test Handler")
-
-
-class MeHandler(SafeRequestHandler):
+class MeHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getMe'))))
+        self.response.write(json.dumps(json.load(urllib2.urlopen(key.TELEGRAM_API_URL + 'getMe'))))
 
-class TiramisuHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        #tell(key.MASTER_CHAT_ID, msg = "Lottery test")
-
-class InfoWeekAllHandler(SafeRequestHandler):
-    def get(self):
-        if key.TEST:
-            return
-        #urlfetch.set_default_fetch_deadline(60)
-        broadcast(getInfoWeek('IT'), language='IT', check_notification=True)
-        broadcast(getInfoWeek('EN'), language='EN', check_notification=True)
-
-
-class DayPeopleCountHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        date_counter.addPeopleCount()
-
-class ResetCountersHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        counter.resetCounter()
-
-
-class DashboardHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        data = counter.getDashboardData()
-        token_id = token_factory.createToken()
-        data['token'] = token_id
-        data['today_events'] = json.dumps(getTodayTimeline())
-        logging.debug('Requsts: ' + str(data['today_events']))
-        template = DASHBOARD_DIR_ENV.get_template('PickMeUp.html')
-        logging.debug("Requested Dashboard. Created new token.")
-        self.response.write(template.render(data))
-
-class GetTokenHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        token_id = token_factory.createToken()
-        logging.debug("Token handler. Created a new token.")
-        self.response.headers['Content-Type'] = 'application/json'
-        self.response.write(json.dumps({'token': token_id}))
-
-class DashboardConnectedHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        client_id = self.request.get('from')
-        logging.debug("Channel connection request from client id: " + client_id)
-
-class DashboardDisconnectedHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        client_id = self.request.get('from')
-        logging.debug("Channel disconnection request from client id: " + client_id)
-
-class CheckExpiredUsersHandler(SafeRequestHandler):
-    def get(self):
-        try:
-            checkExpiredUsers()
-        except InternalError:
-            msg = "Internal error in CheckExpiredUsersHandler"
-            logging.debug(msg)
-            tell(key.FEDE_CHAT_ID, msg)
-
-class RestartOldUsersHandler(SafeRequestHandler):
-    def get(self):
-        restartOldUsers()
-
-class GetUpdatesHandler(SafeRequestHandler):
-    def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        self.response.write(json.dumps(json.load(urllib2.urlopen(BASE_URL + 'getUpdates'))))
 
 class SetWebhookHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
         allowed_updates = ["message", "inline_query", "chosen_inline_result", "callback_query"]
         data = {
-            'url': key.WEBHOOK_URL,
+            'url': key.TELEGRAM_WEBHOOK_URL,
             'allowed_updates': json.dumps(allowed_updates),
         }
-        resp = requests.post(key.BASE_URL + 'setWebhook', data)
+        resp = requests.post(key.TELEGRAM_API_URL + 'setWebhook', data)
         logging.info('SetWebhook Response: {}'.format(resp.text))
         self.response.write(resp.text)
+
 
 class GetWebhookInfo(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        resp = requests.post(key.BASE_URL + 'getWebhookInfo')
+        resp = requests.post(key.TELEGRAM_API_URL + 'getWebhookInfo')
         logging.info('GetWebhookInfo Response: {}'.format(resp.text))
         self.response.write(resp.text)
+
 
 class DeleteWebhook(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        resp = requests.post(key.BASE_URL + 'deleteWebhook')
+        resp = requests.post(key.TELEGRAM_API_URL + 'deleteWebhook')
         logging.info('DeleteWebhook Response: {}'.format(resp.text))
         self.response.write(resp.text)
 
@@ -1402,884 +1266,177 @@ class DeleteWebhook(webapp2.RequestHandler):
 # WEBHOOK HANDLER
 # ================================
 
-class WebhookHandler(SafeRequestHandler):
+def send_FB_menu(sender_id):
+    #"recipient": {"id": sender_id},
+    response_data = {
+        "setting_type": "call_to_actions",
+        "thread_state": "existing_thread",
+        "call_to_actions": [
+            {
+                "type": "postback",
+                "title": "Help",
+                "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_HELP"
+            },
+            {
+                "type": "postback",
+                "title": "Start a New Order",
+                "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_START_ORDER"
+            },
+            {
+                "type": "web_url",
+                "title": "View Website",
+                "url": "http://petersapparel.parseapp.com/"
+            }
+        ]
+    }
+
+    logging.info('sending menu with json: {}'.format(response_data))
+    resp = requests.post(key.FACEBOOK_TRD_API_URL, json=response_data)
+    logging.info('responding to request: {}'.format(resp.text))
+
+class FBHandler(webapp2.RequestHandler):
+    def get(self):
+        urlfetch.set_default_fetch_deadline(60)
+        challange = self.request.get('hub.challenge')
+        self.response.write(challange)
 
     def post(self):
-        urlfetch.set_default_fetch_deadline(60)
-        body = json.loads(self.request.body)
-        logging.info('request body:')
-        logging.info(body)
-        self.response.write(json.dumps(body))
+        # urlfetch.set_default_fetch_deadline(60)
+        body = jsonUtil.json_loads_byteified(self.request.body)
+        logging.info('request body: {}'.format(body))
+        data = body['entry'][0]['messaging'][0]
+        sender = data['sender']['id']
+        if 'message' not in data:
+            return
+        message = data['message']['text']
+        logging.info('got message ({}) from {}'.format(message, sender))
+
+        response_data = {
+            "recipient": {"id": sender},
+            "message": {
+                "text": message,
+                "quick_replies": [
+                    {
+                        "content_type": "text",
+                        "title": "Red",
+                        "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_RED"
+                    },
+                    {
+                        "content_type": "text",
+                        "title": "Green",
+                        "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_GREEN"
+                    },
+                    {
+                        "content_type": "text",
+                        "title": "blue",
+                        "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_GREEN"
+                    },
+                ]
+            }
+        }
+
+        '''
+        response_data = {
+            "recipient": {"id": sender},
+            "message":{
+                "attachment": {
+                    "type": "template",
+                    "payload": {
+                        "template_type": "button",
+                        "text": "What do you want to do next?",
+                        "buttons": [
+                            {
+                                "type": "web_url",
+                                "url": "https://petersapparel.parseapp.com",
+                                "title": "Show Website"
+                            },
+                            {
+                                "type": "postback",
+                                "title": "Start Chatting",
+                                "payload": "USER_DEFINED_PAYLOAD"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        '''
+
+        logging.info('responding to request with json: {}'.format(response_data))
+        resp = requests.post(key.FACEBOOK_MSG_API_URL, json=response_data)
+        logging.info('responding to request: {}'.format(resp.text))
+
+        send_FB_menu(sender)
+
+
+class TelegramWebhookHandler(SafeRequestHandler):
+    def post(self):
+        # urlfetch.set_default_fetch_deadline(60)
+        body = jsonUtil.json_loads_byteified(self.request.body)
+        logging.info('request body: {}'.format(body))
+        # self.response.write(json.dumps(body))
 
         # update_id = body['update_id']
-        message = body['message']
-        message_id = message.get('message_id')
-        # date = message.get('date')
-        #if "text" not in message:
-        #    return
-
-        #text = message.get('text').encode('utf-8') if "text" in message else ""
-        text_uni = message.get('text') if "text" in message else ""
-        text = text_uni.encode('utf-8')
-
-
-        # fr = message.get('from')
-        if "chat" not in message:
+        if 'message' not in body:
             return
+        message = body['message']
+        if 'chat' not in message:
+            return
+
         chat = message['chat']
         chat_id = chat['id']
-        if "first_name" not in chat:
+        if 'first_name' not in chat:
             return
-        name = chat["first_name"].encode('utf-8')
-        last_name = chat["last_name"].encode('utf-8') if "last_name" in chat else "-"
-        username = chat["username"].encode('utf-8') if "username" in chat else "-"
-        text_location = message["location"] if "location" in message else None
-        voice = message["voice"] if "voice" in message else None
+        text = message.get('text') if 'text' in message else ''
+        name = chat['first_name']
+        last_name = chat['last_name'] if 'last_name' in chat else None
+        username = chat['username'] if 'username' in chat else None
+        location = message['location'] if 'location' in message else None
+        contact = message['contact'] if 'contact' in message else None
+        photo = message.get('photo') if 'photo' in message else None
+        document = message.get('document') if 'document' in message else None
+        voice = message.get('voice') if 'voice' in message else None
 
-        def reply(msg=None, kb=None, markdown=False, inlineKeyboardMarkup=False,  one_time_keyboard=True):
-            tell(chat_id, msg, kb=kb, markdown=markdown,
-                 inlineKeyboardMarkup=inlineKeyboardMarkup, one_time_keyboard = one_time_keyboard)
-
-        def replyLocation(location):
-            sendLocation(chat_id, location)
+        def reply(msg=None, kb=None, markdown=True, inline_keyboard=False):
+            tell(chat_id, msg, kb=kb, markdown=markdown, inline_keyboard=inline_keyboard)
 
         p = ndb.Key(Person, str(chat_id)).get()
 
-        setLanguage(p.language if p is not None else None)
-
-        INSTRUCTIONS =  (_("PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for small journeys within a city).") + "\n\n" +
-                         _("You need to agree on terms and conditions in SETTINGS  and insert an ITINERARY to start a new journey.") + "\n" +
-                         _("Once all is set, you can press START to request or offer a ride.") + "\n\n" +
-                         _("Please visit our website at http://pickmeup.trentino.it " +
-                           "read the pdf instructions at http://tiny.cc/pickmeup_info " +
-                           "and if you want to promote this initiative do like us on FaceBook https://www.fb.com/321pickmeup ") + "\n\n" +
-                         _("If you want to join our discussions come to the tiramisu group at the following link: " +
-                           "https://telegram.me/joinchat/B8zsMQBtAYuYtJMj7qPE7g") + "\n\n" +
-                         _("Any feedback or contribution is highly appreciated (go to INFO -> SEND FEEDBACK)! :D")) #.encode('utf-8')
-
-        TERMS_AND_CONDITIONS = (_("PickMeUp is a dynamic carpooling system, like BlaBlaCar but within the city.") + "\n" +
-                                _("It is currently  under testing.") + "\n\n" +
-                                _("WARNINGS:") + "\n" +
-                                _("Drivers: please offer rides before starting the ride. " +
-                                  "DO NOT use your phone while you drive.") + "\n" +
-                                _("Passengers: please ask for rides when you are at the bus stop. ") +
-                                _("Be kind with the driver and the other passengers.") + "\n\n" +
-                                _("PickMeUp is a non-profit service and it is totally money-free between passengers and drivers.") + "\n" +
-                                _("The current version is under testing: ") +
-                                _("no review system has been implemented yet and ride traceability is still limited. ") + "\n\n" +
-                                _("PickMeUp developers decline any responsibility for the use of the service.") + "\n" +
-                                _("If you want to use this service you have to agree on these terms by pressing the button below."))
-
-        MESSAGE_FOR_FRIENDS = _("Hi, I've discovered @PickMeUp_bot a free capooling service via Telegram! ") +\
-                              _("It's like BlaBlaCar, but for commuting within a city. ") + \
-                              _("The system is currently under testing but the community is getting larger every day. ") + \
-                              _("You can try it by clicking on @PickMeUp_bot and press START! ")
-
-        PAPER_CLIP_INSTRUCTIONS = _("Please attach a location by 1) pressing the ") + emoij.PAPER_CLIP +\
-                                  _(" icon below and 2) chosing a position in the map.")
+        # setLanguage(p.language if p is not None else None)
 
         if p is None:
             if text.startswith("/start"):
-                p = person.addPerson(chat_id, name)
-                registerUser(p, name, last_name, username)
-                restartUser(p)
-                # state = -2
-                tell_masters("New user: " + name)
+                p = person.addPerson(chat_id, name, last_name, username)
+                msg = " 😀 Ciao {},\nbenvenuto/a In PickMeUp!\n".format(p.getFirstName())
+                reply(msg)
+                restart(p)
+                tellMaster("New user: " + name)
             else:
                 reply("Premi su /start se vuoi iniziare. "
                       "Se hai qualche domanda o suggerimento non esitare di contattarmi cliccando su @kercos")
         else:
             # known user
-            person.updateUsername(p, username)
+            p.updateUserInfo(name, last_name, username)
             if text.startswith("/start"):
-                reply(_("Hi") + ' ' + name + ", " + _("welcome back!"))
-                registerUser(p, name, last_name, username)
-                restartUser(p)
-                # state = -2
-            elif text=='/state':
-                if p.state in STATES:
-                    reply("You are in state " + str(p.state) + ": " + STATES[p.state])
-                else:
-                    reply("You are in state " + str(p.state))
-            elif p.state == -2:
-                if text in ['/help', HELP_BUTTON]:
-                    reply(INSTRUCTIONS)
-                elif text == INFO_BUTTON_FUNC():
-                    goToInfoPanel(p)
-                    # state = 80
-                elif text == SETTINGS_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                elif text == INVITE_FRIEND_BUTTON_FUNC():
-                    reply(_('Forward the following message to your friends.'))
-                    reply(MESSAGE_FOR_FRIENDS)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-                    restartUser(p)
-            elif p.state == -1:
-                # INITIAL STATE WITH START
-                if text in ['/help', HELP_BUTTON]:
-                    reply(INSTRUCTIONS)
-                elif text in [START_BUTTON]:
-                    #registerUser(p, name, last_name, username)
-                    start(p)
-                    # state = 0 or state=-55 in turk mode active
-                elif text == INFO_BUTTON_FUNC():
-                    goToInfoPanel(p)
-                    # state = 80
-                elif text == SETTINGS_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                elif text == INVITE_FRIEND_BUTTON_FUNC():
-                    reply(_('Forward the following message to your friends.'))
-                    reply(MESSAGE_FOR_FRIENDS)
-                elif text == '/users':
-                    reply(getUsers())
-                elif text == '/alldrivers':
-                    reply(person.listAllDrivers())
-                elif text == '/allpassengers':
-                    reply(person.listAllPassengers())
-                elif chat_id in key.MASTER_CHAT_ID:
-                    if text == '/turkOn' and chat_id==key.TURK_ID:
-                        boolVariable.enableTurkMode()
-                        reply('Turk Mode Activated, to disable type /turkOff\n'
-                              'Other commands are /activeDrivers /activePassengers /sendText [user_id] [msg]', kb=[])
-                        person.setState(p, -50)
-                    elif text == '/initbot':
-                        itinerary.initBusStops(delete=True)
-                        counter.resetCounter(delete=True)
-                        itinerary.initBasicRoutes(delete=True)
-                        boolVariable.disableTurkMode()
-                        reply('Succeffully initialized bot!')
-                    elif text.startswith('/restart '):
-                        # restart single user
-                        restartSingleUser(p, text)
-                    elif text=='/infocount':
-                        reply(getInfoCount())
-                    elif text=='/checkenabled':
-                        checkEnabled()
-                    elif text == '/resetcounters':
-                        counter.resetCounter()
-                    elif text.startswith('/sendText'):
-                        sendText(p, text, markdown=True)
-                    elif text == '/resetBusStopsAndCounters':
-                        itinerary.initBusStops()
-                        counter.resetCounter()
-                        reply('Succeffully reinitiated bus stops and counters')
-                    elif text == '/resetBasicRoutes':
-                        itinerary.initBasicRoutes()
-                        reply('Succeffully reinitiated basic routes')
-                    elif text == '/testSafeDeferred':
-                        #deferredSafeHandleException(tell_fede, 'Safe call of deferred')
-                        #deferredSafeHandleException(tell, p.chat_id, 'Safe call of deferred 2')
-                        raise ValueError
-                        #km = test_Google_Map_Api()
-                        #reply('test ok: ' + str(km))
-                    elif text == '/testBus':
-                        testOrariBus(p)
-                    elif text == '/testDate':
-                        nowTxt = time_util.get_date_string(time_util.now())
-                        reply("Now: " + nowTxt)
-                    elif text.startswith('/tellRecentDrivers '):
-                        msg = text[19:]
-                        deferredSafeHandleException(sendRecentDriversMessage, 100, msg)
-                    elif text == '/getAllInfo':
-                        reply(getInfoAllRequestsOffers())
-                    elif text.startswith('/broadcastRestart ') and len(text) > 18:
-                        msg = text[18:]  # .encode('utf-8')
-                        deferredSafeHandleException(broadcast, msg, check_notification=True, restart=True)
-                    elif text.startswith('/broadcast ') and len(text)>11:
-                        msg = text[11:] #.encode('utf-8')
-                        deferredSafeHandleException(broadcast, msg, check_notification=True)
-                    elif text.startswith('/broadcast_it ') and len(text)>14:
-                        msg = text[14:] #.encode('utf-8')
-                        deferredSafeHandleException(broadcast, msg, 'IT', check_notification=True)
-                    elif text.startswith('/broadcast_en ') and len(text)>14:
-                        msg = text[14:] #.encode('utf-8')
-                        deferredSafeHandleException(broadcast, msg, 'EN', check_notification=True)
-                    elif text.startswith('/self ') and len(text)>6:
-                        msg = text[6:] #.encode('utf-8')
-                        tellmyself(p,msg)
-                    elif text=='/getInfoWeek':
-                        tellmyself(p, getInfoWeek('EN'))
-                    elif text=='/getWeekWinners':
-                        msg, debug = getWeekWinners()
-                        tell(p.chat_id, msg + "\n" + debug, markdown=True)
-                    else:
-                        reply('Sorry, I only understand /help /start '
-                              '/users and other secret commands...')
-                    #setLanguage(d.language)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-                    restartUser(p)
-            elif p.state == 0:
-                # AFTER TYPING START
-                if text.endswith(_("Passenger")):
-                    person.setType(p, text)
-                    goToState20(p)
-                elif text.endswith(_("Driver")):
-                #elif text == emoij.CAR + _(' ') + _("Driver"):
-                    person.setType(p, text)
-                    goToState30(p)
-                elif text == ABORT_BUTTON_FUNC():
-                #elif text == emoij.NOENTRY + _(' ') + _("Abort"):
-                    reply(_("Passage aborted."))
-                    restartUser(p)
-                    # state = -1
-                else: reply(_("Sorry, I don't understand you"))
-            #else:
-            #    tell(p, "Sorry system under maintanance, we will be back soon.")
-            #    restartUser(p)
-            #    return
-            elif p.state == 20:
-                # PASSANGERS, ASKED FOR LOCATION
-                if text == CHANGE_ITINERARY_BUTTON_FUNC():
-                    goToSettingItinerary(p)
-                    # state = 93
-                elif text == CHANGE_START_BUTTON_FUNC():
-                    replyListItineraryBusStops(p, 201)
-                elif text == CHANGE_END_BUTTON_FUNC():
-                    replyListItineraryBusStops(p, 202)
-                elif text in [p.getBusStartStr(), p.getBusEndStr()]:
-                    person.setLocation(p, text)
-                    person.updateLastSeen(p)
-                    ticket_id = assignNextTicketId(p, is_driver=False)
-                    reply(_("Your passenger ID is: ") + ticket_id.encode('utf-8'))
-                    connect_with_matching_drivers(p)
-                    ride_request.recordRideRequest(p)
-                    # updateDashboard()
-                    # state = 21 or 22 depending if driver available
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage aborted."))
-                    restartUser(p)
-                    # state = -1
-                else: reply(_("Sorry, I don't understand you") + _(' '))
-                            #p.getBusStart() + _(' ') + _("or") + _(' ') + p.getBusEnd() + '?')
-            elif p.state == 201:
-                # PASSANGERS, ASKED FOR CHANGING START LOCATION
-                if text == BACK_BUTTON_FUNC():
-                    goToState20(p)
-                    # state = 9351
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    itinerary.setBasicRoute(p, p.basic_route)
-                    person.setBusStopStart(p,text) #,swap_active=True
-                    reply(_("Successfully changed the START location!"))
-                    goToState20(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 202:
-                # PASSANGERS, ASKED FOR CHANGING END LOCATION
-                if text == BACK_BUTTON_FUNC():
-                    goToState20(p)
-                    # state = 9351
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.setBusStopEnd(p,text) #,swap_active=True
-                    reply(_("Successfully changed the END location!"))
-                    goToState20(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 21:
-                # PASSENGERS IN A LOCATION WITH NO DRIVERS
-                if text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage aborted."))
-                    ride_request.abortRideRequest(p, auto_end=False)
-                    removePassenger(p)
-                    # state = -1
-                elif text==(_('Show Bus Times')) and p.last_city == itinerary.CITY_TRENTO:
-                    tellBusTimes(p)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 22:
-                # PASSENGERS NOTIFIED THERE IS A DRIVER
-                if text == _('Got the Ride!'):
-                    askToSelectDriverByNameAndId(p)
-                    #state = 23
-                elif text == _('List Drivers'):
-                    reply(listDrivers(p))
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage aborted."))
-                    ride_request.abortRideRequest(p, auto_end=False)
-                    removePassenger(p)
-                    # state = -1
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 23:
-                # PASSENGERS WHO JUST CONFIRMED A RIDE
-                if text == _('Someone else'):
-                    reply(_("Thanks, have a good ride!"))
-                    #recordRide('Other',-1, p.last_seen,p.location)
-                    #addPassengerInRide(None, p)
-                    ride_request.confirmRideRequest(p, None)
-                    removePassenger(p)
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage aborted."))
-                    ride_request.abortRideRequest(p, auto_end=False)
-                    removePassenger(p)
-                    # state = -1
-                else:
-                    d = getDriverSelectionId(p, text)
-                    if d is not None:
-                        ride_request.confirmRideRequest(p, d)
-                        reply(_("Great! Many thanks to") + _(' ') + d.name.encode('utf-8') + "!")
-                        setLanguage(d.language)
-                        ride.addPassengerInRide(d, p)
-                        tell(d.chat_id, p.getFirstName() + _(' ') + _("confirmed you gave him/her a ride!"),
-                             kb=[[_('List Passengers'), _('Reached Destination!')]]) #[ABORT_BUTTON_FUNC()]
-                        setLanguage(p.language)
-                        if (d.state==32):
-                            person.setState(d, 33)
-                        removePassenger(p, driver=d)
-                        # passenger state = -1
-                    else:
-                        reply(_("Name of driver not correct, try again."))
-            elif p.state == 30:
-                # DRIVERS, ASKED FOR LOCATION
-                #logging.debug('input: ' + text + ' ' + str(type(text)))
-                #logging.debug('start: ' + p.getBusStart() + ' ' + str(type(p.getBusStart())))
-                #logging.debug('destination: ' + p.getBusEnd() + ' ' + str(type(p.getBusEnd())))
-                if text == CHANGE_ITINERARY_BUTTON_FUNC():
-                    goToSettingItinerary(p)
-                    # state = 93
-                elif text == CHANGE_START_BUTTON_FUNC():
-                    replyListItineraryBusStops(p, 301)
-                elif text == CHANGE_END_BUTTON_FUNC():
-                    replyListItineraryBusStops(p, 302)
-                elif text in [p.getBusStartStr(), p.getBusEndStr()]:
-                    person.setLocation(p, text)
-                    # CHECK AND NOTIFY PASSENGER WAIING IN THE SAME LOCATION
-                    reply(_("In how many minutes will you be there?"),
-                          kb=[['0','5','10','15'],[_('Schedule Trip')],[ABORT_BUTTON_FUNC()]])
-                    person.setState(p, 31)
-                    # state = 31
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage offer has been aborted."))
-                    restartUser(p)
-                    # state = -1
-                else:
-                    reply(_("Sorry, I don't understand you"))
-                    #reply("Eh? " + p.getBusStart() + _("or") + p.getBusEnd() + "?")
-            elif p.state == 301:
-                # PASSANGERS, ASKED FOR CHANGING START LOCATION
-                if text == BACK_BUTTON_FUNC():
-                    goToState30(p)
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.setBusStopStart(p,text) #,swap_active=True
-                    reply(_("Successfully changed the START location!"))
-                    goToState30(p)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 302:
-                # PASSANGERS, ASKED FOR CHANGING END LOCATION
-                if text == BACK_BUTTON_FUNC():
-                    goToState30(p)
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.setBusStopEnd(p,text) #,swap_active=True
-                    reply(_("Successfully changed the END location!"))
-                    goToState30(p)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 31:
-                # DRIVERS ASEKED FOR TIME
-                if text in ['0','5','10','15']:
-                    person.setLastSeen(p, time_util.now(addMinutes=int(text)))
-                    ticket_id = assignNextTicketId(p, is_driver=True)
-                    reply(_("Your driver ID is: ") + ticket_id.encode('utf-8') + '\n')
-                    connect_with_matchin_passengers(p)
-                    deferredSafeHandleException(notify_potential_passengers,p)
-                    ride.recordRide(p, int(text))
-                    person.setState(p, 32)
-                    person.setActive(p, True)
-                    # state = 32
-                elif text==_('Schedule Trip'):
-                    if (p.username and p.username!='-'):
-                        reply(_("You can now schedule a trip in the next 24h. "
-                                "Please enter a time in the format HH:MM."),
-                              kb=[[ABORT_BUTTON_FUNC()]])
-                        person.setState(p, 315)
-                    else:
-                        reply(_("You need a public username to schedule a trip, "
-                                "please add it in your Telegram settings and press on 'Schedule Trip'."),
-                                kb=[[_('Schedule Trip')],[ABORT_BUTTON_FUNC()]])
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage offer has been aborted."))
-                    restartUser(p)
-                    # state = -1
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 315:
-                # Choose time
-                if (len(text)==5 and time_util.isTimeFormat(text)):
-                    deferredSafeHandleException(notify_potential_passengers,p, time=text)
-                    reply(_("Thanks for scheduling the trip! "))
-                    restartUser(p)
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage offer has been aborted."))
-                    restartUser(p)
-                    # state = -1
-                else:
-                    reply(_("Sorry, I don't understand you. Please enter a time in the format HH:MM."))
-            elif p.state == 32:
-                # DRIVERS WHO HAS LEFT
-                if text == _('List Passengers'):
-                    reply(listPassengers(p))
-                elif text == (_('Send Message')):
-                    reply(_("Please type a short message which will be sent to all passengers matching your journey"),
-                        kb=[[emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                    person.setState(p, 325)
-                elif text == ABORT_BUTTON_FUNC():
-                    reply(_("Passage offer has been aborted."))
-                    ride.abortRideOffer(p, False)
-                    removeDriver(p)
-                    # state = -1
-                else:
-                    reply(_("Sorry, I don't understand you"))# (" + text + ")")
-            elif p.state == 325:
-                if not text == BACK_BUTTON_FUNC():
-                    count = broadcast_driver_message(p, text)
-                    reply(_("Sent message to ") + str(count) + _(" people"))
-                if hasMatchingPassengers(p):
-                    reply(_("There is some passenger(s) matching your journing ") + emoij.PEDESTRIAN,
-                          kb=[[_('List Passengers'), _('Send Message')],[ABORT_BUTTON_FUNC()]])
-                else:
-                    reply(_("Oops... there are no more passengers matching your journing!"),
-                          kb=[[emoij.NOENTRY + _(' ') + _("Abort")]])
-                    # all passangers have left while driver was typing
-                person.setState(p, 32)
-            elif p.state == 33:
-                # DRIVER WHO HAS JUST BORDED AT LEAST A PASSANGER
-                if text == _('List Passengers'):
-                    reply(listPassengers(p))
-                elif text == _('Reached Destination!'):
-                    reply(_("Great, thanks!") + _(' ') + emoij.CLAPPING_HANDS)
-                    ride.endRide(p,auto_end=False)
-                    removeDriver(p)
-                    # state -1
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 80:
-                # INFO PANEL
-                if text==_('INFO USERS'):
-                    reply(getInfoCount())
-                    # restartUser(p)
-                    # state = -1
-                elif text==_('DAY SUMMARY'):
-                    reply(getInfoDay())
-                    # restartUser(p)
-                    # state = -1
-                elif text==_('SEARCH BUS STOPS'):
-                    reply(PAPER_CLIP_INSTRUCTIONS + ' ' +
-                          _("I will give you a list of bus stops within a radius of 10 km from the given location."),
-                          kb=[[BACK_BUTTON_FUNC()]])
-                    person.clearTmp(p)
-                    person.setState(p, 81)
-                elif text==_('SEND FEEDBACK'):
-                    reply(_("Please send us any feedback, e.g., new bus stops, bugs, suggestions. "),
-                          kb=[[BACK_BUTTON_FUNC()]])
-                    person.setState(p, 82)
-                elif text == BACK_BUTTON_FUNC():
-                    restartUser(p)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 81:
-                if text_location!=None:
-                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
-                    bus_stops = itinerary.getClosestBusStops(loc_point, [], p, max_distance=10, trim=False)
-                    #.replace(' ', '-')
-                    if len(bus_stops)>0:
-                        bus_stops_formatted = ['/' + removeSpaces(x.encode('UTF8')) for x in bus_stops]
-                        bus_stops_str = ' - '.join(bus_stops_formatted)
-                        person.setTmp(p,bus_stops_formatted)
-                        person.appendTmp(p,bus_stops)
-                        reply(_("Found the following bus stop(s) near the location: ") + bus_stops_str + "\n\n" +
-                              _("By pressing on any of the names, the location will be presented to you."),
-                              kb=[[BACK_BUTTON_FUNC()]])
-                        person.setState(p,81)
-                    else:
-                        reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    bus_stop = p.tmp[j]
-                    replyLocation(itinerary.getBusStopLocation(p.last_city, bus_stop))
-                    #reply("Found: " + p.tmp[j])
-                    #logging.debug('getBusStopFromCommand')
-                    #getBusStopFromCommand(text,p)
-                elif text == BACK_BUTTON_FUNC():
-                    goToInfoPanel(p)
-                    # state = 80
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 82:
-                if text == BACK_BUTTON_FUNC():
-                    goToInfoPanel(p)
-                    # state = 80
-                else:
-                    mail.send_mail(sender="Federico Sangati <federico.sangati@gmail.com>",
-                                   to="PickMeUp <pickmeupbot@gmail.com>",
-                                   subject="[Feedback] from user " + p.getFirstName() + ' (' + str(p.chat_id) + ')', body=text)
-                    reply(_("Thanks for your feedback!"))
-                    goToInfoPanel(p)
-            elif p.state == 90:
-                #SETTINGS
-                if text==_('TERMS AND CONDITIONS'):
-                    reply(TERMS_AND_CONDITIONS, kb=[[_('I AGREE')],[BACK_BUTTON_FUNC()]])
-                    person.setState(p, 92)
-                elif text==ITINERARY_BUTTON_FUNC():
-                    goToSettingItinerary(p)
-                    # state = 93
-                elif text==NOTIFICATIONS_BUTTON_FUNC():
-                    goToSettingNotification(p)
-                    # state = 94
-                elif text==LANGUAGE_BUTTON_FUNC():
-                    reply(_('Choose the language'),
-                          kb=[[flag + _(' ') + name for (name,flag) in LANGUAGE_FLAGS.iteritems()],
-                              [BACK_BUTTON_FUNC()]])
-                    person.setState(p, 91)
-                elif text == BACK_BUTTON_FUNC():
-                    restartUser(p)
-                    # state = -1
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 91:
-                #LANGUAGE
-                if len(text)>2 and text[-2:] in LANGUAGES.keys(): #['IT','EN','FR','DE','RU','NL','PL']:
-                    l = text[-2:]
-                    p.language = l
-                    p.put()
-                    gettext.translation('PickMeUp', localedir='locale', languages=[LANGUAGES[l]]).install()
-                    restartUser(p)
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 92:
-                #AGREE ON TERMS
-                if text==_('I AGREE'):
-                    person.setAgreeOnTerms(p)
-                    reply(_("Thanks for agreeing on terms!"))
-                    goToSettings(p)
-                    # state = 90
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state ==93:
-                #ITINERARY
-                if text==_('Change City'):
-                    goToChangeCity(p)
-                    #state = 930
-                elif text==_('ITINERARY (simple)'):
-                    goToSettingItinerarySimple(p)
-                    # state = 931
-                elif text==_('ITINERARY (advanced)'):
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state ==930:
-                #ITINERARY CHANGE CITY
-                if text in itinerary.CITIES:
-                    person.setLastCity(p, text)
-                    #logging.debug(p.last_city)
-                    reply(_("Successfully set city to: ") + p.last_city.encode('utf-8'))
-                    goToSettingItinerary(p)
-                    # state = 931
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 931:
-                #ITINERARY SIMPLE
-                if text.startswith('/'):
-                    commandList = itinerary.getBasicRoutesCommands(p.last_city)
-                    commands = '\n\n'.join(commandList)
-                    if text in commands:
-                        itinerary.setBasicRoute(p,text)
-                        reply(_('Successfully set the route: ') + p.getBusStartStr() + ' <-> ' + p.getBusEndStr())
-                        restartUser(p)
-                        # state = -1
-                    else:
-                        reply(_("Sorry, I don't understand you"))
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettingItinerary(p)
-                    # state = 93
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 935:
-                #ITINERARY ADVANCED
-                # from 93,
-                if text in [_('Set Start Location'),_('Change Start Location')]:
-                    askToInsertLocation(p, _('the START location'), 9351, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9351
-                elif text in [_('Set End Location'),_('Change End Location')]:
-                    askToInsertLocation(p, _('the END location'), 9352, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9352
-                elif text==_('Change Mid Points Going'):
-                    goToSettingMidPoints(p,9353,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9353
-                elif text==_('Change Mid Points Back'):
-                    goToSettingMidPoints(p,9354,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9354
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettingItinerary(p)
-                    # state = 93
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 9351:
-                #ITINERARY ADVANCED START LOCATION
-                if text == _('List All Stops'):
-                    replyListAllBusStops(p, 93511)
-                elif text == _('List Itinerary Stops'):
-                    replyListItineraryBusStops(p, 93511)
-                elif text_location!=None:
-                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
-                    exluded_points = [] #[p.getBusEnd()]
-                    bus_stops = itinerary.getClosestBusStops(loc_point, exluded_points, p)
-                    if len(bus_stops)>0:
-                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
-                              kb=[bus_stops, [emoij.LEFTWARDS_BLACK_ARROW + _(' ') + _("Back")]])
-                        person.setTmp(p,bus_stops)
-                        person.setState(p,93511)
-                    else:
-                        reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 93511:
-                #ITINERARY ADVANCED CHECK START LOCATION
-                #logging.debug("text: " + text)
-                logging.debug("tmp: " + str(p.tmp))
-                if text == BACK_BUTTON_FUNC():
-                    askToInsertLocation(p, _('the START location'), 9351, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9351
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.setBusStopStart(p,text) #,swap_active=True
-                    reply(_("Thanks for setting the START location!"))
-                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 9352:
-                #ITINERARY ADVANCED END LOCATION
-                if text == _('List All Stops'):
-                    replyListAllBusStops(p, 93521)
-                elif text == _('List Itinerary Stops'):
-                    replyListItineraryBusStops(p, 93521)
-                elif text_location!=None:
-                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
-                    exluded_points = [] #[p.getBusStart()]
-                    bus_stops = itinerary.getClosestBusStops(loc_point, exluded_points, p)
-                    if len(bus_stops)>0:
-                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
-                              kb=[bus_stops, [BACK_BUTTON_FUNC()]])
-                        person.setTmp(p,bus_stops)
-                        person.setState(p,93521)
-                    else:
-                        reply(_("No bus stop found near location, try again. ") + PAPER_CLIP_INSTRUCTIONS)
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 93521:
-                #ITINERARY ADVANCED CHECK END LOCATION
-                if text == BACK_BUTTON_FUNC():
-                    askToInsertLocation(p, _('the END location'), 9352, PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9352
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.setBusStopEnd(p,text) #,swap_active=True
-                    reply(_("Thanks for setting the END location!"))
-                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 9353:
-                #ITINERARY ADVANCED MID POINT GOING
-                if text == _('List All Stops'):
-                    replyListAllBusStops(p, 93531)
-                elif text == _('Remove all'):
-                    person.emptyBusStopMidGoing(p)
-                    reply(_("All mid points on the way FORWARD have been removed."))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                elif text == _('Same as other direction'):
-                    p.bus_stop_mid_going = list(reversed(p.bus_stop_mid_back))
-                    p.put()
-                    reply(_("Successfully set mid points way FORWARD as in way BACK!"))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                elif text_location!=None:
-                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
-                    exluded_points = [] #[p.getBusStart(), p.getBusEnd()]
-                    bus_stops = itinerary.getClosestBusStops(loc_point, exluded_points, p)
-                    if len(bus_stops)>0:
-                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
-                              kb=[bus_stops, [BACK_BUTTON_FUNC()]])
-                        person.setTmp(p,bus_stops)
-                        person.setState(p,93531)
-                    else:
-                        reply(_("No bus stop found near location, try again. ") +
-                              PAPER_CLIP_INSTRUCTIONS)
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 93531:
-                #ITINERARY ADVANCED CHECK MID POINT GOING
-                if text == BACK_BUTTON_FUNC():
-                     goToSettingMidPoints(p,9353,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9353
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.appendBusStopMidGoing(p,text)
-                    reply(_("Thanks for adding a new mid point!"))
-                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 9354:
-                #ITINERARY ADVANCED MID POINT BACK
-                if text == _('List All Stops'):
-                    replyListAllBusStops(p, 93541)
-                elif text == _('Remove all'):
-                    person.emptyBusStopMidBack(p)
-                    reply(_("All mid points on the way BACK have been removed."))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                elif text == _('Same as other direction'):
-                    p.bus_stop_mid_back = list(reversed(p.bus_stop_mid_going))
-                    p.put()
-                    reply(_("Successfully set mid points way BACK as in way FORWARD!"))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                elif text_location!=None:
-                    loc_point = ndb.GeoPt(text_location['latitude'], text_location['longitude'])
-                    exluded_points = [] #[p.getBusStart(), p.getBusEnd()]
-                    bus_stops = itinerary.getClosestBusStops(loc_point, exluded_points, p)
-                    if len(bus_stops)>0:
-                        reply(_("Found the following bus stop(s) near the location, please make one selection."),
-                              kb=[bus_stops, [BACK_BUTTON_FUNC()]])
-                        person.setTmp(p,bus_stops)
-                        person.setState(p,93541)
-                    else:
-                        reply(_("No bus stop found near location, try again. ") +
-                              PAPER_CLIP_INSTRUCTIONS)
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 93541:
-                #ITINERARY ADVANCED CHECK MID POINT BACK
-                if text == BACK_BUTTON_FUNC():
-                    goToSettingMidPoints(p,9354,PAPER_CLIP_INSTRUCTIONS)
-                    # state = 9354
-                elif text.startswith('/') and text_uni in p.tmp:
-                    i = p.tmp.index(text_uni)
-                    j = len(p.tmp)//2+i
-                    text = p.tmp[j]
-                    person.appendBusStopMidBack(p,text)
-                    reply(_("Thanks for adding a new mid point!"))
-                    replyLocation(itinerary.getBusStopLocation(p.last_city, text))
-                    goToSettingItineraryAdvanced(p)
-                    # state = 935
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == 94:
-                #NOTIFICATIONS
-                if text == ENABLE_NOTIFICATIONS_BUTTON_FUNC():
-                    person.setNotifications(p,True)
-                    goToSettingNotification(p)
-                    # state = 94
-                elif text== DISABLE_NOTIFICATIONS_BUTTON_FUNC():
-                    person.setNotifications(p,False)
-                    goToSettingNotification(p)
-                    # state = 94
-                elif text == BACK_BUTTON_FUNC():
-                    goToSettings(p)
-                    # state = 90
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == -50:
-                # TURK MODE MASTER
-                if text == '/turkOff':
-                    boolVariable.disableTurkMode()
-                    reply("Turk mode disabled")
-                    restartUser(p)
-                    deferredSafeHandleException(restartUserInTurkMode)
-                elif text == '/activeDrivers':
-                    reply(listActiveDrivers())
-                elif text == '/activePassengers':
-                    reply(listActivePassengers())
-                elif text.startswith('/sendText'):
-                    sendText(p, text, markdown=True)
-                else:
-                    reply(_("Sorry, I don't understand you"))
-            elif p.state == -55:
-                # turk mode user
-                if voice!=None:
-                    file_id = voice['file_id']
-                    tell(key.TURK_ID, p.getFirstName() + '(' + str(p.chat_id) + ") sent you this recording:")
-                    sendVoice(key.TURK_ID, file_id)
-                    reply(_("Successfully sent message to the bot, you will receive an answer shortly."))
-                elif text==ABORT_BUTTON_FUNC():
-                    reply(_("Passage offer has been aborted."))
-                    restartUser(p)
-                elif text:
-                    tell(key.TURK_ID, p.getFirstName()
-                         + ' (' + str(p.chat_id) + ") sent you this message: "
-                         + text)
-                    reply(_("Successfully sent message to the bot, you will receive an answer shortly."))
-                # TURK MODE USER
-                else:
-                    reply(_("Sorry, I don't understand you"))
+                msg = " 😀 Ciao {}!\nBentornato in PickMeUp!".format(name)
+                reply(msg)
+                restart(p)
+            elif text == '/state':
+                msg = "You are in state {}: {}".format(p.state, STATES.get(p.state, '(unknown)'))
+                reply(msg)
             else:
-                reply(_("Something is wrong with your state (") + str(p.state).encode('utf-8') +
-                      _(").") + _("I'm going to bring you back to the initial screen. ") +
-                      _("If the problem presists, please write a message to @kercos"))
-                restartUser(p)
+                logging.debug("Sending {} to state {} with input {}".format(p.getFirstName(), p.state, text))
+                repeatState(p, input=text, location=location, contact=contact, photo=photo, document=document,
+                            voice=voice)
 
 
 def deferredSafeHandleException(obj, *args, **kwargs):
-    #return
+    # return
     try:
         deferred.defer(obj, *args, **kwargs)
-    except: # catch *all* exceptions
+    except:  # catch *all* exceptions
         report_exception()
+
 
 def report_exception():
     import traceback
@@ -2287,26 +1444,15 @@ def report_exception():
     tell(key.FEDE_CHAT_ID, msg, markdown=False)
     logging.error(msg)
 
+
 app = webapp2.WSGIApplication([
     ('/me', MeHandler),
-    ('/dashboard', DashboardHandler),
-#    ('/_ah/channel/connected/', DashboardConnectedHandler),
-#    ('/_ah/channel/disconnected/', DashboardDisconnectedHandler),
-    ('/notify_token', GetTokenHandler),
-    ('/updates', GetUpdatesHandler),
     ('/set_webhook', SetWebhookHandler),
     ('/get_webhook_info', GetWebhookInfo),
     ('/delete_webhook', DeleteWebhook),
-    (key.WEBHOOK_PATH, WebhookHandler),
-    #('/infousers_tiramisu', InfouserTiramisuHandler),
-    #('/infouser_weekly_all', InfouserAllHandler),
-    # ('/infoday_tiramisu', InfodayTiramisuHandler),
-    ('/infoweek_all', InfoWeekAllHandler),
-    #('/infoweek_all', InfoWeekPrices),
-    ('/resetcounters', ResetCountersHandler),
-    ('/checkExpiredUsers', CheckExpiredUsersHandler),
-    ('/restartOldUsers', RestartOldUsersHandler),
-    ('/tiramisulottery', TiramisuHandler),
-    ('/dayPeopleCount', DayPeopleCountHandler),
-    ('/test', TestHandler),
+    (key.FACEBOOK_WEBHOOK_PATH, FBHandler),
+    (key.TELEGRAM_WEBHOOK_PATH, TelegramWebhookHandler),
 ], debug=True)
+
+possibles = globals().copy()
+possibles.update(locals())
