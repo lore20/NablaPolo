@@ -18,14 +18,11 @@ import geoUtils
 import key
 import person
 from person import Person
-import itinerary
-import fermate
+import percorsi
 import date_time_util as dtu
 import requests.packages.urllib3
 import ride_offer
 import params
-
-requests.packages.urllib3.disable_warnings()
 
 import webapp2
 # from flask import Flask, jsonify
@@ -85,22 +82,6 @@ LANGUAGE_FLAGS = {
 START_BUTTON = "🚩 START"
 HELP_BUTTON = "🆘 HELP"
 
-'''
-ABORT_BUTTON_LANG = lambda: "❌ " + _('Abort')
-BACK_BUTTON_LANG = lambda: "🔙 " + _('Back')
-SETTINGS_BUTTON_LANG = lambda: "⚙ " + _('SETTINGS')
-INFO_BUTTON_LANG = lambda: "ℹ " + _('INFO')
-INVITE_FRIEND_BUTTON_LANG = lambda: "🗣 " + _('INVITE A FRIEND')
-ITINERARY_BUTTON_LANG = lambda: "🛣 " + _('ITINERARY')
-NOTIFICATIONS_BUTTON_LANG = lambda: "🔔 " + _('NOTIFICATIONS')
-LANGUAGE_BUTTON_LANG = lambda: "🇮🇹🇬🇧🇩🇪 " + _('LANGUAGE')
-ENABLE_NOTIFICATIONS_BUTTON_LANG = lambda: "🔔 " + _('ENABLE NOTIFICATIONS')
-DISABLE_NOTIFICATIONS_BUTTON_LANG = lambda: "🔕 " + _('DISABLE NOTIFICATIONS')
-CHANGE_START_BUTTON_LANG = lambda: "🚩 " + _('Change Start')
-CHANGE_END_BUTTON_LANG = lambda: "🏁 " + _('Change End')
-CHANGE_ITINERARY_BUTTON_LANG = lambda: "🛣 " + _('Change ITINERARY')
-'''
-
 CHECK_ICON = '✅'
 PREV_ICON = '⏪'
 NEXT_ICON = '⏩'
@@ -114,9 +95,9 @@ BOTTONE_MAPPA = "🗺 MAPPA COMPLETA"
 BOTTENE_OFFRI_PASSAGGIO = "🚘 OFFRI"
 BOTTENE_CERCA_PASSAGGIO = "👍 CERCA"
 BOTTONE_IMPOSTAZIONI = "⚙ IMPOSTAZIONI"
-BOTTONE_AGGIUNGI_ITINERARIO = "➕ AGGIUNGI ITINERARIO"
-BOTTONE_RIMUOVI_ITINERARIO = "➖ RIMUOVI ITINERARIO"
-BOTTONE_ITINERARI = "🛣 ITINERARI"
+BOTTONE_AGGIUNGI_PERCORSO = "➕ AGGIUNGI PERCORSO"
+BOTTONE_RIMUOVI_PERCORSO = "➖ RIMUOVI PERCORSO"
+BOTTONE_PERCORSI = "🛣 PERCORSI"
 BOTTONE_NOTIFICHE = "🔔 NOTIFICHE"
 BOTTONE_ANNULLA = "❌ ANNULLA"
 BOTTONE_ADESSO = "👇 ADESSO"
@@ -126,8 +107,13 @@ BOTTONE_CONFERMA = "👌 CONFERMA"
 BOTTONE_ELIMINA_OFFERTE = "✖ 🚘ELIMINA MIE OFFERTE"
 BOTTONE_ATTIVA_NOTIFICHE_TUTTE = "🔔🔔🔔 ATTIVA TUTTE"
 BOTTONE_DISTATTIVA_NOTIFICHE = "🔕 DISATTIVA TUTTE"
-BOTTONE_ATTIVA_NOTIFICHE_ITINERARI = "🔔🛣 ATTIVA NOTIFICHE MIEI ITINERARI"
+BOTTONE_ATTIVA_NOTIFICHE_PERCORSI = "🔔🛣 ATTIVA NOTIFICHE MIEI PERCORSI"
 BOTTONE_ELIMINA = "🗑 ELIMINA"
+
+BOTTONE_LOCATION = {
+    'text': "INVIA POSIZIONE",
+    'request_location': True,
+}
 
 # ================================
 # MESSAGES
@@ -136,7 +122,7 @@ BOTTONE_ELIMINA = "🗑 ELIMINA"
 '''
 INSTRUCTIONS = (
     _("PickMeUp is a non-profit carpooling service (just like BlaBlaCar but for small journeys within a city).") + "\n\n" +
-    _("You need to agree on terms and conditions in SETTINGS  and insert an ITINERARY to start a new journey.") + "\n" +
+    _("You need to agree on terms and conditions in SETTINGS  and insert an PERCORSY to start a new journey.") + "\n" +
     _("Once all is set, you can press START to request or offer a ride.") + "\n\n" +
     _("Please visit our website at http://pickmeup.trentino.it " +
       "read the pdf instructions at http://tiny.cc/pickmeup_info " +
@@ -493,6 +479,18 @@ def repeatState(p, put=False, **kwargs):
             p.put()
         method(p, **kwargs)
 
+# ================================
+# UNIVERSAL COMMANDS
+# ================================
+
+def dealWithUniversalCommands(p, input):
+    if p.chat_id in key.MASTER_CHAT_ID:
+        if input == '/aggiorna':
+            import admin
+            admin.updateItinerary()
+            tell(p.chat_id, "Aggiornamento completato!")
+            return True
+    return False
 
 ## +++++ BEGIN OF STATES +++++ ###
 
@@ -544,15 +542,15 @@ def goToState1(p, **kwargs):
     #logging.debug("State 1. PASSAGGIO_PATH: {}, STAGE: {}".format(PASSAGGIO_PATH, stage))
     if giveInstruction:
         if stage == 0:
-            itinerariCmds = getItinerariCommands(p, start_fermata=True)
-            if itinerariCmds:
-                msg = 'Seleziona uno dei tuoi itinerari:\n\n{}\n\n'.format(itinerariCmds)
+            percorsiCmds = getItinerariCommands(p, start_fermata=True)
+            if percorsiCmds:
+                msg = 'Seleziona uno dei tuoi percorsi:\n\n{}\n\n'.format(percorsiCmds)
                 msg += 'oppure dimmi da dove parti.'
             else:
                 msg = '*Da dove parti?*'
-            kb = utility.makeListOfList(itinerary.SORTED_LUOGHI)
+            kb = utility.makeListOfList(percorsi.SORTED_LUOGHI)
         elif stage ==1:
-            fermate = itinerary.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[0])
+            fermate = percorsi.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
@@ -561,7 +559,7 @@ def goToState1(p, **kwargs):
             msg = '*Da quale fermata?*'
         elif stage == 2:
             msg = '*Dove vai?*'
-            destinazioni = list(itinerary.SORTED_LUOGHI)
+            destinazioni = list(percorsi.SORTED_LUOGHI)
             destinazioni.remove(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(destinazioni)
         else: #stage == 3
@@ -576,10 +574,10 @@ def goToState1(p, **kwargs):
         tell(p.chat_id, msg, kb)
     else:
         kb = p.getLastKeyboard()
-        if stage == 0 and input.startswith(params.ITINERARI_COMMAND_PREFIX):
-            itinerary_start_fermata_end = p.getItineraryFromCommand(input, fermata=True)
-            if itinerary_start_fermata_end:
-                PASSAGGIO_PATH.extend(itinerary_start_fermata_end)
+        if stage == 0 and input.startswith(params.PERCORSO_COMMAND_PREFIX):
+            percorsi_start_fermata_end = p.getPercorsiFromCommand(input, fermata=True)
+            if percorsi_start_fermata_end:
+                PASSAGGIO_PATH.extend(percorsi_start_fermata_end)
                 repeatState(p)
             else:
                 tellInputNonValido(p.chat_id, kb)
@@ -630,10 +628,10 @@ def finalizeOffer(p, start_place, start_fermata, end_place, date_time, programma
               blackList_ids=[p.chat_id], sendNotification=False)
 
 def getItinerariCommands(p, start_fermata):
-    itinerari = p.getItineraryStrList(start_fermata)
+    percorsi = p.getPercorsiStrList(start_fermata)
     commands = ['∙ {}: {}'.format(
-        params.getCommand(params.ITINERARI_COMMAND_PREFIX, n), i)
-                for n, i in enumerate(itinerari, 1)]
+        params.getCommand(params.PERCORSO_COMMAND_PREFIX, n), i)
+                for n, i in enumerate(percorsi, 1)]
     return '\n'.join(commands)
 
 
@@ -791,16 +789,16 @@ def goToState2(p, **kwargs):
     stage = len(PASSAGGIO_PATH)
     if giveInstruction:
         if stage == 0:
-            itinerariCmds = getItinerariCommands(p, start_fermata=True)
-            if itinerariCmds:
-                msg = 'Seleziona uno dei *tuoi itinerari*:\n\n{}\n\n'.format(itinerariCmds)
+            percorsiCmds = getItinerariCommands(p, start_fermata=True)
+            if percorsiCmds:
+                msg = 'Seleziona uno dei *tuoi percorsi*:\n\n{}\n\n'.format(percorsiCmds)
                 msg += 'oppure dimmi da *dove parti*.'
             else:
                 msg = '*Da dove parti?*'
-            kb = utility.makeListOfList(itinerary.SORTED_LUOGHI)
+            kb = utility.makeListOfList(percorsi.SORTED_LUOGHI)
         else: # stage == 1:
             msg = '*Dove vai?*'
-            destinazioni = list(itinerary.SORTED_LUOGHI)
+            destinazioni = list(percorsi.SORTED_LUOGHI)
             destinazioni.remove(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(destinazioni)
         kb.insert(0, [BOTTONE_ANNULLA])
@@ -808,10 +806,10 @@ def goToState2(p, **kwargs):
         tell(p.chat_id, msg, kb)
     else:
         kb = p.getLastKeyboard()
-        if stage == 0 and input.startswith(params.ITINERARI_COMMAND_PREFIX):
-            itinerary_start_end = p.getItineraryFromCommand(input, fermata=False)
-            if itinerary_start_end:
-                PASSAGGIO_PATH.extend(itinerary_start_end)
+        if stage == 0 and input.startswith(params.PERCORSO_COMMAND_PREFIX):
+            percorsi_start_end = p.getPercorsiFromCommand(input, fermata=False)
+            if percorsi_start_end:
+                PASSAGGIO_PATH.extend(percorsi_start_end)
                 showItinerari(p, PASSAGGIO_PATH)
             else:
                 tellInputNonValido(p.chat_id, kb)
@@ -832,10 +830,10 @@ def showItinerari(p, PASSAGGIO_PATH):
     end_place = PASSAGGIO_PATH[1]
     sendWaitingAction(p.chat_id)
     offers = p.saveRideOffersStartEndPlace(start_place, end_place)
-    itinerari_num = sum([len(l) for l in offers])
-    msg = "Itinerari trovati: {}".format(itinerari_num)
+    percorsi_num = sum([len(l) for l in offers])
+    msg = "Itinerari trovati: {}".format(percorsi_num)
     tell(p.chat_id, msg)
-    if itinerari_num > 0:
+    if percorsi_num > 0:
         redirectToState(p, 21)
     else:
         sendWaitingAction(p.chat_id, sleep_time=1)
@@ -931,9 +929,9 @@ def goToState3(p, **kwargs):
     if giveInstruction:
         my_offers = p.saveMyRideOffers()
         if my_offers:
-            kb = [[BOTTONE_ELIMINA_OFFERTE], [BOTTONE_ITINERARI, BOTTONE_NOTIFICHE], [BOTTONE_INDIETRO]]
+            kb = [[BOTTONE_ELIMINA_OFFERTE], [BOTTONE_PERCORSI, BOTTONE_NOTIFICHE], [BOTTONE_INDIETRO]]
         else:
-            kb = [[BOTTONE_ITINERARI, BOTTONE_NOTIFICHE], [BOTTONE_INDIETRO]]
+            kb = [[BOTTONE_PERCORSI, BOTTONE_NOTIFICHE], [BOTTONE_INDIETRO]]
         msg = '*Schermata Impostazioni*'
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
@@ -942,7 +940,7 @@ def goToState3(p, **kwargs):
         if input in utility.flatten(kb):
             if input == BOTTONE_INDIETRO:
                 restart(p)
-            elif input == BOTTONE_ITINERARI:
+            elif input == BOTTONE_PERCORSI:
                 redirectToState(p, 31)
             elif input == BOTTONE_NOTIFICHE:
                 redirectToState(p, 32)
@@ -959,21 +957,21 @@ def goToState31(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
     if giveInstruction:
-        itinerari = p.getItineraryStrList()
-        reached_max_itinerari = len(itinerari) > params.MAX_ITINERARI
+        percorsi = p.getPercorsiStrList()
+        reached_max_percorsi = len(percorsi) > params.MAX_PERCORSI
         AGGIUNGI_RIMUOVI_BUTTONS = []
-        if not reached_max_itinerari:
-            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_AGGIUNGI_ITINERARIO)
-        if itinerari:
-            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_RIMUOVI_ITINERARIO)
+        if not reached_max_percorsi:
+            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_AGGIUNGI_PERCORSO)
+        if percorsi:
+            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_RIMUOVI_PERCORSO)
         kb = [AGGIUNGI_RIMUOVI_BUTTONS, [BOTTONE_INDIETRO]]
         msg = '*Schermata Itinerari*\n\n'
-        if itinerari:
-            msg += '\n'.join(['∙ {}'.format(i) for i in itinerari])
-            if reached_max_itinerari:
-                msg += '\n\nHai raggiunto il numero massimo di itinerari.'
+        if percorsi:
+            msg += '\n'.join(['∙ {}'.format(i) for i in percorsi])
+            if reached_max_percorsi:
+                msg += '\n\nHai raggiunto il numero massimo di percorsi.'
         else:
-            msg += 'Nessun itinerario inserito.'
+            msg += 'Nessun percorso inserito.'
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
     else:
@@ -981,9 +979,9 @@ def goToState31(p, **kwargs):
         if input in utility.flatten(kb):
             if input == BOTTONE_INDIETRO:
                 redirectToState(p, 3)
-            elif input == BOTTONE_AGGIUNGI_ITINERARIO:
+            elif input == BOTTONE_AGGIUNGI_PERCORSO:
                 redirectToState(p, 311, firstCall=True)
-            else: # input == BOTTONE_RIMUOVI_ITINERARIO
+            else: # input == BOTTONE_RIMUOVI_PERCORSO
                 redirectToState(p, 312)
         else:
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
@@ -1004,10 +1002,10 @@ def goToState311(p, **kwargs):
         if stage == 0:
             # '*Offri Passaggio 1/4*\n\n' \
             msg = '*Da dove parti?*'
-            kb = utility.makeListOfList(itinerary.SORTED_LUOGHI)
+            kb = utility.makeListOfList(percorsi.SORTED_LUOGHI)
         elif stage ==1:
             # '*Offri Passaggio 2/4*\n\n' \
-            fermate = itinerary.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[0])
+            fermate = percorsi.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
@@ -1017,7 +1015,7 @@ def goToState311(p, **kwargs):
         else: # stage == 2:
             # '*Offri Passaggio 3/4*\n\n' \
             msg = '*Dove vai?*'
-            destinazioni = list(itinerary.SORTED_LUOGHI)
+            destinazioni = list(percorsi.SORTED_LUOGHI)
             destinazioni.remove(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(destinazioni)
         kb.insert(0, [BOTTONE_INDIETRO])
@@ -1033,8 +1031,8 @@ def goToState311(p, **kwargs):
             if stage <= 1:
                 repeatState(p)
             else: # stage==3
-                p.appendItinerary(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
-                msg = '*Aggiunto itinerario*:\n{} ({}) → {}'.format(
+                p.appendPercorsi(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+                msg = '*Aggiunto percorso*:\n{} ({}) → {}'.format(
                     PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
                 tell(p.chat_id, msg)
                 sendWaitingAction(p.chat_id, sleep_time=1)
@@ -1050,11 +1048,11 @@ def goToState311(p, **kwargs):
 def goToState312(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
-    itinerari = p.getItineraryStrList()
+    percorsi = p.getPercorsiStrList()
     if giveInstruction:
-        msg = "*Premi il numero corrispondende all'itinerario che vuoi rimuovere.*\n\n"
-        msg += '\n'.join(['{}. {}'.format(n,i) for n,i in enumerate(itinerari,1)])
-        numberButtons = [str(n) for n in range(1,len(itinerari)+1)]
+        msg = "*Premi il numero corrispondende al percorso che vuoi rimuovere.*\n\n"
+        msg += '\n'.join(['{}. {}'.format(n,i) for n,i in enumerate(percorsi,1)])
+        numberButtons = [str(n) for n in range(1,len(percorsi)+1)]
         kb = utility.distributeElementMaxSize(numberButtons)
         kb.insert(0, [BOTTONE_INDIETRO])
         p.setLastKeyboard(kb)
@@ -1064,13 +1062,13 @@ def goToState312(p, **kwargs):
         if input in utility.flatten(kb):
             if input == BOTTONE_INDIETRO:
                 redirectToState(p, 31)
-            else:  # input == BOTTONE_RIMUOVI_ITINERARIO
+            else:  # input == BOTTONE_RIMUOVI_PERCORSO
                 n = int(input)
-                PASSAGGIO_PATH = p.removeItinerario(n-1)
-                msg = '*Rimosso itinerario*:\n{} ({}) → {}'.format(
+                PASSAGGIO_PATH = p.removePercorsi(n - 1)
+                msg = '*Rimosso percorso*:\n{} ({}) → {}'.format(
                     PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
                 tell(p.chat_id, msg)
-                if p.getItineraryNumber()>0:
+                if p.getPercorsiNumber()>0:
                     repeatState(p)
                 else:
                     redirectToState(p, 31)
@@ -1085,7 +1083,7 @@ def goToState312(p, **kwargs):
 def goToState32(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
-    NOTIFICHE_BUTTONS = [BOTTONE_ATTIVA_NOTIFICHE_TUTTE, BOTTONE_ATTIVA_NOTIFICHE_ITINERARI,
+    NOTIFICHE_BUTTONS = [BOTTONE_ATTIVA_NOTIFICHE_TUTTE, BOTTONE_ATTIVA_NOTIFICHE_PERCORSI,
                          BOTTONE_DISTATTIVA_NOTIFICHE]
     if giveInstruction:
         NOTIFICHE_MODES = list(params.NOTIFICATIONS_MODES)
@@ -1096,7 +1094,7 @@ def goToState32(p, **kwargs):
         NOTIFICHE_BUTTONS.pop(active_index)
         if NOTIFICA_ATTIVA == params.NOTIFICATION_MODE_NONE:
             msg = '🔕 Non hai nessuna notifica attiva.'
-        elif NOTIFICA_ATTIVA == params.NOTIFICATION_MODE_ITINERARIES:
+        elif NOTIFICA_ATTIVA == params.NOTIFICATION_MODE_PERCORSIES:
             msg = '🔔🛣 Hai attivato le notifiche dei passaggio corrispondenti ai tuoi itineri.'
         else: #BOTTONE_NOTIFICHE_TUTTE
             msg = '🔔🔔🔔 Hai attivato le notifiche per tutti i passaggi.'
@@ -1189,7 +1187,7 @@ def goToState91(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     location = kwargs['location'] if 'location' in kwargs else None
     giveInstruction = input is None
-    kb = [[BOTTONE_MAPPA], [BOTTONE_INDIETRO]]
+    kb = [[BOTTONE_MAPPA], [BOTTONE_INDIETRO]] #[BOTTONE_LOCATION], # NOT WORKING FOR DESKTOP
     if giveInstruction:
         msg = 'Mandami una posizione tramite la graffetta 📎 in basso o scrivi il nome di un posto (ad esempio Trento).'
         tell(p.chat_id, msg, kb)
@@ -1198,7 +1196,7 @@ def goToState91(p, **kwargs):
             redirectToState(p, 9)
             return
         if input == BOTTONE_MAPPA:
-            sendPhotoViaUrlOrId(p.chat_id, itinerary.FULL_MAP_IMG_URL, kb)
+            sendPhotoViaUrlOrId(p.chat_id, percorsi.FULL_MAP_IMG_URL, kb)
             return
         if input:
             loc = geoUtils.getLocationFromAddress(input)
@@ -1208,7 +1206,7 @@ def goToState91(p, **kwargs):
                     'longitude': loc.longitude
                 }
         if location:
-            img_url, text = fermate.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
+            img_url, text = percorsi.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
             if img_url:
                 sendPhotoViaUrlOrId(p.chat_id, img_url, kb)
             tell(p.chat_id, text)
@@ -1425,9 +1423,10 @@ class TelegramWebhookHandler(SafeRequestHandler):
                 msg = "You are in state {}: {}".format(p.state, STATES.get(p.state, '(unknown)'))
                 reply(msg)
             else:
-                logging.debug("Sending {} to state {} with input {}".format(p.getFirstName(), p.state, text))
-                repeatState(p, input=text, location=location, contact=contact, photo=photo, document=document,
-                            voice=voice)
+                if not dealWithUniversalCommands(p, input=text):
+                    logging.debug("Sending {} to state {} with input {}".format(p.getFirstName(), p.state, text))
+                    repeatState(p, input=text, location=location, contact=contact, photo=photo, document=document,
+                                voice=voice)
 
 
 def deferredSafeHandleException(obj, *args, **kwargs):

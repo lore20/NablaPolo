@@ -1,15 +1,12 @@
 from geopy.geocoders import Nominatim
 from geopy.geocoders import GoogleV3
 from geopy.distance import vincenty
-from geopy.exc import GeocoderTimedOut
 from geopy.exc import GeocoderServiceError
-import math
+
 import key
-import googlemaps
 import logging
 from geoLocation import GeoLocation
-import requests
-import jsonUtil
+
 
 #https://raw.githubusercontent.com/dakk/Italia.json/master/italia_comuni.json
 

@@ -33,9 +33,9 @@ class Person(geomodel.GeoModel, ndb.Model):
     agree_on_terms = ndb.BooleanProperty(default=False)
     notification_mode = ndb.StringProperty(default=params.NOTIFICATION_MODE_ALL)
 
-    itinerari_start_fermata = ndb.StringProperty(repeated=True)
-    itinerari_start_place = ndb.StringProperty(repeated=True)
-    itinerari_end_place = ndb.StringProperty(repeated=True)
+    percorsi_start_fermata = ndb.StringProperty(repeated=True)
+    percorsi_start_place = ndb.StringProperty(repeated=True)
+    percorsi_end_place = ndb.StringProperty(repeated=True)
 
     # location = ndb.GeoPtProperty() # inherited from geomodel.GeoModel
     latitude = ndb.ComputedProperty(lambda self: self.location.lat if self.location else None)
@@ -59,6 +59,10 @@ class Person(geomodel.GeoModel, ndb.Model):
             modified = True
         if modified:
             self.put()
+
+    def isAdmin(self):
+        import key
+        return self.chat_id in key.MASTER_CHAT_ID
 
     def getPropertyUtfMarkdown(self, property, escapeMarkdown=True):
         if property == None:
@@ -122,52 +126,52 @@ class Person(geomodel.GeoModel, ndb.Model):
         self.tmp_variables[var_name] = initValue
         return initValue
 
-    def getItineraryNumber(self):
-        return len(self.itinerari_start_place)
+    def getPercorsiNumber(self):
+        return len(self.percorsi_start_place)
 
-    def getItineraryStrList(self, start_fermata=True):
+    def getPercorsiStrList(self, start_fermata=True):
         if start_fermata:
             return ["{} ({}) → {}".format(
                 start_place.encode('utf-8'), start_fermata.encode('utf-8'), end_place.encode('utf-8'))
                     for start_place, start_fermata, end_place in
-                    zip(self.itinerari_start_place, self.itinerari_start_fermata, self.itinerari_end_place)]
+                    zip(self.percorsi_start_place, self.percorsi_start_fermata, self.percorsi_end_place)]
         else:
             return ["{} → {}".format(
                 start_place.encode('utf-8'), end_place.encode('utf-8'))
                     for start_place, end_place in
-                    zip(self.itinerari_start_place, self.itinerari_end_place)]
+                    zip(self.percorsi_start_place, self.percorsi_end_place)]
 
-    def getItineraryFromCommand(self, command, fermata):
+    def getPercorsiFromCommand(self, command, fermata):
         logging.debug("In getItineraryFromCommand")
         logging.debug("input: {}".format(command))
-        index = params.getIndexFromCommand(command, params.ITINERARI_COMMAND_PREFIX)
+        index = params.getIndexFromCommand(command, params.PERCORSO_COMMAND_PREFIX)
         logging.debug("index: {}".format(index))
         if index is None:
             return None
         index -= 1  # zero-based
-        if len(self.itinerari_start_place)<=index:
+        if len(self.percorsi_start_place)<=index:
             return None
-        start, start_fermata, end = self.itinerari_start_place[index].encode('utf-8'), \
-                                    self.itinerari_start_fermata[index].encode('utf-8'), \
-                                    self.itinerari_end_place[index].encode('utf-8')
+        start, start_fermata, end = self.percorsi_start_place[index].encode('utf-8'), \
+                                    self.percorsi_start_fermata[index].encode('utf-8'), \
+                                    self.percorsi_end_place[index].encode('utf-8')
         if fermata:
             return start, start_fermata, end
         else:
             return start, end
 
-    def appendItinerary(self, start_place, start_fermata, end_place):
-        if self.itinerari_start_place is None:
-            self.itinerari_start_place = []
-            self.itinerari_start_fermata = []
-            self.itinerari_end_place = []
-        self.itinerari_start_place.append(start_place)
-        self.itinerari_start_fermata.append(start_fermata)
-        self.itinerari_end_place.append(end_place)
+    def appendPercorsi(self, start_place, start_fermata, end_place):
+        if self.percorsi_start_place is None:
+            self.percorsi_start_place = []
+            self.percorsi_start_fermata = []
+            self.percorsi_end_place = []
+        self.percorsi_start_place.append(start_place)
+        self.percorsi_start_fermata.append(start_fermata)
+        self.percorsi_end_place.append(end_place)
 
-    def removeItinerario(self, index):
-        start = self.itinerari_start_place.pop(index).encode('utf-8')
-        fermata = self.itinerari_start_fermata.pop(index).encode('utf-8')
-        end = self.itinerari_end_place.pop(index).encode('utf-8')
+    def removePercorsi(self, index):
+        start = self.percorsi_start_place.pop(index).encode('utf-8')
+        fermata = self.percorsi_start_fermata.pop(index).encode('utf-8')
+        end = self.percorsi_end_place.pop(index).encode('utf-8')
         return start, fermata, end
 
     def saveMyRideOffers(self):
@@ -269,22 +273,51 @@ def getPeopleMatchingRideQry(start_place, intermediate_places, end_place):
         ndb.OR(
             Person.notification_mode == params.NOTIFICATION_MODE_ALL,
             ndb.AND(
-                Person.notification_mode == params.NOTIFICATION_MODE_ITINERARIES,
-                Person.itinerari_start_place.IN(start_places),
-                Person.itinerari_end_place == end_place
+                Person.notification_mode == params.NOTIFICATION_MODE_PERCORSI,
+                Person.percorsi_start_place.IN(start_places),
+                Person.percorsi_end_place == end_place
             ),
             ndb.AND(
-                Person.notification_mode == params.NOTIFICATION_MODE_ITINERARIES,
-                Person.itinerari_start_place == start_place,
-                Person.itinerari_end_place.IN(end_places),
+                Person.notification_mode == params.NOTIFICATION_MODE_PERCORSI,
+                Person.percorsi_start_place == start_place,
+                Person.percorsi_end_place.IN(end_places),
             )
         )
     )
     return qry.order(Person._key)
 
+def updatePeopleItinerary():
+    import percorsi
+    more, cursor = True, None
+    while more:
+        records, cursor, more = Person.query().fetch_page(1000, start_cursor=cursor)
+        new_records = []
+        for p in records:
+            removeIndexes = []
+            for i in range(len(p.percorsi_start_place)):
+                start, start_fermata, end = p.percorsi_start_place[i].encode('utf-8'), \
+                                            p.percorsi_start_fermata[i].encode('utf-8'), \
+                                            p.percorsi_end_place[i].encode('utf-8')
+                if not percorsi.isValidStartEnd(start, start_fermata, end):
+                    removeIndexes.append(i)
+                    logging.debug('Removing percorso {} ({}) - {} from user {}'.format(start, start_fermata, end, p.getFirstNameLastName()))
+            if removeIndexes:
+                p.percorsi_start_place = [x for i, x in enumerate(p.percorsi_start_place) if i not in removeIndexes]
+                p.percorsi_start_fermata = [x for i, x in enumerate(p.percorsi_start_fermata) if i not in removeIndexes]
+                p.percorsi_end_place = [x for i, x in enumerate(p.percorsi_end_place) if i not in removeIndexes]
+                new_records.append(p)
+        if new_records:
+            create_futures = ndb.put_multi_async(new_records)
+            ndb.Future.wait_all(create_futures)
+    logging.debug('Updated people percorso')
+
+
 def updatePeople():
-    all_people = Person.query().fetch()
-    for p in all_people:
-        p.tmp_variables = {}
-    create_futures = ndb.put_multi_async(all_people)
-    ndb.Future.wait_all(create_futures)
+    more, cursor = True, None
+    while more:
+        records, cursor, more = Person.query().fetch_page(1000, start_cursor=cursor)
+        for p in records:
+            p.tmp_variables = {}
+        if records:
+            create_futures = ndb.put_multi_async(records)
+            ndb.Future.wait_all(create_futures)

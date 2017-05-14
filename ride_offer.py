@@ -70,7 +70,7 @@ class RideOffer(ndb.Model):
 def addRideOffer(driver, start_datetime, start_place, start_fermata, end_place,
                  programmato=False, programmato_giorni=()):
     import date_time_util as dtu
-    import itinerary
+    import percorsi
     o = RideOffer(
         driver_id = str(driver.chat_id),
         driver_name_lastname = driver.getFirstNameLastName(),
@@ -79,7 +79,7 @@ def addRideOffer(driver, start_datetime, start_place, start_fermata, end_place,
         start_place=start_place,
         start_fermata=start_fermata,
         end_place=end_place,
-        intermediate_places = itinerary.get_intermediate_stops(start_place, end_place),
+        intermediate_places = percorsi.get_intermediate_stops(start_place, end_place),
         registration_datetime = dtu.removeTimezone(dtu.nowCET()),
         active = True,
         programmato = programmato,
