@@ -6,5 +6,5 @@ Pickmeup is a telegram bot running on GAE. Originally forked from [yukuku's tele
 ============
 add a new file key.py manually (in gitignore) with containining the bot tokens and the MASTER chat_id as follows:
 TOKEN = '1294...'
-MASTER_CHAT_ID = 13...
+ADMIN_CHAT_ID = 13...
 

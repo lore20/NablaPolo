@@ -40,28 +40,42 @@ FULL_MAP_IMG_URL = BASE_MAP_IMG_URL + \
                    ''.join(["&markers=color:blue|{0},{1}".format(f[0],f[1]) for f in GPS_LOCATIONS])
 
 
-def getFermateNearPosition(lat, lon, radius=1):
+def format_distance(dst):
+    if (dst>=10):
+        return str(round(dst, 0)) + " Km"
+    if (dst>=1):
+        return str(round(dst, 1)) + " Km"
+    return str(int(dst*1000)) + " m"
+
+def getFermateNearPosition(lat, lon, radius, max_threshold_ratio, max_results):
     result = {}
     centralPoint = (lat, lon)
+    min_distance = None
     for f,v in FERMATE.iteritems():
         refPoint = v['loc']
         d = geoUtils.distance(refPoint, centralPoint)
         if d < radius:
+            if min_distance is None or d < min_distance:
+                min_distance = d
             result[f] = {
                 'loc': refPoint,
                 'dist': d
             }
+    min_distance = max(min_distance, 1) # if it's less than 1 km use this as a min distance
+    result = {k:v for k,v in result.items() if v['dist'] <= max_threshold_ratio*min_distance}
+    result_sorted = sorted(result.items(), key=lambda k: k[1]['dist'])[:max_results]
+    result = dict(result_sorted)
     return result
 
-def getFermateNearPositionImgUrl(lat, lon, radius=1):
-    fermate = getFermateNearPosition(lat, lon, radius=1)
+def getFermateNearPositionImgUrl(lat, lon, radius = 10, max_threshold_ratio=2, max_results=3):
+    fermate = getFermateNearPosition(lat, lon, radius, max_threshold_ratio, max_results)
     if fermate:
-        fermate_name_sorted = sorted(fermate, key=lambda k: fermate[k]['dist'])
+        fermate_name_sorted = sorted(fermate.items(), key=lambda k: k[1]['dist'])
         img_url = BASE_MAP_IMG_URL + \
                   "&markers=color:red|{0},{1}".format(lat, lon) + \
                   ''.join(["&markers=color:blue|{0},{1}".format(v['loc'][0], v['loc'][1]) for v in fermate.values()])
-        text = "{} fermate trovate nel raggio di {} km dalla posizione inserita:\n".format(len(fermate),radius)
-        text += '\n'.join('- {}'.format(f) for f in fermate_name_sorted)
+        text = "{} fermate trovate in prossimità dalla posizione inserita:\n".format(len(fermate),radius)
+        text += '\n'.join('• {} ({})'.format(k, format_distance(v['dist'])) for k,v in fermate_name_sorted)
     else:
         img_url = None
         text = 'Nessuna fermata trovata nel raggio di {} km dalla posizione inserita.'.format(radius)
@@ -143,7 +157,7 @@ def test_intermediate_stops(start=None, end=None):
     LUOGHI_NAMES = LUOGHI.keys()
     if start is None:
         start = random.choice(LUOGHI_NAMES)
-    if end is None:
+    while end is None or end == start:
         end = random.choice(LUOGHI_NAMES)
     shortest_paths_dsts = get_shortest_paths_distance(start, end)
     print '\n'.join(['{}: {}'.format(x, y) for x,y in shortest_paths_dsts])

@@ -19,9 +19,19 @@ def convertCETtoUTC(dt_utc):
     CET_ZONE = pytz_zip.timezone('Europe/Amsterdam')  # pytz.timezone('CET')
     return dt_utc.replace(tzinfo=CET_ZONE).astimezone(UTC_ZONE)
 
-def nowCET():
+def nowCET(removeTimezone = False):
     utc = nowUTC()
-    return convertUTCtoCET(utc)
+    cet = convertUTCtoCET(utc)
+    if removeTimezone:
+        cet = cet.replace(tzinfo=None)
+    return cet
+
+def getGiornoOggiDomani(dt):
+    date_str = formatDate(dt)
+    if date_str == formatDate(nowCET()):
+        return 'OGGI'
+    elif date_str == formatDate(tomorrow()):
+        return 'DOMANI'
 
 #'%H:%M:%S.%f'
 #'%H:%M:%S'

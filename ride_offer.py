@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
+
 import person
 from google.appengine.ext import ndb
-
 
 class RideOffer(ndb.Model):
     driver_id = ndb.StringProperty()
@@ -12,7 +13,7 @@ class RideOffer(ndb.Model):
     #end_fermata = ndb.StringProperty()
     intermediate_places = ndb.StringProperty(repeated=True)
     registration_datetime = ndb.DateTimeProperty()  # for programmati only time applies
-    active = ndb.BooleanProperty()
+    active = ndb.BooleanProperty() # remains active for non-programmati
 
     start_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     disactivation_datetime = ndb.DateTimeProperty()
@@ -29,7 +30,7 @@ class RideOffer(ndb.Model):
         return self.start_place.encode('utf-8')
 
     def getStartFermata(self):
-        return self.end_place.encode('utf-8')
+        return self.start_fermata.encode('utf-8')
 
     def getEndPlace(self):
         return self.start_place.encode('utf-8')
@@ -67,6 +68,13 @@ class RideOffer(ndb.Model):
         if put:
             self.put()
 
+
+def getRideTripletToString(start, fermata, end):
+    return '{} ({}) → {}'.format(start, fermata, end)
+
+def getRidePairToString(start, end):
+    return '{} → {}'.format(start, end)
+
 def addRideOffer(driver, start_datetime, start_place, start_fermata, end_place,
                  programmato=False, programmato_giorni=()):
     import date_time_util as dtu
@@ -89,11 +97,14 @@ def addRideOffer(driver, start_datetime, start_place, start_fermata, end_place,
     o.put()
     return o
 
-def sortOffersPerDay(offers):
+def filterAndSortOffersPerDay(offers):
+    import params
     import date_time_util as dtu
+    from datetime import timedelta
+
     result = [[],[],[],[],[],[],[]]
     today = dtu.getWeekday()
-    now_dt = dtu.removeTimezone(dtu.nowCET())
+    now_dt = dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
     now_time = now_dt.time()
     for o in offers:
         if o.programmato:
@@ -107,7 +118,9 @@ def sortOffersPerDay(offers):
     return result
 
 def getActiveRideOffersDriver(chat_id):
+    import params
     import date_time_util as dtu
+    from datetime import timedelta
     driver_id = str(chat_id)
     qry = RideOffer.query(
         ndb.AND(
@@ -115,8 +128,7 @@ def getActiveRideOffersDriver(chat_id):
             RideOffer.driver_id == driver_id,
             ndb.OR(
                 RideOffer.programmato == True,
-                RideOffer.start_datetime >= dtu.nowUTC()
-
+                RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
             )
         )
     ).order(RideOffer.start_datetime)
@@ -124,7 +136,10 @@ def getActiveRideOffersDriver(chat_id):
 
 
 def getActiveRideOffersSortedPerDay(start_place, end_place):
+    import params
     import date_time_util as dtu
+    from datetime import timedelta
+
     qry = RideOffer.query(
         ndb.AND(
             RideOffer.active == True,
@@ -144,9 +159,28 @@ def getActiveRideOffersSortedPerDay(start_place, end_place):
             ),
             ndb.OR(
                 RideOffer.programmato == True,
-                RideOffer.start_datetime >= dtu.nowUTC()
+                RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
+                # might be redundant as the filter is also applied afterwards
             )
         )
     )
     offers = qry.fetch()
-    return sortOffersPerDay(offers)
+    return filterAndSortOffersPerDay(offers)
+
+def getActiveRideOffers():
+    import params
+    import date_time_util as dtu
+    from datetime import timedelta
+
+    qry = RideOffer.query(
+        ndb.AND(
+            RideOffer.active == True,
+            ndb.OR(
+                RideOffer.programmato == True,
+                RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
+                # might be redundant as the filter is also applied afterwards
+            )
+        )
+    )
+    offers = qry.fetch()
+    return offers

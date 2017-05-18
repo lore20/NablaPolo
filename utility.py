@@ -178,3 +178,8 @@ def flatten(L):
 def makeListOfList(L):
     result = [[l] for l in L]
     return result
+
+def removeDuplicatesFromList(list):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in list if not (x in seen or seen_add(x))]
