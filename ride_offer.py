@@ -10,7 +10,7 @@ class RideOffer(ndb.Model):
     start_place = ndb.StringProperty()
     start_fermata = ndb.StringProperty()
     end_place = ndb.StringProperty()
-    #end_fermata = ndb.StringProperty()
+    end_fermata = ndb.StringProperty()
     intermediate_places = ndb.StringProperty(repeated=True)
     registration_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     active = ndb.BooleanProperty() # remains active for non-programmati
@@ -21,7 +21,7 @@ class RideOffer(ndb.Model):
     # only for regular rides
     programmato = ndb.BooleanProperty(default=False)
     programmato_giorni = ndb.IntegerProperty(repeated=True)
-    #programmato_time = ndb.TimeProperty()
+    # for time start_datetime is used
 
     def getDriverName(self):
         return self.driver_name_lastname.encode('utf-8')
@@ -33,19 +33,28 @@ class RideOffer(ndb.Model):
         return self.start_fermata.encode('utf-8')
 
     def getEndPlace(self):
-        return self.start_place.encode('utf-8')
+        return self.end_place.encode('utf-8')
+
+    def getEndFermata(self):
+        return self.end_fermata.encode('utf-8')
 
     def getDepartingTime(self):
         import date_time_util as dtu
         #return dtu.formatTime(self.programmato_time)
         return dtu.formatTime(self.start_datetime.time())
 
-    def getDescription(self):
+    def getDescription(self, driver_info=True):
         import params
         import date_time_util as dtu
+        import person
         msg = []
         msg.append('*Partenza*: {} ({})'.format(self.getStartPlace(), self.getStartFermata()))
-        msg.append('*Arrivo*: {}'.format(self.end_place))
+
+        if self.end_fermata:
+            msg.append('*Arrivo*: {} ({})'.format(self.getEndPlace(), self.getEndFermata()))
+        else: #this should be removed after all triples are gone
+            msg.append('*Arrivo*: {}'.format(self.end_place))
+
         msg.append('*Ora partenza*: {}'.format(self.getDepartingTime()))
         if self.programmato:
             giorni = [params.GIORNI_SETTIMANA_FULL[i] for i in self.programmato_giorni]
@@ -58,7 +67,15 @@ class RideOffer(ndb.Model):
             elif date_str == dtu.formatDate(dtu.tomorrow()):
                 date_str += ' (DOMANI)'
             msg.append('*Giorno partenza*: {}'.format(date_str))
-        msg.append('*Autista*: {} @{}'.format(self.getDriverName(), self.driver_username))
+        if driver_info:
+            username = person.getPersonById(self.driver_id).getUsername()  # self.driver_username
+            if username is None:
+                from main import tell_admin
+                tell_admin('❗ viaggio con driver_id {} non ha più username'.format(self.driver_id))
+                username = '(username non più disponibile)'
+            else:
+                username = '@{}'.format(username)
+            msg.append('*Autista*: {} {}'.format(self.getDriverName(), username))
         return '\n'.join(msg)
 
     def disactivate(self,  put=True):
@@ -69,13 +86,17 @@ class RideOffer(ndb.Model):
             self.put()
 
 
-def getRideTripletToString(start, fermata, end):
-    return '{} ({}) → {}'.format(start, fermata, end)
+def getRideQuartetToString(start, start_fermata, end, end_fermata):
+    return '{} ({}) → {} ({})'.format(start, start_fermata, end, end_fermata)
+
+#def getRideTripletToString(start, fermata, end):
+#    return '{} ({}) → {}'.format(start, fermata, end)
 
 def getRidePairToString(start, end):
     return '{} → {}'.format(start, end)
 
-def addRideOffer(driver, start_datetime, start_place, start_fermata, end_place,
+def addRideOffer(driver, start_datetime,
+                 start_place, start_fermata, end_place, end_fermata,
                  programmato=False, programmato_giorni=()):
     import date_time_util as dtu
     import percorsi
@@ -87,12 +108,12 @@ def addRideOffer(driver, start_datetime, start_place, start_fermata, end_place,
         start_place=start_place,
         start_fermata=start_fermata,
         end_place=end_place,
+        end_fermata=end_fermata,
         intermediate_places = percorsi.get_intermediate_stops(start_place, end_place),
         registration_datetime = dtu.removeTimezone(dtu.nowCET()),
         active = True,
         programmato = programmato,
-        programmato_giorni = programmato_giorni,
-        #programmato_time = start_datetime.time()
+        programmato_giorni = programmato_giorni
     )
     o.put()
     return o
@@ -117,6 +138,28 @@ def filterAndSortOffersPerDay(offers):
             result[g].append(o)
     return result
 
+def getActiveRideOfferCount():
+    import params
+    import date_time_util as dtu
+    from datetime import timedelta
+    return RideOffer.query(
+        ndb.AND(
+            RideOffer.active == True,
+            ndb.OR(
+                RideOffer.programmato == True,
+                RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(
+                    minutes=params.TIME_TOLERANCE_MIN)
+            )
+        )
+    ).count()
+
+def getRideOfferInsertedLastDaysCount(days):
+    import date_time_util as dtu
+    from datetime import timedelta
+    return RideOffer.query(
+        RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(days=days)
+    ).count()
+
 def getActiveRideOffersDriver(chat_id):
     import params
     import date_time_util as dtu
@@ -133,7 +176,6 @@ def getActiveRideOffersDriver(chat_id):
         )
     ).order(RideOffer.start_datetime)
     return qry.fetch()
-
 
 def getActiveRideOffersSortedPerDay(start_place, end_place):
     import params
