@@ -180,6 +180,8 @@ def makeListOfList(L):
     return result
 
 def removeDuplicatesFromList(list):
-    seen = set()
-    seen_add = seen.add
-    return [x for x in list if not (x in seen or seen_add(x))]
+    no_dupicated_list = []
+    for x in list:
+        if x not in no_dupicated_list:
+            no_dupicated_list.append(x)
+    return no_dupicated_list

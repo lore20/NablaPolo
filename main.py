@@ -80,18 +80,19 @@ BOTTENE_CERCA_PASSAGGIO = "👍 CERCA"
 BOTTONE_IMPOSTAZIONI = "⚙ IMPOSTAZIONI"
 BOTTONE_AGGIUNGI_PERCORSO = "➕ AGGIUNGI PERCORSO"
 BOTTONE_RIMUOVI_PERCORSO = "➖ RIMUOVI PERCORSO"
-BOTTONE_PERCORSI = "🛣 PERCORSI"
+BOTTONE_PERCORSI = "🛣 PERCORSI PREFERITI"
 BOTTONE_NOTIFICHE = "🔔 NOTIFICHE"
 BOTTONE_ANNULLA = "❌ ANNULLA"
 BOTTONE_ADESSO = "👇 ADESSO"
-BOTTONE_A_BREVE = "⏰ A BREVE"
+BOTTONE_A_BREVE = "⏰ A BREVE (24H)"
 BOTTONE_PERIODICO = "📆 PERIODICO"
 BOTTONE_CONFERMA = "👌 CONFERMA"
 BOTTONE_ELIMINA_OFFERTE = "✖🚘 ELIMINA MIE OFFERTE"
 BOTTONE_ATTIVA_NOTIFICHE_TUTTE = "🔔🔔🔔 ATTIVA TUTTE"
 BOTTONE_DISTATTIVA_NOTIFICHE = "🔕 DISATTIVA TUTTE"
-BOTTONE_ATTIVA_NOTIFICHE_PERCORSI = "🔔🛣 ATTIVA NOTIFICHE MIEI PERCORSI"
+BOTTONE_ATTIVA_NOTIFICHE_PERCORSI = "🔔🛣 MIEI PERCORSI"
 BOTTONE_ELIMINA = "🗑 ELIMINA"
+BOTTONE_STATS = "📊 STATISTICHE"
 
 BOTTONE_LOCATION = {
     'text': "INVIA POSIZIONE",
@@ -115,6 +116,10 @@ BROADCAST_COUNT_REPORT = utility.unindent(
     """
 )
 
+NOTIFICATION_WARNING_MSG = '🔔 Hai le notifiche attive per tutti i passaggi, ' \
+              'per modificare le notifiche vai su {} → {}.'.format(BOTTONE_IMPOSTAZIONI, BOTTONE_NOTIFICHE)
+
+
 def broadcast(sender, msg, qry = None, restart_user=False,
               blackList_sender=False, sendNotification=True,
               notificationWarning = False):
@@ -136,9 +141,7 @@ def broadcast(sender, msg, qry = None, restart_user=False,
                 if blackList_sender and p.chat_id == sender.chat_id:
                     continue
                 total += 1
-                #p_msg = msg(p) if personalizedMessage else msg
-                p_msg = msg + '\n\n🔔 Hai le notifiche attive per tutti i passaggi, ' \
-                              'per modificare le notifiche vai su {} → {}.'.format(BOTTONE_IMPOSTAZIONI, BOTTONE_NOTIFICHE) \
+                p_msg = msg + '\n\n' + NOTIFICATION_WARNING_MSG \
                     if notificationWarning and p.notification_mode == params.NOTIFICATION_MODE_ALL \
                     else msg
                 if tell(p.chat_id, p_msg, sleepDelay=True): #p.enabled
@@ -147,7 +150,8 @@ def broadcast(sender, msg, qry = None, restart_user=False,
                         restart(p)
 
         except datastore_errors.Timeout:
-            #sleep(1)
+            msg = '❗ datastore_errors.Timeout in broadcast :('
+            tell_admin(msg)
             #deferredSafeHandleException(broadcast, sender, msg, qry, restart_user, curs, enabledCount, total, blackList_ids, sendNotification)
             return
 
@@ -180,17 +184,6 @@ def restartAll(qry = None, curs=None):
     if more:
         deferredSafeHandleException(restartAll, qry, curs)
 
-# ---------
-# INFO COUNT
-# ---------
-
-def getInfoCount():
-    count = Person.query().count()
-    msg = "Attualmente siamo in {} persone iscritte a BancaTempoBot! " \
-          "Vogliamo crescere assieme! Invita altre persone ad aunirsi!".format(count)
-    return msg
-
-
 # ================================
 # Telegram Send Request
 # ================================
@@ -216,7 +209,7 @@ def sendRequest(url, data, recipient_chat_id, debugInfo):
                 p.setEnabled(False, put=True)
                 debugMessage = '❗ Input user disactivated: ' + p.getFirstNameLastNameUserName()
                 logging.debug(debugMessage)
-                tell(key.FEDE_CHAT_ID, debugMessage, markdown=False)
+                tell_admin(debugMessage)
             else:
                 debugMessage = '❗ Raising unknown err ({}).' \
                                '\nStatus code: {}\nerror code: {}\ndescription: {}.'.format(
@@ -224,7 +217,7 @@ def sendRequest(url, data, recipient_chat_id, debugInfo):
                 logging.error(debugMessage)
                 # logging.debug('recipeint_chat_id: {}'.format(recipient_chat_id))
                 logging.debug('Telling to {} who is in state {}'.format(p.chat_id, p.state))
-                tell(key.FEDE_CHAT_ID, debugMessage, markdown=False)
+                tell_admin(debugMessage)
     except:
         report_exception()
 
@@ -291,6 +284,9 @@ def tell(chat_id, msg, kb=None, markdown=True, inline_keyboard=False, one_time_k
             sleep(0.1)
         return True
 
+def tell_admin(msg):
+    for chat_id in key.ADMIN_CHAT_ID:
+        tell(chat_id, msg, markdown=False)
 
 def tell_person(chat_id, msg, markdown=False):
     tell(chat_id, msg, markdown=markdown)
@@ -521,7 +517,7 @@ def goToState0(p, **kwargs):
     else:
         if input == BOTTENE_OFFRI_PASSAGGIO:
             if p.username is None or p.username == '-':
-                msg = '⚠️ Non hai uno *username pubblico* impostato su Telegram. ' \
+                msg = '⚠️ *Non hai uno username pubblico* impostato su Telegram. ' \
                       'Questo è necessario per far sì che i passeggeri ti possano contattare.\n\n' \
                       'Ti preghiamo di *scegliere uno username nelle impostazioni di Telegram* e riprovare.'
                 tell(p.chat_id, msg, kb)
@@ -563,21 +559,29 @@ def goToState1(p, **kwargs):
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
-                repeatState(p, input=fermate[0])
+                repeatState(p, input=fermate[0]) # simulate user input
                 return
-            msg = '🚏 *Da quale fermata?*'
+            msg = '📍🚏 *Da quale fermata parti?*'
         elif stage == 2:
             msg = '🚩 *Dove vai?*'
             destinazioni = list(percorsi.SORTED_LUOGHI)
             destinazioni.remove(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(destinazioni)
-        else: #stage == 3
+        elif stage == 3:
+            fermate = percorsi.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[2])
+            kb = utility.makeListOfList(fermate)
+            if len(fermate)==1:
+                p.setLastKeyboard(kb)
+                repeatState(p, input=fermate[0]) # simulate user input
+                return
+            msg = '🚩🚏 *A quale fermata arrivi?*'
+        else: #stage == 4
             #time_in_half_hour = dtu.formatTime(dtu.get_datetime_add_minutes(30, dt=dtu.nowCET()), '%H%M')
-            msg = "🛣 *Il tuo percorso*:\n{}\n\n".format(ride_offer.getRideTripletToString(*PASSAGGIO_PATH))
+            msg = "🛣 *Il tuo percorso*:\n{}\n\n".format(ride_offer.getRideQuartetToString(*PASSAGGIO_PATH))
             msg += "📆⌚ *Quando parti?*\n\n" \
                    "Premi *{}* se parti ora, *{}* se parti nelle prossime 24 ore o *{}* " \
                    "se vuoi programmare un viaggio regolare " \
-                   "(ad esempio ogni lunedì alle 8:00)".format(BOTTONE_ADESSO, BOTTONE_A_BREVE, BOTTONE_PERIODICO)
+                   "(ad esempio ogni lunedì alle 8:00).".format(BOTTONE_ADESSO, BOTTONE_A_BREVE, BOTTONE_PERIODICO)
             kb = [[BOTTONE_ADESSO], [BOTTONE_A_BREVE, BOTTONE_PERIODICO]]
         kb.insert(0, [BOTTONE_ANNULLA])
         p.setLastKeyboard(kb)
@@ -585,7 +589,7 @@ def goToState1(p, **kwargs):
     else:
         kb = p.getLastKeyboard()
         if stage == 0 and input.startswith(params.PERCORSO_COMMAND_PREFIX):
-            percorsi_start_fermata_end = p.getPercorsiFromCommand(input, fermata=True)
+            percorsi_start_fermata_end = p.getPercorsoFromCommand(input, fermate=True)
             if percorsi_start_fermata_end:
                 PASSAGGIO_PATH.extend(percorsi_start_fermata_end)
                 repeatState(p)
@@ -595,16 +599,13 @@ def goToState1(p, **kwargs):
             if input in utility.flatten(kb):
                 if input == BOTTONE_ANNULLA:
                     restart(p)
-                elif stage<=2:
+                elif stage<=3:
                     PASSAGGIO_PATH.append(input)
                     repeatState(p)
                 else:
                     if input==BOTTONE_ADESSO: # or dtu.getTime(input, format='%H%M'):
-                        start_place = PASSAGGIO_PATH[0]
-                        start_fermata = PASSAGGIO_PATH[1]
-                        end_place = PASSAGGIO_PATH[2]
                         dt = dtu.nowCET() #if input==BOTTONE_ADESSO else dtu.getTime(input, format='%H%M')
-                        finalizeOffer(p, start_place, start_fermata, end_place, dt)
+                        finalizeOffer(p, PASSAGGIO_PATH, dt)
                         sendWaitingAction(p.chat_id) #, sleep_time=1
                         restart(p)
                     elif input == BOTTONE_A_BREVE:
@@ -614,43 +615,23 @@ def goToState1(p, **kwargs):
             else:
                 tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
-def finalizeOffer(p, start_place, start_fermata, end_place, date_time, programmato=False, programmato_giorni=()):
+def finalizeOffer(p, path, date_time, programmato=False, programmato_giorni=()):
     logging.debug("In finalizeOffer. DAYS: {}".format(programmato_giorni))
-    #date_time = dtu.convertCETtoUTC(date_time)
     date_time = dtu.removeTimezone(date_time)
-    time_str = dtu.formatTime(date_time, format='%H:%M')
+    #time_str = dtu.formatTime(date_time, format='%H:%M')
     date_str = dtu.formatDate(date_time, format='%d.%m.%Y')
-    oggi_domani = dtu.getGiornoOggiDomani(date_time)
-    o = ride_offer.addRideOffer(p, date_time, start_place, start_fermata, end_place,
-                                programmato, programmato_giorni)
+    o = ride_offer.addRideOffer(p, date_time, path[0], path[1], path[2], path[3], programmato, programmato_giorni)
     qry = person.getPeopleMatchingRideQry(o.start_place, o.intermediate_places, o.end_place)
-    msg = "Grazie per aver inserito l'offerta di passaggio\n" \
-          "*{}*\n" \
-          "alle {}".format(ride_offer.getRideTripletToString(start_place, start_fermata, end_place), time_str)
-    if programmato:
-        giorni = [params.GIORNI_SETTIMANA_FULL[x] for x in programmato_giorni]
-        giorni_str = ', '.join(giorni)
-        msg += ' ogni {}'.format(giorni_str)
-    elif oggi_domani:
-        msg += ' di {}'.format(oggi_domani)
-    else:
-        msg += ' del {}'.format(date_str)
-
-    #msg += "\n\nOfferta inviata a {} persone".format(qry.count())
+    ride_description_no_driver_info = o.getDescription(driver_info=False)
+    msg = "Grazie per aver inserito l'offerta di passaggio\n{}".format(ride_description_no_driver_info)
     tell(p.chat_id, msg)
     msg_broadcast = '🚘 *Nuova offerta di passagio*:\n\n{}'.format(o.getDescription())
-    #warning_notification = '🔔 Hai tutte le notifiche attive'
-    #pers_msg_broadcast = lambda p: msg_broadcast \
-    #    if p.notification_mode != params.NOTIFICATION_MODE_ALL \
-    #    else msg_broadcast + '\n\n' + warning_notification
-
     deferredSafeHandleException(broadcast, p, msg_broadcast, qry, blackList_sender=True,
                                 sendNotification=False, notificationWarning = True)
 
 
 def getPersorsiCommands(p, start_fermata):
     percorsi = p.getPercorsiStrList(start_fermata)
-    # ∙
     commands = ['🛣 {}: {}'.format(
         params.getCommand(params.PERCORSO_COMMAND_PREFIX, n), i)
                 for n, i in enumerate(percorsi, 1)]
@@ -703,14 +684,11 @@ def goToState11(p, **kwargs):
                 repeatState(p)
             else:
                 PASSAGGIO_PATH = p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
-                start_place = PASSAGGIO_PATH[0]
-                start_fermata = PASSAGGIO_PATH[1]
-                end_place = PASSAGGIO_PATH[2]
                 dt = dtu.nowCET()
                 dt = dt.replace(hour=TIME_HH_MM[0], minute=TIME_HH_MM[1])
                 if dt.time() < dtu.nowCET().time():
                     dt = dtu.get_date_tomorrow(dt)
-                finalizeOffer(p, start_place, start_fermata, end_place, dt)
+                finalizeOffer(p, PASSAGGIO_PATH, dt)
                 sendWaitingAction(p.chat_id, sleep_time=1)
                 restart(p)
         else:
@@ -783,14 +761,11 @@ def goToState12(p, **kwargs):
             else: # minute
                 TIME_HH_MM.append(int(input))
                 PASSAGGIO_PATH = p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
-                start_place = PASSAGGIO_PATH[0]
-                start_fermata = PASSAGGIO_PATH[1]
-                end_place = PASSAGGIO_PATH[2]
                 dt = dtu.nowCET()
                 dt = dt.replace(hour=TIME_HH_MM[0], minute=TIME_HH_MM[1])
                 if dt.time() < dtu.nowCET().time():
                     dt = dtu.get_date_tomorrow(dt)
-                finalizeOffer(p, start_place, start_fermata, end_place, dt, programmato=True, programmato_giorni=DAYS)
+                finalizeOffer(p, PASSAGGIO_PATH, dt, programmato=True, programmato_giorni=DAYS)
                 sendWaitingAction(p.chat_id, sleep_time=1)
                 restart(p)
         else:
@@ -829,7 +804,7 @@ def goToState2(p, **kwargs):
     else:
         kb = p.getLastKeyboard()
         if stage == 0 and input.startswith(params.PERCORSO_COMMAND_PREFIX):
-            percorsi_start_end = p.getPercorsiFromCommand(input, fermata=False)
+            percorsi_start_end = p.getPercorsoFromCommand(input, fermate=False)
             if percorsi_start_end:
                 PASSAGGIO_PATH.extend(percorsi_start_end)
                 showPersorsi(p, PASSAGGIO_PATH)
@@ -988,7 +963,7 @@ def goToState3(p, **kwargs):
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
 # ================================
-# GO TO STATE 31: Persorsi
+# GO TO STATE 31: Percorsi
 # ================================
 
 def goToState31(p, **kwargs):
@@ -1049,13 +1024,21 @@ def goToState311(p, **kwargs):
                 p.setLastKeyboard(kb)
                 repeatState(p, input=fermate[0])
                 return
-            msg = '🚏 *Da quale fermata?*'
-        else: # stage == 2:
+            msg = '📍🚏 *Da quale fermata?*'
+        elif stage == 2:
             # '*Offri Passaggio 3/4*\n\n' \
             msg = '🚩 *Dove vai?*'
             destinazioni = list(percorsi.SORTED_LUOGHI)
             destinazioni.remove(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(destinazioni)
+        else: #stage == 3:
+            fermate = percorsi.SORTED_FERMATE_IN_LOCATION(PASSAGGIO_PATH[2])
+            kb = utility.makeListOfList(fermate)
+            if len(fermate)==1:
+                p.setLastKeyboard(kb)
+                repeatState(p, input=fermate[0]) # simulate user input
+                return
+            msg = '🚩🚏 *A quale fermata?*'
         kb.insert(0, [BOTTONE_INDIETRO])
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
@@ -1066,16 +1049,16 @@ def goToState311(p, **kwargs):
         kb = p.getLastKeyboard()
         if input in utility.flatten(kb):
             PASSAGGIO_PATH.append(input)
-            if stage <= 1:
+            stage += 1
+            if stage <= 3:
                 repeatState(p)
-            else: # stage==3
-                if p.appendPercorsi(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2]):
-                    msg = '🛣 *Hai aggiunto il percorso*:\n{} ({}) → {}'.format(
-                        PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+            else: # stage==4
+                ride_str = ride_offer.getRideQuartetToString(*PASSAGGIO_PATH)
+                if p.appendPercorsi(*PASSAGGIO_PATH):
+                    msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(ride_str)
                     tell(p.chat_id, msg)
                 else:
-                    msg = '❗ *Percorso inserito già presente*:\n{} ({}) → {}'.format(
-                        PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+                    msg = '❗ *Percorso inserito già presente*:\n{}'.format(ride_str)
                     tell(p.chat_id, msg)
                 sendWaitingAction(p.chat_id, sleep_time=1)
                 redirectToState(p, 31)
@@ -1092,7 +1075,7 @@ def goToState312(p, **kwargs):
     giveInstruction = input is None
     percorsi = p.getPercorsiStrList()
     if giveInstruction:
-        msg = "*Premi il numero corrispondende al percorso che vuoi rimuovere.*\n\n"
+        msg = "*Premi il numero corrispondente al percorso che vuoi rimuovere.*\n\n"
         msg += '\n'.join(['{}. {}'.format(n,i) for n,i in enumerate(percorsi,1)])
         numberButtons = [str(n) for n in range(1,len(percorsi)+1)]
         kb = utility.distributeElementMaxSize(numberButtons)
@@ -1107,8 +1090,8 @@ def goToState312(p, **kwargs):
             else:  # input == BOTTONE_RIMUOVI_PERCORSO
                 n = int(input)
                 PASSAGGIO_PATH = p.removePercorsi(n - 1)
-                msg = '*Percorso cancellato*:\n{} ({}) → {}'.format(
-                    PASSAGGIO_PATH[0], PASSAGGIO_PATH[1], PASSAGGIO_PATH[2])
+                ride_str = ride_offer.getRideQuartetToString(*PASSAGGIO_PATH)
+                msg = '*Percorso cancellato*:\n{}'.format(ride_str)
                 tell(p.chat_id, msg)
                 if p.getPercorsiNumber()>0:
                     repeatState(p)
@@ -1130,7 +1113,7 @@ def goToState32(p, **kwargs):
     if giveInstruction:
         NOTIFICHE_MODES = list(params.NOTIFICATIONS_MODES)
         NOTIFICA_ATTIVA = p.getNotificationMode()
-        logging.debug("NOTIFICA_ATTIVA: {}".format(NOTIFICA_ATTIVA))
+        #logging.debug("NOTIFICA_ATTIVA: {}".format(NOTIFICA_ATTIVA))
         active_index = NOTIFICHE_MODES.index(NOTIFICA_ATTIVA)
         NOTIFICHE_MODES.pop(active_index)
         NOTIFICHE_BUTTONS.pop(active_index)
@@ -1210,17 +1193,31 @@ def goToState33(p, **kwargs):
 def goToState9(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
-    kb = [[BOTTONE_FERMATE], [BOTTONE_INDIETRO]]
+    kb = [[BOTTONE_FERMATE], [BOTTONE_STATS], [BOTTONE_INDIETRO]]
     if giveInstruction:
         msg = '*Informazioni*\n\n' \
-              'PickMeUp è un servizio di carpooling attualmente in sperimentazione nella provincia di Trento.\n' \
-              'Per maggiori informazioni non esitate a contattarci cliccando su @kercos\n\n' \
-              'Clicca su {} per vedere le fermate PickMeUp.'.format(BOTTONE_FERMATE)
+              '*PickMeUp* è un servizio di carpooling attualmente in sperimentazione nella provincia di Trento.\n\n' \
+              '📩 Per maggiori informazioni non esitate a *contattarci* cliccando su @kercos\n\n' \
+              'Clicca su {} per vedere le fermate PickMeUp o {} per alcuni numeri.'.format(BOTTONE_FERMATE, BOTTONE_STATS)
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
     else:
         if input == BOTTONE_FERMATE:
             redirectToState(p, 91)
+        elif input == BOTTONE_STATS:
+            msg = utility.unindent(
+                '''
+                👤 Utenti: {}
+                
+                📆🚘 Passaggi inseriti negli ultimi 7 giorni: {}
+                🚘 Passaggi attivi: {}                
+                '''
+            ).format(
+                person.getPeopleCount(),
+                ride_offer.getActiveRideOfferCount(),
+                ride_offer.getRideOfferInsertedLastDaysCount(7)
+            )
+            tell(p.chat_id, msg)
         elif input == BOTTONE_INDIETRO:
             restart(p)
         else:
@@ -1235,14 +1232,16 @@ def goToState91(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     location = kwargs['location'] if 'location' in kwargs else None
     giveInstruction = input is None
-    kb = [[BOTTONE_MAPPA], [BOTTONE_INIZIO]] #[BOTTONE_LOCATION], # NOT WORKING FOR DESKTOP
+    kb = [[BOTTONE_MAPPA], [BOTTONE_INDIETRO]] #[BOTTONE_LOCATION], # NOT WORKING FOR DESKTOP
     if giveInstruction:
-        msg = 'Mandami una posizione tramite la graffetta 📎 in basso o scrivi il nome di un posto (ad esempio Trento).'
+        msg = '📌 Mandami una *posizione GPS* (tramite la graffetta in basso) o ' \
+              '✏️🏷 scrivi un *indirizzo* (ad esempio "via rosmini trento"), ' \
+              'oppure clicca su {}'.format(BOTTONE_MAPPA) #📎
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
     else:
-        if input == BOTTONE_INIZIO:
-            restart(p)
+        if input == BOTTONE_INDIETRO:
+            redirectToState(p, 9)
             return
         if input == BOTTONE_MAPPA:
             #sendPhotoViaUrlOrId(p.chat_id, percorsi.FULL_MAP_IMG_URL, kb)
@@ -1263,7 +1262,6 @@ def goToState91(p, **kwargs):
             tell(p.chat_id, text)
         else:
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
-
 
 ## +++++ END OF STATES +++++ ###
 
@@ -1491,7 +1489,7 @@ def deferredSafeHandleException(obj, *args, **kwargs):
 def report_exception():
     import traceback
     msg = "❗ Detected Exception: " + traceback.format_exc()
-    tell(key.FEDE_CHAT_ID, msg, markdown=False)
+    tell_admin(msg)
     logging.error(msg)
 
 

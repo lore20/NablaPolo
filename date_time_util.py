@@ -26,13 +26,6 @@ def nowCET(removeTimezone = False):
         cet = cet.replace(tzinfo=None)
     return cet
 
-def getGiornoOggiDomani(dt):
-    date_str = formatDate(dt)
-    if date_str == formatDate(nowCET()):
-        return 'OGGI'
-    elif date_str == formatDate(tomorrow()):
-        return 'DOMANI'
-
 #'%H:%M:%S.%f'
 #'%H:%M:%S'
 def datetimeStringCET(dt=None, seconds=False, format = None):

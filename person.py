@@ -34,12 +34,19 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     percorsi_start_fermata = ndb.StringProperty(repeated=True)
     percorsi_start_place = ndb.StringProperty(repeated=True)
     percorsi_end_place = ndb.StringProperty(repeated=True)
+    percorsi_end_fermata = ndb.StringProperty(repeated=True)
 
     # location = ndb.GeoPtProperty() # inherited from geomodel.GeoModel
     latitude = ndb.ComputedProperty(lambda self: self.location.lat if self.location else None)
     longitude = ndb.ComputedProperty(lambda self: self.location.lon if self.location else None)
 
-    new_tmp_variable = ndb.PickleProperty()
+    tmp_variables = ndb.PickleProperty()
+
+    def resetPercorsi(self):
+        self.percorsi_start_place = []
+        self.percorsi_start_fermata = []
+        self.percorsi_end_place = []
+        self.percorsi_end_fermata = []
 
     def updateUserInfo(self, name, last_name, username):
         modified = False
@@ -121,47 +128,52 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         return self.getTmpVariable(VAR_LAST_KEYBOARD)
 
     def setTmpVariable(self, var_name, value, put=False):
-        self.new_tmp_variable[var_name] = value
+        self.tmp_variables[var_name] = value
         if put:
             self.put()
 
     def getTmpVariable(self, var_name, initValue=None):
-        if var_name in self.new_tmp_variable:
-            return self.new_tmp_variable[var_name]
-        self.new_tmp_variable[var_name] = initValue
+        if var_name in self.tmp_variables:
+            return self.tmp_variables[var_name]
+        self.tmp_variables[var_name] = initValue
         return initValue
 
     def getPercorsiNumber(self):
         return len(self.percorsi_start_place)
 
-    def getPercorsiTriples(self):
-        return zip(self.percorsi_start_place, self.percorsi_start_fermata, self.percorsi_end_place)
+    def getPercorsiQuartets(self):
+        quartets = zip(
+            self.percorsi_start_place, self.percorsi_start_fermata,
+            self.percorsi_end_place, self.percorsi_end_fermata
+        )
+        quartets_utf = [[e.encode('utf-8') for e in q] for q in quartets]
+        return quartets_utf
+
+    #def getPercorsiTriples(self):
+    #    return zip(self.percorsi_start_place, self.percorsi_start_fermata, self.percorsi_end_place)
 
     def getPercorsiPairs(self):
-        return zip(self.percorsi_start_place, self.percorsi_end_place)
+        pairs = zip(self.percorsi_start_place, self.percorsi_end_place)
+        pairs_utf = [[e.encode('utf-8') for e in q] for q in pairs]
+        return pairs_utf
 
-    def getPercorsiList(self, start_fermata=True):
-        if start_fermata:
-            return [(start_place.encode('utf-8'), start_fermata.encode('utf-8'), end_place.encode('utf-8'))
-                for start_place, start_fermata, end_place in self.getPercorsiTriples()]
+    def getPercorsiList(self, fermate=True):
+        if fermate:
+            return self.getPercorsiQuartets()
         else:
-            list_with_duplicates = [(start_place.encode('utf-8'), end_place.encode('utf-8'))
-                                    for start_place, end_place in self.getPercorsiPairs()]
+            list_with_duplicates = self.getPercorsiPairs()
             return utility.removeDuplicatesFromList(list_with_duplicates)
 
 
-    def getPercorsiStrList(self, start_fermata=True):
-        if start_fermata:
-            return ["{} ({}) → {}".format(
-                start_place.encode('utf-8'), start_fermata.encode('utf-8'), end_place.encode('utf-8'))
-                    for start_place, start_fermata, end_place in self.getPercorsiTriples()]
+    def getPercorsiStrList(self, fermate=True):
+        import ride_offer
+        if fermate:
+            return [ride_offer.getRideQuartetToString(*quartet) for quartet in self.getPercorsiQuartets()]
         else:
-            list_with_duplicates = ["{} → {}".format(
-                start_place.encode('utf-8'), end_place.encode('utf-8'))
-                    for start_place, end_place in self.getPercorsiPairs()]
+            list_with_duplicates = [ride_offer.getRidePairToString(*pair) for pair in self.getPercorsiPairs()]
             return utility.removeDuplicatesFromList(list_with_duplicates)
 
-    def getPercorsiFromCommand(self, command, fermata):
+    def getPercorsoFromCommand(self, command, fermate):
         logging.debug("In getItineraryFromCommand")
         logging.debug("input: {}".format(command))
         index = params.getIndexFromCommand(command, params.PERCORSO_COMMAND_PREFIX)
@@ -169,28 +181,26 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         if index is None:
             return None
         index -= 1  # zero-based
-        percorsi_tuples = self.getPercorsiList(start_fermata=fermata)
+        percorsi_tuples = self.getPercorsiList(fermate=fermate)
         if len(percorsi_tuples)<=index:
             return None
         return percorsi_tuples[index]
 
-    def appendPercorsi(self, start_place, start_fermata, end_place):
-        if self.percorsi_start_place is None:
-            self.percorsi_start_place = []
-            self.percorsi_start_fermata = []
-            self.percorsi_end_place = []
-        if (start_place, start_fermata, end_place) in self.getPercorsiTriples():
+    def appendPercorsi(self, start_place, start_fermata, end_place, end_fermata):
+        if [start_place, start_fermata, end_place, end_fermata] in self.getPercorsiQuartets():
             return False
         self.percorsi_start_place.append(start_place)
         self.percorsi_start_fermata.append(start_fermata)
         self.percorsi_end_place.append(end_place)
+        self.percorsi_end_fermata.append(end_fermata)
         return True
 
     def removePercorsi(self, index):
         start = self.percorsi_start_place.pop(index).encode('utf-8')
-        fermata = self.percorsi_start_fermata.pop(index).encode('utf-8')
+        start_fermata = self.percorsi_start_fermata.pop(index).encode('utf-8')
         end = self.percorsi_end_place.pop(index).encode('utf-8')
-        return start, fermata, end
+        end_fermata = self.percorsi_end_fermata.pop(index).encode('utf-8')
+        return start, start_fermata, end, end_fermata
 
     def saveMyRideOffers(self):
         import ride_offer
@@ -270,8 +280,9 @@ def addPerson(chat_id, name, last_name, username):
         last_name=last_name,
         username=username,
         notification_mode = params.DEFAULT_NOTIFICATIONS_MODE,
-        new_tmp_variable={}
+        tmp_variables={}
     )
+    p.resetPercorsi()
     p.put()
     return p
 
@@ -283,6 +294,9 @@ def deletePerson(chat_id):
 
 def getPersonById(chat_id):
     return Person.get_by_id(str(chat_id))
+
+def getPeopleCount():
+    return Person.query().count()
 
 def getPeopleMatchingRideQry(start_place, intermediate_places, end_place):
     #logging.debug("In getPeopleMatchingRide")
@@ -337,31 +351,19 @@ def updatePeopleItinerary():
 # to remove property change temporary teh model to ndb.Expando
 # see https://cloud.google.com/appengine/articles/update_schema#removing-deleted-properties-from-the-datastore
 
-'''
 def updatePeople():
-    all_props = {'active', 'agree_on_terms', 'basic_route', 'basic_route', 'bus_stop_end', 'bus_stop_end', 'bus_stop_mid_back', 'bus_stop_mid_going', 'bus_stop_start', 'bus_stop_start', 'chat_id', 'enabled', 'language', 'last_city', 'last_city', 'last_mod', 'last_name', 'last_name', 'last_seen', 'last_seen', 'last_type', 'last_type', 'latitude', 'location', 'longitude', 'name', 'notification_enabled', 'notification_mode', 'notified', 'prev_state', 'prev_state', 'state', 'state', 'ticket_id', 'ticket_id', 'tmp', 'username', 'username', 'new_tmp_variable'}
-    valid_props = {'chat_id', 'name', 'last_name', 'username', 'last_mod', 'state', 'enabled', 'notification_mode', 'percorsi_start_fermata', 'percorsi_start_place', 'percorsi_end_place', 'latitude', 'longitude', 'new_tmp_variable'}
-    to_delete_props = {'tmp', 'basic_route', 'language', 'bus_stop_end', 'notified', 'bus_stop_mid_back', 'last_type', 'notification_enabled', 'agree_on_terms', 'prev_state', 'location', 'last_city', 'active', 'last_seen', 'bus_stop_mid_going', 'bus_stop_start', 'ticket_id'}
-
     more, cursor = True, None
     while more:
         records, cursor, more = Person.query().fetch_page(1000, start_cursor=cursor)
         for ent in records:
-            #ent.notification_mode = params.NOTIFICATION_MODE_ALL
-            del ent.tmp
-            #for old_prop in to_delete_props:
-                #try:
-                #    delattr(ent, old_prop)
-                #except:
-                #    continue
-
-            #del ent._properties['tmp_variables']
-            #ent.new_tmp_variable = {}
-            #delattr(ent, 'new_tmp_variable')
+            if 'new_tmp_variables' in ent._properties:
+                del ent._properties['new_tmp_variables']
+            #ent.tmp_variables = {}
+            ent.resetPercorsi()
         if records:
             create_futures = ndb.put_multi_async(records)
             ndb.Future.wait_all(create_futures)
-'''
+
 
 def populatePeople():
     from person_backup import Person_Backup
@@ -377,7 +379,7 @@ def populatePeople():
                 last_name=ent.last_name,
                 username=ent.username,
                 notification_mode=params.DEFAULT_NOTIFICATIONS_MODE,
-                new_tmp_variable={}
+                tmp_variables={}
             )
             new_utenti.append(p)
         if new_utenti:

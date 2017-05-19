@@ -25,7 +25,7 @@ class Person_Backup(geomodel.GeoModel, ndb.Model): #ndb.Expando
     latitude = ndb.ComputedProperty(lambda self: self.location.lat if self.location else None)
     longitude = ndb.ComputedProperty(lambda self: self.location.lon if self.location else None)
 
-    new_tmp_variable = ndb.PickleProperty()
+    tmp_variables = ndb.PickleProperty()
 
 
 def populatePersonBackup():
@@ -42,7 +42,7 @@ def populatePersonBackup():
                 last_name=ent.last_name,
                 username=ent.username,
                 notification_mode=params.DEFAULT_NOTIFICATIONS_MODE,
-                new_tmp_variable={}
+                tmp_variables={}
             )
             new_utenti.append(u)
         if new_utenti:
