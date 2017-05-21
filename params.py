@@ -3,6 +3,7 @@
 GIORNI_SETTIMANA = ['LU', 'MA', 'ME', 'GI', 'VE', 'SA', 'DO']
 GIORNI_SETTIMANA_FULL = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
 
+MAX_FERMATE_NEAR_LOCATION = 5
 MAX_PERCORSI = 8
 
 NOTIFICATION_MODE_NONE = "NONE"

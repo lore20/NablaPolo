@@ -95,6 +95,9 @@ def getRideQuartetToString(start, start_fermata, end, end_fermata):
 def getRidePairToString(start, end):
     return '{} → {}'.format(start, end)
 
+def getReversePath(start, start_fermata, end, end_fermata):
+    return end, end_fermata, start, start_fermata
+
 def addRideOffer(driver, start_datetime,
                  start_place, start_fermata, end_place, end_fermata,
                  programmato=False, programmato_giorni=()):
@@ -138,11 +141,12 @@ def filterAndSortOffersPerDay(offers):
             result[g].append(o)
     return result
 
-def getActiveRideOfferCount():
+def getActiveRideOffersCountInWeek():
     import params
     import date_time_util as dtu
     from datetime import timedelta
-    return RideOffer.query(
+
+    qry = RideOffer.query(
         ndb.AND(
             RideOffer.active == True,
             ndb.OR(
@@ -151,14 +155,27 @@ def getActiveRideOfferCount():
                     minutes=params.TIME_TOLERANCE_MIN)
             )
         )
-    ).count()
+    )
+    offers = qry.fetch()
+    offers_list_per_day = filterAndSortOffersPerDay(offers)
+    count = sum([len(d) for d in offers_list_per_day])
+    return count
 
-def getRideOfferInsertedLastDaysCount(days):
+def getActiveRideOffersProgrammatoQry():
+    return RideOffer.query(
+        ndb.AND(
+            RideOffer.active == True,
+            RideOffer.programmato == True,
+        )
+    )
+
+
+def getRideOfferInsertedLastDaysQry(days):
     import date_time_util as dtu
     from datetime import timedelta
     return RideOffer.query(
         RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(days=days)
-    ).count()
+    )
 
 def getActiveRideOffersDriver(chat_id):
     import params
@@ -202,7 +219,6 @@ def getActiveRideOffersSortedPerDay(start_place, end_place):
             ndb.OR(
                 RideOffer.programmato == True,
                 RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
-                # might be redundant as the filter is also applied afterwards
             )
         )
     )
@@ -226,3 +242,16 @@ def getActiveRideOffers():
     )
     offers = qry.fetch()
     return offers
+
+def updateRideOffers():
+    more, cursor = True, None
+    while more:
+        records, cursor, more = RideOffer.query().fetch_page(1000, start_cursor=cursor)
+        for ent in records:
+            pass
+            #if ent.end_fermata is None:
+            #    to_remove.append(ent)
+        if records:
+            #create_futures = ndb.put_multi_async(records)
+            create_futures = ndb.delete_multi(records)
+            ndb.Future.wait_all(create_futures)

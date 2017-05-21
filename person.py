@@ -138,6 +138,12 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         self.tmp_variables[var_name] = initValue
         return initValue
 
+    def setLocation(self, lat, lon, put=False):
+        self.location = ndb.GeoPt(lat, lon)
+        self.update_location()
+        if put:
+            self.put()
+
     def getPercorsiNumber(self):
         return len(self.percorsi_start_place)
 
@@ -156,6 +162,9 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         pairs = zip(self.percorsi_start_place, self.percorsi_end_place)
         pairs_utf = [[e.encode('utf-8') for e in q] for q in pairs]
         return pairs_utf
+
+    def getPercorsiCount(self):
+        return len(self.percorsi_start_place)
 
     def getPercorsiList(self, fermate=True):
         if fermate:
@@ -186,13 +195,18 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
             return None
         return percorsi_tuples[index]
 
-    def appendPercorsi(self, start_place, start_fermata, end_place, end_fermata):
-        if [start_place, start_fermata, end_place, end_fermata] in self.getPercorsiQuartets():
+    def percorsoIsPresent(self, start_place, start_fermata, end_place, end_fermata):
+        return [start_place, start_fermata, end_place, end_fermata] in self.getPercorsiQuartets()
+
+    def appendPercorsi(self, start_place, start_fermata, end_place, end_fermata, put=False):
+        if self.percorsoIsPresent(start_place, start_fermata, end_place, end_fermata):
             return False
         self.percorsi_start_place.append(start_place)
         self.percorsi_start_fermata.append(start_fermata)
         self.percorsi_end_place.append(end_place)
         self.percorsi_end_fermata.append(end_fermata)
+        if put:
+            self.put()
         return True
 
     def removePercorsi(self, index):
@@ -352,14 +366,17 @@ def updatePeopleItinerary():
 # see https://cloud.google.com/appengine/articles/update_schema#removing-deleted-properties-from-the-datastore
 
 def updatePeople():
+    #import key
     more, cursor = True, None
     while more:
         records, cursor, more = Person.query().fetch_page(1000, start_cursor=cursor)
         for ent in records:
-            if 'new_tmp_variables' in ent._properties:
-                del ent._properties['new_tmp_variables']
+            #if ent.chat_id not in key.TESTERS:
+            #    continue
+            if 'new_tmp_variable' in ent._properties:
+                del ent._properties['new_tmp_variable']
             #ent.tmp_variables = {}
-            ent.resetPercorsi()
+            #ent.resetPercorsi()
         if records:
             create_futures = ndb.put_multi_async(records)
             ndb.Future.wait_all(create_futures)

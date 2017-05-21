@@ -6,31 +6,23 @@ import key
 import geoUtils
 import parseKml
 
-# FERMATE -> {name: {'loc': (<lat>,<lon>), 'ref': refArea}}
-# LUOGHI -> {name: (<lat>,<lon>)}
-# CONNECTIONS -> { area1: set(area2, area3), area2: set(area1, area3), ... }
+# LUOGHI -> {name: {'loc': (<lat>,<lon>), 'poly': <list coordinate>, 'fermate': <list fermate names>}}
+# FERMATE -> {name: (<lat>,<lon>)}
+# CONNECTIONS -> { luogo1: set(luogo2, luogo3), luogo2: set(luogo1, luogo3), ... }
 
-LUOGHI, FERMATE, CONNECTIONS = None, None, None
-GPS_LOCATIONS = None
-FERMATE_NAMES = None
-SORTED_LUOGHI = None
-SORTED_FERMATE_IN_LOCATION = None
-
-def updateMap():
-    global LUOGHI, FERMATE, CONNECTIONS, GPS_LOCATIONS, FERMATE_NAMES, SORTED_LUOGHI, SORTED_FERMATE_IN_LOCATION
-    LUOGHI, FERMATE, CONNECTIONS = parseKml.parseMap()
-    GPS_LOCATIONS = [v['loc'] for v in FERMATE.values()]
-    FERMATE_NAMES = FERMATE.keys()
-    SORTED_LUOGHI = sorted(LUOGHI.keys()) #sorted(list(set(utility.flatten([v['ref'] for v in FERMATE.values()]))))
-    SORTED_FERMATE_IN_LOCATION = lambda l: sorted([n for n, v in FERMATE.iteritems() if l in v['ref']])
-    logging.debug('Updated map percorsi')
-
-#-----------------
-# call it once
-#-----------------
-updateMap()
-#-----------------
-#-----------------
+LUOGHI, FERMATE, CONNECTIONS = parseKml.parseMap()
+GPS_LOCATIONS = [v['loc'] for v in FERMATE.values()]
+FERMATE_NAMES = FERMATE.keys()
+SORTED_LUOGHI = sorted(LUOGHI.keys()) #sorted(list(set(utility.flatten([v['ref'] for v in FERMATE.values()]))))
+SORTED_FERMATE_IN_LOCATION = lambda l: sorted([n for n, v in FERMATE.iteritems() if l in v['ref']])
+LUOGHI_WITH_SINGLE_FERMATA = {
+    '{} ({})'.format(l, v['fermate'][0]): {
+        'luogo': l,
+        'fermata': v['fermate'][0]
+    }
+    for l,v in LUOGHI.iteritems()
+    if len(v['fermate'])==1
+}
 
 BASE_MAP_IMG_URL = "http://maps.googleapis.com/maps/api/staticmap?" + \
                    "&size=400x400" + "&maptype=roadmap" + \
@@ -47,7 +39,8 @@ def format_distance(dst):
         return str(round(dst, 1)) + " Km"
     return str(int(dst*1000)) + " m"
 
-def getFermateNearPosition(lat, lon, radius, max_threshold_ratio, max_results):
+def getFermateNearPosition(lat, lon, radius, max_threshold_ratio):
+    import params
     result = {}
     centralPoint = (lat, lon)
     min_distance = None
@@ -64,12 +57,13 @@ def getFermateNearPosition(lat, lon, radius, max_threshold_ratio, max_results):
             }
     min_distance = max(min_distance, 1) # if it's less than 1 km use 1 km as a min distance
     result = {k:v for k,v in result.items() if v['dist'] <= max_threshold_ratio*min_distance}
+    max_results = params.MAX_FERMATE_NEAR_LOCATION
     result_sorted = sorted(result.items(), key=lambda k: k[1]['dist'])[:max_results]
     result = dict(result_sorted)
     return result
 
-def getFermateNearPositionImgUrl(lat, lon, radius = 10, max_threshold_ratio=2, max_results=3):
-    fermate = getFermateNearPosition(lat, lon, radius, max_threshold_ratio, max_results)
+def getFermateNearPositionImgUrl(lat, lon, radius = 10, max_threshold_ratio=2):
+    fermate = getFermateNearPosition(lat, lon, radius, max_threshold_ratio)
     if fermate:
         fermate_name_sorted = sorted(fermate.items(), key=lambda k: k[1]['dist'])
         img_url = BASE_MAP_IMG_URL + \
@@ -168,3 +162,9 @@ def test_intermediate_stops(start=None, end=None):
     stops = get_intermediate_stops(start, end)
     stops_str = "PASSA DA: {}".format(', '.join(stops)) if stops else 'DIRETTO'
     print '{} -> {}\n{}'.format(start, end, stops_str)
+
+# after updating online map (new places or change in names) we need to make sure that
+# - intermediate places of active ride_offers are regenerated
+# - outdated percorsi preferiti (quartets) in person are removed
+def updatePercorsiInDB() :
+    pass

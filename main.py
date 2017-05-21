@@ -70,6 +70,8 @@ NEXT_ICON = '⏩'
 BULLET_SYMBOL = '∙'
 RIGHT_ARROW_SYMBOL = '→'
 
+BOTTONE_SI = '✅ SI'
+BOTTONE_NO = '❌ NO'
 BOTTONE_INDIETRO = "🔙 INDIETRO"
 BOTTONE_INIZIO = "🏠 TORNA ALL'INIZIO"
 BOTTONE_INFO = "ℹ INFO"
@@ -81,7 +83,7 @@ BOTTONE_IMPOSTAZIONI = "⚙ IMPOSTAZIONI"
 BOTTONE_AGGIUNGI_PERCORSO = "➕ AGGIUNGI PERCORSO"
 BOTTONE_RIMUOVI_PERCORSO = "➖ RIMUOVI PERCORSO"
 BOTTONE_PERCORSI = "🛣 PERCORSI PREFERITI"
-BOTTONE_NOTIFICHE = "🔔 NOTIFICHE"
+BOTTONE_NOTIFICHE = "🔔 NOTIFICHE PASSAGGI"
 BOTTONE_ANNULLA = "❌ ANNULLA"
 BOTTONE_ADESSO = "👇 ADESSO"
 BOTTONE_A_BREVE = "⏰ A BREVE (24H)"
@@ -92,7 +94,9 @@ BOTTONE_ATTIVA_NOTIFICHE_TUTTE = "🔔🔔🔔 ATTIVA TUTTE"
 BOTTONE_DISTATTIVA_NOTIFICHE = "🔕 DISATTIVA TUTTE"
 BOTTONE_ATTIVA_NOTIFICHE_PERCORSI = "🔔🛣 MIEI PERCORSI"
 BOTTONE_ELIMINA = "🗑 ELIMINA"
+BOTTONE_REGOLAMENTO_ISTRUZIONI = "📜 REGOLAMENTO e ISTRUZIONI"
 BOTTONE_STATS = "📊 STATISTICHE"
+BOTTONE_CONTATTACI = "📩 CONTATTACI"
 
 BOTTONE_LOCATION = {
     'text': "INVIA POSIZIONE",
@@ -247,7 +251,7 @@ def tellInputNonValidoRepeatState(p):
 
 
 def tell(chat_id, msg, kb=None, markdown=True, inline_keyboard=False, one_time_keyboard=False,
-         sleepDelay=False, hide_keyboard=False, force_reply=False):
+         sleepDelay=False, hide_keyboard=False, force_reply=False, disable_web_page_preview=True):
     # reply_markup: InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardHide or ForceReply
     if inline_keyboard:
         replyMarkup = {  # InlineKeyboardMarkup
@@ -273,7 +277,7 @@ def tell(chat_id, msg, kb=None, markdown=True, inline_keyboard=False, one_time_k
     data = {
         'chat_id': chat_id,
         'text': msg,
-        'disable_web_page_preview': 'true',
+        'disable_web_page_preview': disable_web_page_preview,
         'parse_mode': 'Markdown' if markdown else '',
         'reply_markup': json.dumps(replyMarkup),
     }
@@ -508,9 +512,9 @@ def goToState0(p, **kwargs):
     ]
     if giveInstruction:
         msg = '🏠 *Inizio*\n\n' \
-              '• Premi su {} o {} per offrire/cercare passaggi.\n' \
-              '• Premi su {} per percorsi e notifiche.\n' \
-              '• Premi su {} per avere info e mappa delle fermate.'.\
+              '• Premi su {} o {} per offrire/cercare passaggi\n' \
+              '• Premi su {} per percorsi e notifiche\n' \
+              '• Premi su {} per ottenere più info (mappa, contatti, ...)'.\
             format(BOTTENE_OFFRI_PASSAGGIO, BOTTENE_CERCA_PASSAGGIO, BOTTONE_IMPOSTAZIONI, BOTTONE_INFO)
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
@@ -550,7 +554,7 @@ def goToState1(p, **kwargs):
             percorsiCmds = getPersorsiCommands(p, start_fermata=True)
             if percorsiCmds:
                 msg = 'Seleziona uno dei *tuoi percorsi*:\n\n{}\n\n'.format(percorsiCmds)
-                msg += '📍 oppure dimmi da *dove parti*.'
+                msg += '📍 Oppure dimmi da *dove parti*.'
             else:
                 msg = '📍 *Da dove parti?*'
             kb = utility.makeListOfList(percorsi.SORTED_LUOGHI)
@@ -789,7 +793,7 @@ def goToState2(p, **kwargs):
             percorsiCmds = getPersorsiCommands(p, start_fermata=False)
             if percorsiCmds:
                 msg = 'Seleziona uno dei *tuoi percorsi*:\n\n{}\n\n'.format(percorsiCmds)
-                msg += '📍 oppure dimmi da *dove parti*.'
+                msg += '📍 Oppure dimmi da *dove parti*.'
             else:
                 msg = '📍 *Da dove parti?*'
             kb = utility.makeListOfList(percorsi.SORTED_LUOGHI)
@@ -969,31 +973,35 @@ def goToState3(p, **kwargs):
 def goToState31(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
+    percorsi = p.getPercorsiStrList()
     if giveInstruction:
-        percorsi = p.getPercorsiStrList()
-        reached_max_percorsi = len(percorsi) > params.MAX_PERCORSI
-        AGGIUNGI_RIMUOVI_BUTTONS = []
-        if not reached_max_percorsi:
-            AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_AGGIUNGI_PERCORSO)
+        AGGIUNGI_RIMUOVI_BUTTONS = [BOTTONE_AGGIUNGI_PERCORSO]
         if percorsi:
             AGGIUNGI_RIMUOVI_BUTTONS.append(BOTTONE_RIMUOVI_PERCORSO)
-        kb = [AGGIUNGI_RIMUOVI_BUTTONS, [BOTTONE_INDIETRO]]
+        kb = [[BOTTONE_INIZIO], AGGIUNGI_RIMUOVI_BUTTONS, [BOTTONE_INDIETRO]]
         msg = '🛣 *I tuoi percorsi*\n\n'
         if percorsi:
             msg += '\n'.join(['∙ {}'.format(i) for i in percorsi])
-            if reached_max_percorsi:
-                msg += '\n\nHai raggiunto il numero massimo di percorsi.'
         else:
-            msg += 'Nessun percorso inserito.'
+            msg += '🤷‍♀️ Nessun percorso inserito.'
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
     else:
         kb = p.getLastKeyboard()
         if input in utility.flatten(kb):
-            if input == BOTTONE_INDIETRO:
+            if input == BOTTONE_INIZIO:
+                restart(p)
+            elif input == BOTTONE_INDIETRO:
                 redirectToState(p, 3)
             elif input == BOTTONE_AGGIUNGI_PERCORSO:
-                redirectToState(p, 311, firstCall=True)
+                reached_max_percorsi = len(percorsi) >= params.MAX_PERCORSI
+                if reached_max_percorsi:
+                    msg = '🙀 Hai raggiunto il numero massimo di percorsi.'
+                    tell(p.chat_id, msg, kb)
+                    sendWaitingAction(p.chat_id, sleep_time=1)
+                    redirectToState(p, 31)
+                else:
+                    redirectToState(p, 311, firstCall=True)
             else: # input == BOTTONE_RIMUOVI_PERCORSO
                 redirectToState(p, 312)
         else:
@@ -1054,15 +1062,52 @@ def goToState311(p, **kwargs):
                 repeatState(p)
             else: # stage==4
                 ride_str = ride_offer.getRideQuartetToString(*PASSAGGIO_PATH)
-                if p.appendPercorsi(*PASSAGGIO_PATH):
+                if p.appendPercorsi(*PASSAGGIO_PATH, put=True):
+                    # need to put so elements are converted to unicode otherwise p.getPercorsiQuartets() would fail
                     msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(ride_str)
                     tell(p.chat_id, msg)
+                    logging.debug('PASSAGGIO_PATH: {}'.format(', '.join(PASSAGGIO_PATH)))
+                    sendWaitingAction(p.chat_id, sleep_time=1)
+                    REVERSE_PATH = ride_offer.getReversePath(*PASSAGGIO_PATH) #[PASSAGGIO_PATH[2],PASSAGGIO_PATH[3],PASSAGGIO_PATH[0],PASSAGGIO_PATH[1]]
+                    logging.debug('REVERSE_PATH: {}'.format(', '.join(REVERSE_PATH)))
+                    if p.getPercorsiCount()<params.MAX_PERCORSI and not p.percorsoIsPresent(*REVERSE_PATH):
+                        redirectToState(p, 3111)
+                    else:
+                        redirectToState(p, 31)
                 else:
-                    msg = '❗ *Percorso inserito già presente*:\n{}'.format(ride_str)
+                    msg = '🤦‍♂️ *Percorso già inserito*:\n{}'.format(ride_str)
                     tell(p.chat_id, msg)
-                sendWaitingAction(p.chat_id, sleep_time=1)
-                redirectToState(p, 31)
+                    sendWaitingAction(p.chat_id, sleep_time=1)
+                    redirectToState(p, 31)
 
+        else:
+            tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 3111: Add Percorso Inverso
+# ================================
+
+def goToState3111(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    PASSAGGIO_PATH = p.getTmpVariable(person.VAR_PASSAGGIO_PATH)
+    REVERSE_PATH = ride_offer.getReversePath(*PASSAGGIO_PATH) #[PASSAGGIO_PATH[2], PASSAGGIO_PATH[3], PASSAGGIO_PATH[0], PASSAGGIO_PATH[1]]
+    ride_str = ride_offer.getRideQuartetToString(*REVERSE_PATH)
+    if giveInstruction:
+        msg = "↩️ *Vuoi anche inserire il passaggio inverso?*\n{}".format(ride_str)
+        kb = [[BOTTONE_SI, BOTTONE_NO]]
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        kb = p.getLastKeyboard()
+        if input in utility.flatten(kb):
+            if input == BOTTONE_SI:
+                inserted = p.appendPercorsi(*REVERSE_PATH)
+                assert(inserted)
+                msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(ride_str)
+                tell(p.chat_id, msg)
+                sendWaitingAction(p.chat_id, sleep_time=1)
+            redirectToState(p, 31)
         else:
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
@@ -1193,33 +1238,38 @@ def goToState33(p, **kwargs):
 def goToState9(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
-    kb = [[BOTTONE_FERMATE], [BOTTONE_STATS], [BOTTONE_INDIETRO]]
+    kb = [[BOTTONE_INIZIO], [BOTTONE_REGOLAMENTO_ISTRUZIONI], [BOTTONE_FERMATE], [BOTTONE_CONTATTACI, BOTTONE_STATS]]
     if giveInstruction:
-        msg = '*Informazioni*\n\n' \
-              '*PickMeUp* è un servizio di carpooling attualmente in sperimentazione nella provincia di Trento.\n\n' \
-              '📩 Per maggiori informazioni non esitate a *contattarci* cliccando su @kercos\n\n' \
-              'Clicca su {} per vedere le fermate PickMeUp o {} per alcuni numeri.'.format(BOTTONE_FERMATE, BOTTONE_STATS)
+        msg_lines = ['*Informazioni*']
+        msg_lines.append('*PickMeUp* è un servizio di carpooling attualmente in sperimentazione nella provincia di Trento.')
+        msg_lines.append('Clicca su {} o uno dei pulsanti qua sotto per avere maggiori informazioni.'.format(BOTTONE_REGOLAMENTO_ISTRUZIONI))
+        msg = '\n\n'.join(msg_lines)
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
     else:
-        if input == BOTTONE_FERMATE:
+        if input == BOTTONE_INIZIO:
+            restart(p)
+        elif input == BOTTONE_REGOLAMENTO_ISTRUZIONI:
+            msg = 'https://docs.google.com/document/d/1hiP_rQKOiiPZwvqtZF3k0cGdqS1SZqs3VV7TIx9_s8o'
+            tell(p.chat_id, msg, kb, markdown=False, disable_web_page_preview=False)
+        elif input == BOTTONE_FERMATE:
             redirectToState(p, 91)
         elif input == BOTTONE_STATS:
             msg = utility.unindent(
                 '''
                 👤 Utenti: {}
                 
-                📆🚘 Passaggi inseriti negli ultimi 7 giorni: {}
-                🚘 Passaggi attivi: {}                
+                🚘 Passaggi attivi nei prossimi 7 giorni: {}
+                📆🚘 Passaggi inseriti negli ultimi 7 giorni: {}                                
                 '''
             ).format(
                 person.getPeopleCount(),
-                ride_offer.getActiveRideOfferCount(),
-                ride_offer.getRideOfferInsertedLastDaysCount(7)
+                ride_offer.getActiveRideOffersCountInWeek(),
+                ride_offer.getRideOfferInsertedLastDaysQry(7).count()
             )
             tell(p.chat_id, msg)
-        elif input == BOTTONE_INDIETRO:
-            restart(p)
+        elif input == BOTTONE_CONTATTACI:
+            redirectToState(p, 92)
         else:
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
@@ -1251,6 +1301,7 @@ def goToState91(p, **kwargs):
         if input:
             loc = geoUtils.getLocationFromAddress(input)
             if loc:
+                p.setLocation(loc.latitude, loc.longitude, put=True)
                 location = {
                     'latitude': loc.latitude,
                     'longitude': loc.longitude
@@ -1262,6 +1313,30 @@ def goToState91(p, **kwargs):
             tell(p.chat_id, text)
         else:
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
+
+# ================================
+# GO TO STATE 92: Contattaci
+# ================================
+
+def goToState92(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    giveInstruction = input is None
+    if giveInstruction:
+        kb = [[BOTTONE_INDIETRO]]
+        msg = '📩 Non esitate a *contattarci*:\n\n' \
+              '∙ 📝 Scrivi qua sotto qualsiasi feedback o consiglio\n' \
+              '∙ 🗣 Entrare in chat con noi cliccando su @kercos\n' \
+              '∙ 📬 Mandaci un email a pickmeupbot@gmail.com'
+        p.setLastKeyboard(kb)
+        tell(p.chat_id, msg, kb)
+    else:
+        if input == BOTTONE_INDIETRO:
+            redirectToState(p, 9)
+            return
+        else:
+            msg = '📩📩📩\nMessaggio di feedback da {}:\n{}'.format(p.getFirstNameLastNameUserName(), input)
+            tell_admin(msg)
+
 
 ## +++++ END OF STATES +++++ ###
 

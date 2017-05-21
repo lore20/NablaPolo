@@ -1,12 +1,12 @@
 import requests
 from collections import defaultdict
 import xml.etree.ElementTree as ET
-#from shapely.geometry import Point
-#from shapely.geometry.polygon import Polygon
-
-DEBUG = False
 
 map_url = 'http://www.google.com/maps/d/u/0/kml?forcekml=1&mid=1cRlA85rd4ZxRDlSk8KTt5Wop5cM'
+
+LUOGHI_LAYER_NAME = 'Luoghi'
+FARMATE_LAYER_NAME = 'Fermate'
+CONNESSIONI_LAYER_NAME = 'Connessioni'
 
 tagPrefix = '{http://www.opengis.net/kml/2.2}'
 docTag = tagPrefix + 'Document'
@@ -42,14 +42,11 @@ def mean(numbers):
 def getPolygonCentroid(poly):
     return mean([x[0] for x in poly]),mean([x[1] for x in poly])
 
-def getAreaNameOfPoint(point, areas):
-    for name, polygon in areas.iteritems():
-        #if polygon.contains(point):
-        #    return name
-        if point_inside_polygon(point[0], point[1], polygon):
-            return name
-    if DEBUG:
-        print "Eror in finding area for point {}".format(list(point.coords)[0])
+def getLuogoConainingPoint(point, luoghi):
+    for n, v in luoghi.iteritems():
+        polycoordinateList = v['poly']
+        if point_inside_polygon(point[0], point[1], polycoordinateList):
+            return n
     return None
 
 def parseMap():
@@ -61,28 +58,15 @@ def parseMap():
     folders = document.findall(folderTag)
     nameFolders = {}
     for fold in folders:
-        name = fold.find(nameTag).text  # Fermate, Luoghi, Areas, Lines
+        name = fold.find(nameTag).text  # Fermate, LuoghiFlags, Luoghi, Lines
         nameFolders[name] = fold
 
-    # Luoghi
-    luoghi = {}  # {name: (<lat>,<lon>)}
-    #  using centroid of areas instead of placemarks
-    '''
-    luoghi_folder = nameFolders['Luoghi']
+    # LUOGHI
+    luoghi = {}  # {name: {'loc': (<lat>,<lon>), 'fermate': [fermata1, fermata2, ...]}}
+    luoghi_folder = nameFolders[LUOGHI_LAYER_NAME]
     placemarks = luoghi_folder.findall(placemarkTag)
     for p in placemarks:
-        name = p.find(nameTag).text.strip() # luogo name (= area name)
-        point = p.find(pointTag)
-        coordinatesString = point.find(coordinatesTag).text.strip().split(',')
-        lon, lat = [float(x) for x in coordinatesString[:2]]
-    '''
-
-    # Areas
-    areas = {}  # {name: <polygon>}
-    areas_folder = nameFolders['Areas']
-    placemarks = areas_folder.findall(placemarkTag)
-    for p in placemarks:
-        name = p.find(nameTag).text.strip() # area name
+        name = p.find(nameTag).text.strip() # luogo name
         name = name.encode('utf-8')
         polygon = p.find(polygonTag)
         outerBoundaryIs = polygon.find(outerBoundaryIsTag)
@@ -92,16 +76,16 @@ def parseMap():
         for coordinatesString in coordinatesStringList:
             lon, lat = [float(x) for x in coordinatesString.split(',')[:2]]
             coordinateList.append((lat, lon))
-        #polygon = Polygon(coordinateList)
-        #areas[name] = polygon
-        areas[name] = coordinateList
-        #centroid_lat, centroid_lon = list(polygon.centroid.coords)[0]
         centroid_lat, centroid_lon = getPolygonCentroid(coordinateList)
-        luoghi[name] = (centroid_lat, centroid_lon)
+        luoghi[name] = {
+            'loc': (centroid_lat, centroid_lon), # centroid
+            'poly': coordinateList,
+            'fermate': []
+        }
 
-    # Fermate
-    fermate = {} # {name: {'loc': (<lat>,<lon>), 'ref': refArea}}
-    fermate_folder = nameFolders['Fermate']
+    # FERMATE
+    fermate = {} # {name: {'loc': (<lat>,<lon>), 'ref': refLuogo}}
+    fermate_folder = nameFolders[FARMATE_LAYER_NAME]
     placemarks = fermate_folder.findall(placemarkTag)
     for p in placemarks:
         name = p.find(nameTag).text.strip() # fermata name
@@ -110,14 +94,15 @@ def parseMap():
         coordinatesString = point.find(coordinatesTag).text.strip().split(',')
         lon, lat = [float(x) for x in coordinatesString[:2]]
         #point = Point(lat, lon)
-        areaName = getAreaNameOfPoint((lat,lon), areas)
-        fermate[name] = {'loc': (lat, lon), 'ref': areaName}
+        luogo = getLuogoConainingPoint((lat, lon), luoghi)
+        fermate[name] = {'loc': (lat, lon), 'ref': luogo}
+        luoghi[luogo]['fermate'].append(name)
 
 
     # Lines
-    connections = defaultdict(set)  # { area1: set(area2, area3), area2: set(area1, area3), ... }
-    lines_folder = nameFolders['Lines']
-    placemarks = lines_folder.findall(placemarkTag)
+    connections = defaultdict(set)  # { luogo1: set(luogo2, luogo3), luogo2: set(luogo1, luogo3), ... }
+    connessioni_folder = nameFolders[CONNESSIONI_LAYER_NAME]
+    placemarks = connessioni_folder.findall(placemarkTag)
     for p in placemarks:
         lineString = p.find(lineStringTag)
         coordinatesStringList = [x.strip() for x in lineString.find(coordinatesTag).text.strip().split('\n')]
@@ -127,17 +112,19 @@ def parseMap():
             coordinateList.append((lat, lon))
         point1 = coordinateList[0] # Point(coordinateList[0])
         point2 = coordinateList[1] # Point(coordinateList[1])
-        area1 = getAreaNameOfPoint(point1, areas)
-        area2 = getAreaNameOfPoint(point2, areas)
-        connections[area1].add(area2)
-        connections[area2].add(area1)
-
-    if DEBUG:
-        checkLuoghi = set(luoghi.keys()) == set(connections.keys())
-        checkFermate = all(fv['ref'] is not None for fv in fermate.values())
-        checkConnections = all(len(s) > 0 for s in connections.values())
-        print "Luoghi: {} check: {}".format(len(luoghi), checkLuoghi)
-        print "Fermate: {} check: {}".format(len(fermate), checkFermate)
-        print "Connections: {} check: {}".format(len(connections), checkConnections)
+        luogo1 = getLuogoConainingPoint(point1, luoghi)
+        luogo2 = getLuogoConainingPoint(point2, luoghi)
+        connections[luogo1].add(luogo2)
+        connections[luogo2].add(luogo1)
 
     return luoghi, fermate, connections
+
+
+def checkMap():
+    luoghi, fermate, connections = parseMap()
+    checkLuoghi = set(luoghi.keys()) == set(connections.keys())
+    checkFermate = all(fv['ref'] is not None for fv in fermate.values())
+    checkConnections = all(len(s) > 0 for s in connections.values())
+    print "Luoghi: {} check: {}".format(len(luoghi), checkLuoghi)
+    print "Fermate: {} check: {}".format(len(fermate), checkFermate)
+    print "Connections: {} check: {}".format(len(connections), checkConnections)
