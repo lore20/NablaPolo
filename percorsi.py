@@ -13,16 +13,12 @@ import parseKml
 LUOGHI, FERMATE, CONNECTIONS = parseKml.parseMap()
 GPS_LOCATIONS = [v['loc'] for v in FERMATE.values()]
 FERMATE_NAMES = FERMATE.keys()
-SORTED_LUOGHI = sorted(LUOGHI.keys()) #sorted(list(set(utility.flatten([v['ref'] for v in FERMATE.values()]))))
-SORTED_FERMATE_IN_LOCATION = lambda l: sorted([n for n, v in FERMATE.iteritems() if l in v['ref']])
-LUOGHI_WITH_SINGLE_FERMATA = {
-    '{} ({})'.format(l, v['fermate'][0]): {
-        'luogo': l,
-        'fermata': v['fermate'][0]
-    }
-    for l,v in LUOGHI.iteritems()
-    if len(v['fermate'])==1
-}
+SORTED_LUOGHI = sorted(LUOGHI.keys())
+SORTED_FERMATE_IN_LUOGO = lambda l: sorted([n for n, v in FERMATE.iteritems() if l in v['ref']])
+SORTED_LUOGHI_WITH_FERMATA_IF_SINGLE = sorted(
+    [l if len(v['fermate'])>1 else '{} ({})'.format(l, v['fermate'][0]) for l,v in LUOGHI.iteritems() ]
+)
+
 
 BASE_MAP_IMG_URL = "http://maps.googleapis.com/maps/api/staticmap?" + \
                    "&size=400x400" + "&maptype=roadmap" + \
@@ -79,16 +75,10 @@ def getFermateNearPositionImgUrl(lat, lon, radius = 10, max_threshold_ratio=2):
         text = 'Nessuna fermata trovata nel raggio di {} km dalla posizione inserita.'.format(radius)
     return img_url, text
 
-def isValidStartEnd(startLuogo, startFermata, endLuogo):
-    return startLuogo in SORTED_LUOGHI and \
-           endLuogo in SORTED_LUOGHI and \
-           startFermata in FERMATE.keys() and \
-           FERMATE[startFermata]['ref']==startLuogo
-
 def getDistanceBetweenLuoghi(A, B):
     import geoUtils
-    locA = LUOGHI[A]
-    locB = LUOGHI[B]
+    locA = LUOGHI[A]['loc']
+    locB = LUOGHI[B]['loc']
     return geoUtils.distance(locA, locB)
 
 def getPathDistance(path):
@@ -162,9 +152,3 @@ def test_intermediate_stops(start=None, end=None):
     stops = get_intermediate_stops(start, end)
     stops_str = "PASSA DA: {}".format(', '.join(stops)) if stops else 'DIRETTO'
     print '{} -> {}\n{}'.format(start, end, stops_str)
-
-# after updating online map (new places or change in names) we need to make sure that
-# - intermediate places of active ride_offers are regenerated
-# - outdated percorsi preferiti (quartets) in person are removed
-def updatePercorsiInDB() :
-    pass

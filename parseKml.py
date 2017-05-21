@@ -62,6 +62,7 @@ def parseMap():
         nameFolders[name] = fold
 
     # LUOGHI
+    # IMPORTANT - LUOGHI CANNOT SHARE THE SAME PREFIX
     luoghi = {}  # {name: {'loc': (<lat>,<lon>), 'fermate': [fermata1, fermata2, ...]}}
     luoghi_folder = nameFolders[LUOGHI_LAYER_NAME]
     placemarks = luoghi_folder.findall(placemarkTag)

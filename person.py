@@ -36,6 +36,9 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     percorsi_end_place = ndb.StringProperty(repeated=True)
     percorsi_end_fermata = ndb.StringProperty(repeated=True)
 
+    percorsi_size = ndb.ComputedProperty(
+        lambda self: len(self.percorsi_start_fermata) if self.percorsi_start_fermata else 0)
+
     # location = ndb.GeoPtProperty() # inherited from geomodel.GeoModel
     latitude = ndb.ComputedProperty(lambda self: self.location.lat if self.location else None)
     longitude = ndb.ComputedProperty(lambda self: self.location.lon if self.location else None)
@@ -216,6 +219,12 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         end_fermata = self.percorsi_end_fermata.pop(index).encode('utf-8')
         return start, start_fermata, end, end_fermata
 
+    def removePercorsiMulti(self, indexList):
+        self.percorsi_start_place = [x for i,x in enumerate(self.percorsi_start_place) if i not in indexList]
+        self.percorsi_start_fermata = [x for i,x in enumerate(self.percorsi_start_fermata) if i not in indexList]
+        self.percorsi_end_place = [x for i, x in enumerate(self.percorsi_end_place) if i not in indexList]
+        self.percorsi_end_fermata = [x for i, x in enumerate(self.percorsi_end_fermata) if i not in indexList]
+
     def saveMyRideOffers(self):
         import ride_offer
         import pickle
@@ -335,32 +344,6 @@ def getPeopleMatchingRideQry(start_place, intermediate_places, end_place):
         )
     )
     return qry
-
-def updatePeopleItinerary():
-    import percorsi
-    more, cursor = True, None
-    while more:
-        records, cursor, more = Person.query().fetch_page(1000, start_cursor=cursor)
-        new_records = []
-        for p in records:
-            removeIndexes = []
-            for i in range(len(p.percorsi_start_place)):
-                start, start_fermata, end = p.percorsi_start_place[i].encode('utf-8'), \
-                                            p.percorsi_start_fermata[i].encode('utf-8'), \
-                                            p.percorsi_end_place[i].encode('utf-8')
-                if not percorsi.isValidStartEnd(start, start_fermata, end):
-                    removeIndexes.append(i)
-                    logging.debug('Removing percorso {} ({}) - {} from user {}'.format(start, start_fermata, end, p.getFirstNameLastName()))
-            if removeIndexes:
-                p.percorsi_start_place = [x for i, x in enumerate(p.percorsi_start_place) if i not in removeIndexes]
-                p.percorsi_start_fermata = [x for i, x in enumerate(p.percorsi_start_fermata) if i not in removeIndexes]
-                p.percorsi_end_place = [x for i, x in enumerate(p.percorsi_end_place) if i not in removeIndexes]
-                new_records.append(p)
-        if new_records:
-            create_futures = ndb.put_multi_async(new_records)
-            ndb.Future.wait_all(create_futures)
-    logging.debug('Updated people percorso')
-
 
 # to remove property change temporary teh model to ndb.Expando
 # see https://cloud.google.com/appengine/articles/update_schema#removing-deleted-properties-from-the-datastore

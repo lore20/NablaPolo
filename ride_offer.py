@@ -38,10 +38,16 @@ class RideOffer(ndb.Model):
     def getEndFermata(self):
         return self.end_fermata.encode('utf-8')
 
+    def getIntermediatePlacesUtf(self):
+        return [x.encode('utf-8') for x in self.intermediate_places]
+
     def getDepartingTime(self):
         import date_time_util as dtu
         #return dtu.formatTime(self.programmato_time)
         return dtu.formatTime(self.start_datetime.time())
+
+    def getRideOfferPercorsoStr(self):
+        return getRideQuartetToString(self.start_place, self.start_fermata, self.end_place, self.end_fermata)
 
     def getDescription(self, driver_info=True):
         import params
@@ -141,11 +147,10 @@ def filterAndSortOffersPerDay(offers):
             result[g].append(o)
     return result
 
-def getActiveRideOffersCountInWeek():
+def getActiveRideOffersQry():
     import params
     import date_time_util as dtu
     from datetime import timedelta
-
     qry = RideOffer.query(
         ndb.AND(
             RideOffer.active == True,
@@ -156,7 +161,11 @@ def getActiveRideOffersCountInWeek():
             )
         )
     )
-    offers = qry.fetch()
+    return qry
+
+
+def getActiveRideOffersCountInWeek():
+    offers = getActiveRideOffersQry().fetch()
     offers_list_per_day = filterAndSortOffersPerDay(offers)
     count = sum([len(d) for d in offers_list_per_day])
     return count
