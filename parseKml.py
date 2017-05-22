@@ -85,7 +85,7 @@ def parseMap():
         }
 
     # FERMATE
-    fermate = {} # {name: {'loc': (<lat>,<lon>), 'ref': refLuogo}}
+    fermate = {} # {luogo_name: {'name': <fermata_name>, 'loc': (<lat>,<lon>), 'ref': refLuogo}}
     fermate_folder = nameFolders[FARMATE_LAYER_NAME]
     placemarks = fermate_folder.findall(placemarkTag)
     for p in placemarks:
@@ -96,7 +96,8 @@ def parseMap():
         lon, lat = [float(x) for x in coordinatesString[:2]]
         #point = Point(lat, lon)
         luogo = getLuogoConainingPoint((lat, lon), luoghi)
-        fermate[name] = {'loc': (lat, lon), 'ref': luogo}
+        luogo_name = '{} ({})'.format(luogo, name)
+        fermate[luogo_name] = {'name': name, 'loc': (lat, lon), 'ref': luogo}
         luoghi[luogo]['fermate'].append(name)
 
 
