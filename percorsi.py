@@ -6,12 +6,11 @@ import key
 import geoUtils
 import parseKml
 
-# LUOGHI -> {name: {'loc': (<lat>,<lon>), 'poly': <list coordinate>, 'fermate': <list fermate names>}}
-# FERMATE -> {name: (<lat>,<lon>)}
-# CONNECTIONS -> { luogo1: set(luogo2, luogo3), luogo2: set(luogo1, luogo3), ... }
+# LUOGHI -> {name: {'loc': (<lat>,<lon>), 'fermate': [fermata1, fermata2, ...]}, 'polygon': <list polygon coords>}
+# FERMATE -> {name: {'loc': (<lat>,<lon>), 'ref': refLuogo}}
 
-LUOGHI, FERMATE, CONNECTIONS = parseKml.parseMap()
-GPS_LOCATIONS = [v['loc'] for v in FERMATE.values()]
+LUOGHI, FERMATE = parseKml.parseMap()
+GPS_FERMATE_LOC = [v['loc'] for v in FERMATE.values()]
 FERMATE_NAMES = FERMATE.keys()
 SORTED_LUOGHI = sorted(LUOGHI.keys())
 SORTED_FERMATE_IN_LUOGO = lambda l: sorted([n for n, v in FERMATE.iteritems() if l in v['ref']])
@@ -25,7 +24,7 @@ BASE_MAP_IMG_URL = "http://maps.googleapis.com/maps/api/staticmap?" + \
                    "&key=" + key.GOOGLE_API_KEY
 
 FULL_MAP_IMG_URL = BASE_MAP_IMG_URL + \
-                   ''.join(["&markers=color:blue|{0},{1}".format(f[0],f[1]) for f in GPS_LOCATIONS])
+                   ''.join(["&markers=color:blue|{0},{1}".format(f[0],f[1]) for f in GPS_FERMATE_LOC])
 
 
 def format_distance(dst):
@@ -75,80 +74,62 @@ def getFermateNearPositionImgUrl(lat, lon, radius = 10, max_threshold_ratio=2):
         text = 'Nessuna fermata trovata nel raggio di {} km dalla posizione inserita.'.format(radius)
     return img_url, text
 
-def getDistanceBetweenLuoghi(A, B):
-    import geoUtils
-    locA = LUOGHI[A]['loc']
-    locB = LUOGHI[B]['loc']
-    return geoUtils.distance(locA, locB)
 
-def getPathDistance(path):
-    return sum([getDistanceBetweenLuoghi(path[i], path[i+1]) for i in range(len(path)-1)])
+def getIntermediateLuoghiOrder(path):
+    intermediates = []
+    for lat, lon in path:
+        for l, v in LUOGHI.items():
+            if l in intermediates:
+                continue
+            polygon = v['polygon']
+            if geoUtils.point_inside_polygon(lat, lon, polygon):
+                intermediates.append(l)
+                break
+    return intermediates
 
-'''
-def get_shortest_paths(start, end, dst=0, path_so_far=None, tolerance=5):
-    #print '--------------------'
-    #print 'start: {}, end={}, old_path={}'.format(start, end, old_path)
-    if path_so_far is None:
-        path_so_far = []
-    else:
-        dst += getDistanceBetweenLuoghi(path_so_far[-1], start)
-    #print 'dst = {}'.format(dst)
-    path = path_so_far + [start]
-    if start == end:
-        return [path], [dst]
-    if not CONNECTIONS.has_key(start):
-        return None, None
-    shortest_paths = []
-    shortest_dsts = []
-    for node in CONNECTIONS[start]:
-        if node not in path:
-            #print 'node: {}, end={}, path={}'.format(node, end, path)
-            new_paths, new_dsts = get_shortest_paths(node, end, dst, path)
-            if new_dsts:
-                if len(shortest_dsts)==0  or new_dsts[0] <= min(shortest_dsts)+tolerance:
-                    shortest_paths.extend(new_paths)
-                    shortest_dsts.extend(new_dsts)
-    return shortest_paths, shortest_dsts
-'''
+def getIntermediateFermateOrder(path):
+    import params
+    intermediates = []
+    for point in path:
+        for f, v in FERMATE.items():
+            if f in intermediates:
+                continue
+            loc = v['loc']
+            dst = geoUtils.distance(point, loc)
+            if dst < params.PATH_FERMATA_PROXIMITY_THRESHOLD:
+                intermediates.append(f)
+                break
+    return intermediates
 
-
-def find_all_paths(start, end, path=None):
-    path = path + [start] if path else [start]
-    if start == end:
-        return [path]
-    paths = []
-    for node in CONNECTIONS[start]:
-        if node not in path:
-            extended_paths = find_all_paths(node, end, path)
-            for p in extended_paths:
-                paths.append(p)
-    return paths
-
-def get_shortest_paths_distance(start, end, tolerance=5):
-    all_paths = find_all_paths(start, end)
-    all_dsts = [getPathDistance(p) for p in all_paths]
-    min_dst_plus_tolerance = min(all_dsts) + tolerance
-    return ([ (p,d) for p,d in zip(all_paths, all_dsts) if d <= min_dst_plus_tolerance])
-
-
-def get_intermediate_stops(start, end):
-    shortes_paths = [pd[0] for pd in get_shortest_paths_distance(start, end)]
-    intermediate_stops = set()
-    for p in shortes_paths:
-        intermediate_stops.update(p)
-    intermediate_stops.remove(start)
-    intermediate_stops.remove(end)
-    return intermediate_stops
 
 def test_intermediate_stops(start=None, end=None):
+    from key import GOOGLE_API_KEY
+    import polyline
+    import requests
     import random
-    LUOGHI_NAMES = LUOGHI.keys()
+
     if start is None:
-        start = random.choice(LUOGHI_NAMES)
+        start = random.choice(FERMATE.keys())
     while end is None or end == start:
-        end = random.choice(LUOGHI_NAMES)
-    shortest_paths_dsts = get_shortest_paths_distance(start, end)
-    print '\n'.join(['{}: {}'.format(x, y) for x,y in shortest_paths_dsts])
-    stops = get_intermediate_stops(start, end)
-    stops_str = "PASSA DA: {}".format(', '.join(stops)) if stops else 'DIRETTO'
-    print '{} -> {}\n{}'.format(start, end, stops_str)
+        end = random.choice(FERMATE.keys())
+
+    print('{} --> {}'.format(start, end))
+
+    origin_str = ','.join(str(x) for x in FERMATE[start]['loc'])
+    destin_str = ','.join(str(x) for x in FERMATE[end]['loc'])
+    api_url = 'https://maps.googleapis.com/maps/api/directions/json?' \
+              'alternatives=true&units=metric&key={}'.format(GOOGLE_API_KEY) #avoid=tolls,highways
+    api_url += '&origin={}&destination={}'.format(origin_str, destin_str)
+    result = requests.get(api_url).json()
+    routes = result['routes']
+    print('Found {} routes.'.format(len(routes)))
+
+    for n, r in enumerate(routes,1):
+        poly_str = r['overview_polyline']['points']
+        path = polyline.decode(poly_str)
+        root_intermediates_luoghi = getIntermediateLuoghiOrder(path)
+        root_intermediates_fermate = getIntermediateFermateOrder(path)
+        print 'Percorso {} - Luoghi intermedi: {}'.format(n, ', '.join(root_intermediates_luoghi))
+        print 'Percorso {} - Fermate intermedie: {}'.format(n, ', '.join(root_intermediates_fermate))
+
+
