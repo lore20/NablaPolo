@@ -8,7 +8,6 @@ from google.appengine.ext.db import datastore_errors
 import json
 import jsonUtil
 import logging
-import urllib
 from time import sleep
 import requests
 import utility
@@ -16,9 +15,8 @@ import geoUtils
 import key
 import person
 from person import Person
-import percorsi
+import route
 import date_time_util as dtu
-#import requests.packages.urllib3
 import ride_offer
 import params
 import webapp2
@@ -435,6 +433,7 @@ def sendWaitingAction(chat_id, action_tipo='typing', sleep_time=None):
 def restart(p, msg=None):
     if msg:
         tell(p.chat_id, msg)
+    p.resetTmpVariable()
     redirectToState(p, RESTART_STATE)
 
 
@@ -547,9 +546,9 @@ def goToState1(p, **kwargs):
                 msg += '📍 Oppure dimmi da *dove parti*.'
             else:
                 msg = '📍 *Da dove parti?*'
-            kb = utility.makeListOfList(percorsi.SORTED_LUOGHI_WITH_FERMATA_IF_SINGLE)
+            kb = utility.makeListOfList(route.SORTED_ZONE_WITH_STOP_IF_SINGLE)
         elif stage ==1:
-            fermate = percorsi.SORTED_FERMATE_IN_LUOGO(PASSAGGIO_PATH[0])
+            fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
@@ -559,12 +558,12 @@ def goToState1(p, **kwargs):
         elif stage == 2:
             msg = '🚩 *Dove vai?*'
             destinazioni = [
-                l for l in percorsi.SORTED_LUOGHI_WITH_FERMATA_IF_SINGLE \
+                l for l in route.SORTED_ZONE_WITH_STOP_IF_SINGLE \
                 if not l.startswith(PASSAGGIO_PATH[0])
             ]
             kb = utility.makeListOfList(destinazioni)
         elif stage == 3:
-            fermate = percorsi.SORTED_FERMATE_IN_LUOGO(PASSAGGIO_PATH[2])
+            fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[2])
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
@@ -596,12 +595,12 @@ def goToState1(p, **kwargs):
                 if input == BOTTONE_ANNULLA:
                     restart(p)
                 elif stage<=3:
-                    if '(' in input: # Luogo (fermata) case
+                    if '(' in input: # Zona (fermata) case
                         i = input.index('(')
-                        luogo, fermata = input[:i-1], input[i+1:-1]
-                        PASSAGGIO_PATH.append(luogo)
+                        zona, fermata = input[:i-1], input[i+1:-1]
+                        PASSAGGIO_PATH.append(zona)
                         PASSAGGIO_PATH.append(fermata)
-                        #logging.debug('luogo con fermata: {} ({})'.format(luogo, fermata))
+                        #logging.debug('zona con fermata: {} ({})'.format(zona, fermata))
                     else:
                         PASSAGGIO_PATH.append(input)
                     repeatState(p)
@@ -619,15 +618,14 @@ def goToState1(p, **kwargs):
                 tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
 def finalizeOffer(p, path, date_time, programmato=False, programmato_giorni=()):
-    #logging.debug("In finalizeOffer. DAYS: {}".format(programmato_giorni))
     date_time = dtu.removeTimezone(date_time)
-    #time_str = dtu.formatTime(date_time, format='%H:%M')
-    date_str = dtu.formatDate(date_time, format='%d.%m.%Y')
-    intermediate_places = percorsi.getIntermediateLuoghi(*path)
+    percorso = route.encodePercorsoFromQuartet(*path)
+    percorsi_passeggeri_compatibili = route.getPercorsiPasseggeriCompatibili(percorso)
     o = ride_offer.addRideOffer(
-        p, date_time, path[0], path[1], path[2], path[3],
-        intermediate_places, programmato, programmato_giorni)
-    qry = person.getPeopleMatchingRideQry(o.start_place, o.intermediate_places, o.end_place)
+        p, date_time, percorso, percorsi_passeggeri_compatibili,
+        programmato, programmato_giorni
+    )
+    qry = person.getPeopleMatchingRideQry(o.start_zona, o.intermediate_zone, o.end_zona)
     ride_description_no_driver_info = o.getDescription(driver_info=False, debug_intermediates=p.isTester())
     msg = "Grazie per aver inserito l'offerta di passaggio\n{}".format(ride_description_no_driver_info)
     tell(p.chat_id, msg)
@@ -798,10 +796,10 @@ def goToState2(p, **kwargs):
                 msg += '📍 Oppure dimmi da *dove parti*.'
             else:
                 msg = '📍 *Da dove parti?*'
-            kb = utility.makeListOfList(percorsi.SORTED_LUOGHI)
+            kb = utility.makeListOfList(route.SORTED_ZONE)
         else: # stage == 1:
             msg = '🚩 *Dove vai?*'
-            destinazioni = list(percorsi.SORTED_LUOGHI)
+            destinazioni = list(route.SORTED_ZONE)
             destinazioni.remove(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(destinazioni)
         kb.insert(0, [BOTTONE_ANNULLA])
@@ -829,10 +827,10 @@ def goToState2(p, **kwargs):
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
 def showPersorsi(p, PASSAGGIO_PATH):
-    start_place = PASSAGGIO_PATH[0]
-    end_place = PASSAGGIO_PATH[1]
+    start_zona = PASSAGGIO_PATH[0]
+    end_zona = PASSAGGIO_PATH[1]
     sendWaitingAction(p.chat_id)
-    offers_per_day = p.getAndSaveRideOffersStartEndPlace(start_place, end_place)
+    offers_per_day = p.getAndSaveRideOffersStartEndPlace(start_zona, end_zona)
     percorsi_num = sum([len(l) for l in offers_per_day])
     msg = "🛣 *Il tuo percorso*:\n{}\n\n".format(ride_offer.getRidePairToString(*PASSAGGIO_PATH))
     if percorsi_num == 1:
@@ -1025,10 +1023,10 @@ def goToState311(p, **kwargs):
         if stage == 0:
             # '*Offri Passaggio 1/4*\n\n' \
             msg = '📍 *Da dove parti?*'
-            kb = utility.makeListOfList(percorsi.SORTED_LUOGHI_WITH_FERMATA_IF_SINGLE)
+            kb = utility.makeListOfList(route.SORTED_ZONE_WITH_STOP_IF_SINGLE)
         elif stage ==1:
             # '*Offri Passaggio 2/4*\n\n' \
-            fermate = percorsi.SORTED_FERMATE_IN_LUOGO(PASSAGGIO_PATH[0])
+            fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
@@ -1039,12 +1037,12 @@ def goToState311(p, **kwargs):
             # '*Offri Passaggio 3/4*\n\n' \
             msg = '🚩 *Dove vai?*'
             destinazioni = [
-                l for l in percorsi.SORTED_LUOGHI_WITH_FERMATA_IF_SINGLE \
+                l for l in route.SORTED_ZONE_WITH_STOP_IF_SINGLE \
                 if not l.startswith(PASSAGGIO_PATH[0])
             ]
             kb = utility.makeListOfList(destinazioni)
         else: #stage == 3:
-            fermate = percorsi.SORTED_FERMATE_IN_LUOGO(PASSAGGIO_PATH[2])
+            fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[2])
             kb = utility.makeListOfList(fermate)
             if len(fermate)==1:
                 p.setLastKeyboard(kb)
@@ -1060,12 +1058,12 @@ def goToState311(p, **kwargs):
             return
         kb = p.getLastKeyboard()
         if input in utility.flatten(kb):
-            if '(' in input:  # Luogo (fermata) case
+            if '(' in input:  # Zona (fermata) case
                 i = input.index('(')
-                luogo, fermata = input[:i - 1], input[i + 1:-1]
-                PASSAGGIO_PATH.append(luogo)
+                zona, fermata = input[:i - 1], input[i + 1:-1]
+                PASSAGGIO_PATH.append(zona)
                 PASSAGGIO_PATH.append(fermata)
-                #logging.debug('luogo con fermata: {} ({})'.format(luogo, fermata))
+                #logging.debug('zona con fermata: {} ({})'.format(zona, fermata))
                 stage += 2
             else:
                 PASSAGGIO_PATH.append(input)
@@ -1074,7 +1072,8 @@ def goToState311(p, **kwargs):
                 repeatState(p)
             else: # stage==4
                 ride_str = ride_offer.getRideQuartetToString(*PASSAGGIO_PATH)
-                if p.appendPercorsi(*PASSAGGIO_PATH, put=True):
+                percorso = route.encodePercorso(*PASSAGGIO_PATH)
+                if p.appendPercorsi(percorso, put=True):
                     # need to put so elements are converted to unicode otherwise p.getPercorsiQuartets() would fail
                     msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(ride_str)
                     tell(p.chat_id, msg)
@@ -1082,7 +1081,8 @@ def goToState311(p, **kwargs):
                     sendWaitingAction(p.chat_id, sleep_time=1)
                     REVERSE_PATH = ride_offer.getReversePath(*PASSAGGIO_PATH) #[PASSAGGIO_PATH[2],PASSAGGIO_PATH[3],PASSAGGIO_PATH[0],PASSAGGIO_PATH[1]]
                     #logging.debug('REVERSE_PATH: {}'.format(', '.join(REVERSE_PATH)))
-                    if p.getPercorsiCount()<params.MAX_PERCORSI and not p.percorsoIsPresent(*REVERSE_PATH):
+                    percorso = route.encodePercorsoFromQuartet(*REVERSE_PATH)
+                    if p.getPercorsiSize()<params.MAX_PERCORSI and not p.percorsoIsPresent(percorso):
                         redirectToState(p, 3111)
                     else:
                         redirectToState(p, 31)
@@ -1319,7 +1319,7 @@ def goToState91(p, **kwargs):
                     'longitude': loc.longitude
                 }
         if location:
-            img_url, text = percorsi.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
+            img_url, text = route.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
             if img_url:
                 sendPhotoViaUrlOrId(p.chat_id, img_url, kb)
             tell(p.chat_id, text)

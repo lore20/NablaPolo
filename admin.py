@@ -19,7 +19,7 @@ def resetAll():
 
 
 # after updating online map (new places or change in names) we need to make sure that
-# IMPORTANT: it assumes that in the update no previous fermate moved to a new luogo
+# IMPORTANT: it assumes that in the update no previous fermate moved to a new zona
 # - intermediate places of active ride_offers are regenerated
 # - outdated percorsi preferiti (quartets) in person are removed
 def updatePercorsi(dryRun=True):
@@ -36,9 +36,9 @@ def updatePeopleItinerary(dryRun=True):
     from ride_offer import getRideQuartetToString
     from main import tell
 
-    def isValidPercorso(startLuogo, startFermata, endLuogo, endFermata):
-        from percorsi import LUOGHI, FERMATE
-        return startLuogo in LUOGHI and endLuogo in LUOGHI and \
+    def isValidPercorso(startZona, startFermata, endZona, endFermata):
+        from route import ZONE, FERMATE
+        return startZona in ZONE and endZona in ZONE and \
                startFermata in FERMATE and endFermata in FERMATE
 
     more, cursor = True, None
@@ -49,7 +49,7 @@ def updatePeopleItinerary(dryRun=True):
         new_records = []
         for p in records:
             removeIndexes = []
-            percosi = p.getPercorsiQuartets()
+            percosi = p.getPercorsi()
             for i,quartet in enumerate(percosi):
                 if not isValidPercorso(*quartet):
                     removeIndexes.append(i)
@@ -70,7 +70,7 @@ def updatePeopleItinerary(dryRun=True):
 
 
 def updateRideOfferItinerary(dryRun=True):
-    import percorsi
+    import route
     import ride_offer
 
     percorsi_updated = []
@@ -80,15 +80,15 @@ def updateRideOfferItinerary(dryRun=True):
     records = qry.fetch()
     new_records = []
     for o in records:
-        start_place = o.getStartPlace()
-        end_place = o.getEndPlace()
-        intermediates = percorsi.get_intermediate_stops(start_place, end_place)
+        start_zona = o.getStartPlace()
+        end_zona = o.getEndPlace()
+        intermediates = route.get_intermediate_stops(start_zona, end_zona)
         #print o.getRideOfferPercorsoStr()
         if set(intermediates) != set(o.getIntermediatePlacesUtf()):
-            o.intermediate_places = intermediates
+            o.intermediate_zone = intermediates
             new_records.append(o)
             percorsi_updated.append(o.key.id())
-        if o.getStartFermata() not in percorsi.FERMATE or o.getEndFermata() not in percorsi.FERMATE:
+        if o.getStartFermata() not in route.FERMATE or o.getEndFermata() not in route.FERMATE:
             fermate_problems.append(o.key.id())
     if not dryRun and new_records:
         create_futures = ndb.put_multi_async(new_records)

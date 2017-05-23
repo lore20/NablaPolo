@@ -17,9 +17,7 @@ class Person_Backup(geomodel.GeoModel, ndb.Model): #ndb.Expando
     enabled = ndb.BooleanProperty(default=True)
     notification_mode = ndb.StringProperty(default=params.NOTIFICATION_MODE_ALL)
 
-    percorsi_start_fermata = ndb.StringProperty(repeated=True)
-    percorsi_start_place = ndb.StringProperty(repeated=True)
-    percorsi_end_place = ndb.StringProperty(repeated=True)
+    percorsi = ndb.StringProperty(repeated=True)
 
     # location = ndb.GeoPtProperty() # inherited from geomodel.GeoModel
     latitude = ndb.ComputedProperty(lambda self: self.location.lat if self.location else None)
@@ -42,6 +40,7 @@ def populatePersonBackup():
                 last_name=ent.last_name,
                 username=ent.username,
                 notification_mode=params.DEFAULT_NOTIFICATIONS_MODE,
+                percorsi = [],
                 tmp_variables={}
             )
             new_utenti.append(u)

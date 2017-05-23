@@ -1,43 +1,5 @@
 indexes:
 
-- kind: RideOffer
-  properties:
-  - name: active
-  - name: end_place
-  - name: start_place
-  - name: start_datetime
-
-- kind: RideOffer
-  properties:
-  - name: active
-  - name: intermediate_places
-  - name: start_place
-  - name: start_datetime
-
-- kind: RideOffer
-  properties:
-  - name: active
-  - name: end_place
-  - name: intermediate_places
-  - name: start_datetime
-
-- kind: RideOffer
-  properties:
-  - name: active
-  - name: driver_id
-  - name: programmato
-  - name: start_datetime
-
-- kind: RideOffer
-  properties:
-  - name: active
-  - name: driver_id
-  - name: start_datetime
-
-- kind: RideOffer
-  properties:
-  - name: active
-  - name: start_datetime
 
 
 # This index.yaml is automatically updated whenever the dev_appserver
