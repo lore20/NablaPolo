@@ -49,7 +49,7 @@ class RideOffer(ndb.Model):
     def getRideOfferPercorsoStr(self):
         return getRideQuartetToString(self.start_place, self.start_fermata, self.end_place, self.end_fermata)
 
-    def getDescription(self, driver_info=True):
+    def getDescription(self, driver_info=True, debug_intermediates=False):
         import params
         import date_time_util as dtu
         import person
@@ -82,6 +82,8 @@ class RideOffer(ndb.Model):
             else:
                 username = '@{}'.format(username)
             msg.append('*Autista*: {} {}'.format(self.getDriverName(), username))
+        if debug_intermediates:
+            msg.append('(Passa per: {})'.format(', '.join([x.encode('utf-8') for x in self.intermediate_places])))
         return '\n'.join(msg)
 
     def disactivate(self,  put=True):
@@ -106,7 +108,7 @@ def getReversePath(start, start_fermata, end, end_fermata):
 
 def addRideOffer(driver, start_datetime,
                  start_place, start_fermata, end_place, end_fermata,
-                 programmato=False, programmato_giorni=()):
+                 intermediate_places, programmato=False, programmato_giorni=()):
     import date_time_util as dtu
     import percorsi
     o = RideOffer(
@@ -118,7 +120,7 @@ def addRideOffer(driver, start_datetime,
         start_fermata=start_fermata,
         end_place=end_place,
         end_fermata=end_fermata,
-        intermediate_places = percorsi.get_intermediate_stops(start_place, end_place),
+        intermediate_places = intermediate_places,
         registration_datetime = dtu.removeTimezone(dtu.nowCET()),
         active = True,
         programmato = programmato,

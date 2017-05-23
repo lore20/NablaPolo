@@ -624,9 +624,12 @@ def finalizeOffer(p, path, date_time, programmato=False, programmato_giorni=()):
     date_time = dtu.removeTimezone(date_time)
     #time_str = dtu.formatTime(date_time, format='%H:%M')
     date_str = dtu.formatDate(date_time, format='%d.%m.%Y')
-    o = ride_offer.addRideOffer(p, date_time, path[0], path[1], path[2], path[3], programmato, programmato_giorni)
+    intermediate_places = percorsi.getIntermediateLuoghi(*path)
+    o = ride_offer.addRideOffer(
+        p, date_time, path[0], path[1], path[2], path[3],
+        intermediate_places, programmato, programmato_giorni)
     qry = person.getPeopleMatchingRideQry(o.start_place, o.intermediate_places, o.end_place)
-    ride_description_no_driver_info = o.getDescription(driver_info=False)
+    ride_description_no_driver_info = o.getDescription(driver_info=False, debug_intermediates=p.isTester())
     msg = "Grazie per aver inserito l'offerta di passaggio\n{}".format(ride_description_no_driver_info)
     tell(p.chat_id, msg)
     msg_broadcast = '🚘 *Nuova offerta di passagio*:\n\n{}'.format(o.getDescription())

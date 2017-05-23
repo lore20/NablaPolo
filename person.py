@@ -72,6 +72,10 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         import key
         return self.chat_id in key.ADMIN_CHAT_ID
 
+    def isTester(self):
+        import key
+        return self.chat_id in key.TESTERS
+
     def getPropertyUtfMarkdown(self, property, escapeMarkdown=True):
         if property == None:
             return None
