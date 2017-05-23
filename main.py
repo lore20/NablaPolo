@@ -9,7 +9,6 @@ import json
 import jsonUtil
 import logging
 import urllib
-import urllib2
 from time import sleep
 import requests
 import utility
@@ -325,20 +324,20 @@ def sendText(p, text, markdown=False, restartUser=False):
 
 def sendLocation(chat_id, latitude, longitude, kb=None):
     try:
-        resp = urllib2.urlopen(key.TELEGRAM_API_URL + 'sendLocation', urllib.urlencode({
+        data = {
             'chat_id': chat_id,
             'latitude': latitude,
             'longitude': longitude,
-        })).read()
-        logging.info('send location: {}'.format(resp))
-    except urllib2.HTTPError, err:
-        if err.code == 403:
+        }
+        resp = requests.post(key.TELEGRAM_API_URL + 'sendLocation', data)
+        logging.info('send location: {}'.format(resp.text))
+        if resp.status_code == 403:
             p = Person.query(Person.chat_id == chat_id).get()
             p.enabled = False
             p.put()
             logging.info('Disabled user: ' + p.getFirstNameLastNameUserName())
-        else:
-            logging.info('Unknown exception: ' + str(err))
+    except:
+        report_exception()
 
 # ================================
 # SEND VOICE
@@ -352,7 +351,7 @@ def sendVoice(chat_id, file_id):
         }
         resp = requests.post(key.TELEGRAM_API_URL + 'sendVoice', data)
         logging.info('Response: {}'.format(resp.text))
-    except urllib2.HTTPError, err:
+    except:
         report_exception()
 
 
@@ -376,7 +375,7 @@ def sendPhotoViaUrlOrId(chat_id, url_id, kb=None):
         }
         resp = requests.post(key.TELEGRAM_API_URL + 'sendPhoto', data)
         logging.info('Response: {}'.format(resp.text))
-    except urllib2.HTTPError, err:
+    except:
         report_exception()
 
 def sendPhotoFromPngImage(chat_id, img_data, filename='image.png'):
@@ -387,7 +386,7 @@ def sendPhotoFromPngImage(chat_id, img_data, filename='image.png'):
         }
         resp = requests.post(key.TELEGRAM_API_URL + 'sendPhoto', data=data, files=img)
         logging.info('Response: {}'.format(resp.text))
-    except urllib2.HTTPError, err:
+    except:
         report_exception()
 
 
@@ -403,7 +402,7 @@ def sendDocument(chat_id, file_id):
         }
         resp = requests.post(key.TELEGRAM_API_URL + 'sendDocument', data)
         logging.info('Response: {}'.format(resp.text))
-    except urllib2.HTTPError, err:
+    except:
         report_exception()
 
 
@@ -413,21 +412,21 @@ def sendDocument(chat_id, file_id):
 
 def sendWaitingAction(chat_id, action_tipo='typing', sleep_time=None):
     try:
-        resp = urllib2.urlopen(key.TELEGRAM_API_URL + 'sendChatAction', urllib.urlencode({
+        data = {
             'chat_id': chat_id,
             'action': action_tipo,
-        })).read()
-        logging.info('send venue: {}'.format(resp))
-        if sleep_time:
-            sleep(sleep_time)
-    except urllib2.HTTPError, err:
-        if err.code == 403:
+        }
+        resp = requests.post(key.TELEGRAM_API_URL + 'sendChatAction', data)
+        logging.info('send venue: {}'.format(resp.text))
+        if resp.status_code==403:
             p = Person.query(Person.chat_id == chat_id).get()
             p.enabled = False
             p.put()
             logging.info('Disabled user: ' + p.getFirstNameLastNameUserName())
-        else:
-            logging.info('Unknown exception: ' + str(err))
+        elif sleep_time:
+            sleep(sleep_time)
+    except:
+        report_exception()
 
 
 # ================================
@@ -732,7 +731,7 @@ def goToState12(p, **kwargs):
         elif STAGE == 1:
             msg = '*A che ora parti?*'
             start_hour = 6
-            circular_range = range(start_hour, 24) + range(0, start_hour)
+            circular_range = list(range(start_hour, 24)) + list(range(0, start_hour))
             hours = [str(x).zfill(2) for x in circular_range]
             kb = utility.distributeElementMaxSize(hours, 8)
         else: # STAGE == 2
@@ -1365,7 +1364,9 @@ class SafeRequestHandler(webapp2.RequestHandler):
 class MeHandler(webapp2.RequestHandler):
     def get(self):
         urlfetch.set_default_fetch_deadline(60)
-        self.response.write(json.dumps(json.load(urllib2.urlopen(key.TELEGRAM_API_URL + 'getMe'))))
+        json_response = requests.get(key.TELEGRAM_API_URL + 'getMe').json()
+        self.response.write(json.dumps(json_response))
+        #self.response.write(json.dumps(json.load(urllib2.urlopen(key.TELEGRAM_API_URL + 'getMe'))))
 
 
 class SetWebhookHandler(webapp2.RequestHandler):
