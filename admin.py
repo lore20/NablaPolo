@@ -17,7 +17,7 @@ def resetAll():
 
         print("Cleaned {} from {}".format(total, x.__name__))
 
-
+'''
 # after updating online map (new places or change in names) we need to make sure that
 # IMPORTANT: it assumes that in the update no previous fermate moved to a new zona
 # - intermediate places of active ride_offers are regenerated
@@ -26,6 +26,7 @@ def updatePercorsi(dryRun=True):
     updatePeopleItinerary(dryRun)
     print('---------------')
     updateRideOfferItinerary(dryRun)
+
 
 
 UPDATE_MSG = "🔔 Alcuni nomi nei percorsi sono stati modificati.\n" \
@@ -97,3 +98,4 @@ def updateRideOfferItinerary(dryRun=True):
     print('UpdateRideOfferItinerary')
     print('Percorsi updated:\n{}'.format(', '.join(str(x) for x in percorsi_updated)))
     print('Fermate problems:\n{}'.format('\n'.join(str(x) for x in fermate_problems)))
+'''

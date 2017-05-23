@@ -1,6 +1,13 @@
 # coding=utf-8
 
 # coding=utf-8
+from google.appengine.ext import ndb
+
+class Route(ndb.Model):
+    percorso_key = ndb.StringProperty()
+    percorsi_compatibili = ndb.StringProperty(default=True)
+
+
 import parseKml
 from key import GOOGLE_API_KEY
 
@@ -15,7 +22,6 @@ SORTED_FERMATE_IN_ZONA = lambda l: sorted([x for x in ZONE[l]['stops']])
 SORTED_ZONE_WITH_STOP_IF_SINGLE = sorted(
     [l if len(v['stops'])>1 else '{} ({})'.format(l, v['stops'][0]) for l,v in ZONE.iteritems() ]
 )
-
 
 PERCORSO_SEPARATOR = ' → '
 
@@ -118,6 +124,9 @@ def getPercorsiPasseggeriCompatibili(percorso):
                 percorso = encodePercorso(*pair)
                 percorsi_compatibili.append(percorso)
     return percorsi_compatibili
+
+def getPercorsiAutistiCompatibili(percorso):
+    pass
 
 def getIntermediateFermateOrderFromPath(path):
     import geoUtils

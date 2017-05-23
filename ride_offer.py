@@ -1,21 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import person
 from google.appengine.ext import ndb
+from route import Route
 
 class RideOffer(ndb.Model):
     driver_id = ndb.StringProperty()
     driver_name_lastname = ndb.StringProperty()
     driver_username = ndb.StringProperty()
 
-    #start_zona = ndb.StringProperty()
-    #start_fermata = ndb.StringProperty()
-    #end_zona = ndb.StringProperty()
-    #end_fermata = ndb.StringProperty()
-    #intermediate_zone = ndb.StringProperty(repeated=True)
-
-    percorso = ndb.StringProperty()
-    percorsi_passeggeri_compatibili = ndb.StringProperty(repeated=True)
+    percorso = ndb.StructuredProperty(Route)
 
     registration_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     active = ndb.BooleanProperty() # remains active for non-programmati
@@ -99,8 +92,10 @@ def addRideOffer(driver, start_datetime,
         driver_name_lastname = driver.getFirstNameLastName(),
         driver_username=driver.getUsername(),
         start_datetime=start_datetime,
-        percorso=percorso,
-        percorsi_passeggeri_compatibili=percorsi_passeggeri_compatibili,
+        percorso=Route(
+            percorso=percorso,
+            percorsi_compatibili=percorsi_passeggeri_compatibili
+        ),
         registration_datetime = dtu.removeTimezone(dtu.nowCET()),
         active = True,
         programmato = programmato,

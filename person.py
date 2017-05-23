@@ -3,6 +3,7 @@
 import logging
 from google.appengine.ext import ndb
 from geo import geomodel, geotypes
+from route import Route
 
 import utility
 import params
@@ -31,7 +32,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     enabled = ndb.BooleanProperty(default=True)
     notification_mode = ndb.StringProperty()
 
-    percorsi = ndb.StringProperty(repeated=True)
+    percorsi = ndb.StructuredProperty(Route, repeated=True)
     percorsi_size = ndb.ComputedProperty(
         lambda self: len(self.percorsi) if self.percorsi else 0
     )
@@ -152,7 +153,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         return len(self.percorsi_start_zona)
 
     def getPercorsi(self):
-        return tuple([p.encode('utf-8') for p in self.percorsi])
+        return tuple([p.percorso_key.encode('utf-8') for p in self.percorsi])
 
     def getPercorsiSize(self):
         return self.percorsi_size
@@ -170,26 +171,25 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
             return None
         return percorsi_tuples[index]
 
-    def percorsoIsPresent(self, percorso):
-        return percorso in self.getPercorsi()
+    def percorsoIsPresent(self, percorso_key):
+        return percorso_key in self.getPercorsi()
 
-    def appendPercorsi(self, percorso, put=False):
-        if self.percorsoIsPresent(percorso):
+    def appendPercorsi(self, percorso_key, percorsi_compatibili, put=False):
+        if self.percorsoIsPresent(percorso_key):
             return False
-        self.percorsi.append(percorso)
+        self.percorsi.append(
+            Route(
+                percorso_key = percorso_key,
+                percorsi_compatibili = percorsi_compatibili
+            )
+        )
         if put:
             self.put()
         return True
 
     def removePercorsi(self, index):
         removed_percorso = self.percorsi.pop(index).encode('utf-8')
-        return removed_percorso
-
-    def removePercorsiMulti(self, indexList):
-        self.percorsi_start_zona = [x for i,x in enumerate(self.percorsi_start_zona) if i not in indexList]
-        self.percorsi_start_fermata = [x for i,x in enumerate(self.percorsi_start_fermata) if i not in indexList]
-        self.percorsi_end_zona = [x for i, x in enumerate(self.percorsi_end_zona) if i not in indexList]
-        self.percorsi_end_fermata = [x for i, x in enumerate(self.percorsi_end_fermata) if i not in indexList]
+        return removed_percorso.percorso_key
 
     def saveMyRideOffers(self):
         import ride_offer
@@ -287,26 +287,11 @@ def getPersonById(chat_id):
 def getPeopleCount():
     return Person.query().count()
 
-def getPeopleMatchingRideQry(start_zona, intermediate_zone, end_zona):
-    #logging.debug("In getPeopleMatchingRide")
-    #logging.debug("start_zona: {}".format(start_zona))
-    #logging.debug("intermediate_zone: {}".format(intermediate_zone))
-    #logging.debug("end_zona: {}".format(end_zona))
-    start_zonas = intermediate_zone + [start_zona]
-    end_zone = intermediate_zone + [end_zona]
+def getPeopleMatchingRideQry(percorso):
     qry = Person.query(
         ndb.OR(
             Person.notification_mode == params.NOTIFICATION_MODE_ALL,
-            ndb.AND(
-                Person.notification_mode == params.NOTIFICATION_MODE_PERCORSI,
-                Person.percorsi_start_zona.IN(start_zonas),
-                Person.percorsi_end_zona == end_zona
-            ),
-            ndb.AND(
-                Person.notification_mode == params.NOTIFICATION_MODE_PERCORSI,
-                Person.percorsi_start_zona == start_zona,
-                Person.percorsi_end_zona.IN(end_zone),
-            )
+            Person.percorsi.percorsi_compatibili == percorso
         )
     )
     return qry

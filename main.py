@@ -625,7 +625,7 @@ def finalizeOffer(p, path, date_time, programmato=False, programmato_giorni=()):
         p, date_time, percorso, percorsi_passeggeri_compatibili,
         programmato, programmato_giorni
     )
-    qry = person.getPeopleMatchingRideQry(o.start_zona, o.intermediate_zone, o.end_zona)
+    qry = person.getPeopleMatchingRideQry(percorso)
     ride_description_no_driver_info = o.getDescription(driver_info=False, debug_intermediates=p.isTester())
     msg = "Grazie per aver inserito l'offerta di passaggio\n{}".format(ride_description_no_driver_info)
     tell(p.chat_id, msg)
@@ -1073,7 +1073,8 @@ def goToState311(p, **kwargs):
             else: # stage==4
                 ride_str = ride_offer.getRideQuartetToString(*PASSAGGIO_PATH)
                 percorso = route.encodePercorso(*PASSAGGIO_PATH)
-                if p.appendPercorsi(percorso, put=True):
+                percorsi_autisti_compatibili = route.getPercorsiAutistiCompatibili()
+                if p.appendPercorsi(percorso, percorsi_autisti_compatibili, put=True):
                     # need to put so elements are converted to unicode otherwise p.getPercorsiQuartets() would fail
                     msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(ride_str)
                     tell(p.chat_id, msg)
@@ -1114,7 +1115,9 @@ def goToState3111(p, **kwargs):
         kb = p.getLastKeyboard()
         if input in utility.flatten(kb):
             if input == BOTTONE_SI:
-                inserted = p.appendPercorsi(*REVERSE_PATH)
+                percorso = route.encodePercorso(*REVERSE_PATH)
+                percorsi_autisti_compatibili = route.getPercorsiAutistiCompatibili(percorso)
+                inserted = p.appendPercorsi(percorso, percorsi_autisti_compatibili)
                 assert(inserted)
                 msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(ride_str)
                 tell(p.chat_id, msg)
