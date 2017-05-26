@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 
 from google.appengine.ext import ndb
-from route import Route
+from utility import convertToUtfIfNeeded
 
 class RideOffer(ndb.Model):
     driver_id = ndb.StringProperty()
     driver_name_lastname = ndb.StringProperty()
     driver_username = ndb.StringProperty()
 
-    percorso = ndb.StructuredProperty(Route)
+    percorso = ndb.StringProperty()
+
+    fermate_intermedie = ndb.StringProperty(repeated=True)
+    percorsi_passeggeri_compatibili = ndb.StringProperty(repeated=True)
 
     registration_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     active = ndb.BooleanProperty() # remains active for non-programmati
@@ -16,33 +19,41 @@ class RideOffer(ndb.Model):
     start_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     disactivation_datetime = ndb.DateTimeProperty()
 
+    time_mode = ndb.StringProperty()  # BOTTONE_ADESSO, BOTTONE_A_BREVE, BOTTONE_PROGRAMMATO
+
     # only for regular rides
     programmato = ndb.BooleanProperty(default=False)
     programmato_giorni = ndb.IntegerProperty(repeated=True)
     # for time start_datetime is used
 
     def getDriverName(self):
-        return self.driver_name_lastname.encode('utf-8')
+        return convertToUtfIfNeeded(self.driver_name_lastname)
 
     def getPercorso(self):
-        return self.percorso.encode('utf-8')
+        return convertToUtfIfNeeded(self.percorso)
 
-    def getIntermediateFermate(self):
-        return [x.encode('utf-8') for x in self.percorsi_passeggeri_compatibili]
+    def getPercorsiPasseggeriCompatibili(self):
+        return [convertToUtfIfNeeded(x) for x in self.percorsi_passeggeri_compatibili]
+
+    def getNumberPercorsiPasseggeriCompatibili(self):
+        return len(self.percorsi_passeggeri_compatibili)
+
+    def getFermateIntermedie(self):
+        return [convertToUtfIfNeeded(x) for x in self.fermate_intermedie]
 
     def getDepartingTime(self):
         import date_time_util as dtu
         #return dtu.formatTime(self.programmato_time)
         return dtu.formatTime(self.start_datetime.time())
 
-    def getDescription(self, driver_info=True, debug_intermediates=False):
+    def getDescription(self, driver_info=True):
         import route
         import params
         import date_time_util as dtu
         import person
         msg = []
         percorso = self.getPercorso()
-        start_zona, start_stop, end_zone, end_stop = route.dencodePercorsoToQuartet(percorso)
+        start_zona, start_stop, end_zone, end_stop = route.decodePercorsoToQuartet(percorso)
 
         msg.append('*Partenza*: {} ({})'.format(start_zona, start_stop))
         msg.append('*Arrivo*: {} ({})'.format(end_zone, end_stop))
@@ -68,8 +79,6 @@ class RideOffer(ndb.Model):
             else:
                 username = '@{}'.format(username)
             msg.append('*Autista*: {} {}'.format(self.getDriverName(), username))
-        if debug_intermediates:
-            msg.append('(Passa per: {})'.format(', '.join(self.getIntermediateFermate())))
         return '\n'.join(msg)
 
     def disactivate(self,  put=True):
@@ -79,29 +88,34 @@ class RideOffer(ndb.Model):
         if put:
             self.put()
 
+    def computePercorsiPasseggeriCompatibili(self):
+        import route
+        import utility
+        self.percorsi_passeggeri_compatibili, fermate_interemedie_routes = \
+            route.getPercorsiPasseggeriCompatibili(self.getPercorso())
+        self.fermate_interemedie = set(utility.flatten(fermate_interemedie_routes))
+        self.put()
+        return self.percorsi_passeggeri_compatibili, fermate_interemedie_routes
 
-def getReversePath(start, start_fermata, end, end_fermata):
-    return end, end_fermata, start, start_fermata
 
-def addRideOffer(driver, start_datetime,
-                 percorso, percorsi_passeggeri_compatibili,
-                 programmato=False, programmato_giorni=()):
+def addRideOffer(driver, start_datetime, percorso,
+                 time_mode, programmato=False, programmato_giorni=()):
     import date_time_util as dtu
     o = RideOffer(
         driver_id = str(driver.chat_id),
         driver_name_lastname = driver.getFirstNameLastName(),
         driver_username=driver.getUsername(),
         start_datetime=start_datetime,
-        percorso=Route(
-            percorso=percorso,
-            percorsi_compatibili=percorsi_passeggeri_compatibili
-        ),
+        percorso=percorso,
+        #percorsi_passeggeri_compatibili=percorsi_passeggeri_compatibili,
+        #fermate_intermedie = fermate_intermedie,
         registration_datetime = dtu.removeTimezone(dtu.nowCET()),
         active = True,
+        time_mode = time_mode,
         programmato = programmato,
         programmato_giorni = programmato_giorni
     )
-    o.put()
+    #o.put() only after computePercorsiPasseggeriCompatibili()
     return o
 
 def filterAndSortOffersPerDay(offers):
@@ -122,6 +136,8 @@ def filterAndSortOffersPerDay(offers):
         elif o.start_datetime > now_dt:
             g = dtu.getWeekday(o.start_datetime)
             result[g].append(o)
+    for results_days in result:
+        results_days.sort(key=lambda x: x.getDepartingTime())
     return result
 
 def getActiveRideOffersQry():
@@ -181,31 +197,20 @@ def getActiveRideOffersDriver(chat_id):
     ).order(RideOffer.start_datetime)
     return qry.fetch()
 
-def getActiveRideOffersSortedPerDay(start_zona, end_zona):
+def getActiveRideOffersSortedPerDay(percorso_passeggero):
     import params
     import date_time_util as dtu
     from datetime import timedelta
 
+    nowWithTolerance = dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
+
     qry = RideOffer.query(
         ndb.AND(
             RideOffer.active == True,
-            ndb.OR(
-                ndb.AND(
-                    RideOffer.start_zona == start_zona,
-                    RideOffer.end_zona == end_zona
-                ),
-                ndb.AND(
-                    RideOffer.start_zona == start_zona,
-                    RideOffer.intermediate_zone == end_zona
-                ),
-                ndb.AND(
-                    RideOffer.intermediate_zone == start_zona,
-                    RideOffer.end_zona == end_zona
-                )
-            ),
+            RideOffer.percorsi_passeggeri_compatibili == percorso_passeggero,
             ndb.OR(
                 RideOffer.programmato == True,
-                RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
+                RideOffer.start_datetime >= nowWithTolerance
             )
         )
     )

@@ -2,25 +2,19 @@
 
 import logging
 from google.appengine.ext import ndb
-from geo import geomodel, geotypes
-from route import Route
+from geo import geomodel
 
 import utility
+from utility import convertToUtfIfNeeded
 import params
 
 # ------------------------
 # TMP_VARIABLES NAMES
 # ------------------------
 VAR_LAST_KEYBOARD = 'last_keyboard'
-VAR_PASSAGGIO_PATH = 'passaggio_path'  # [start zona, start fermata, dest zona, dest fermata]
-VAR_PASSAGGIO_TIME = 'passaggio_time' # [hour, min]
-VAR_PASSAGGIO_DAYS = 'passaggio_days' # [1,2]
-VAR_RIDE_SEARCH_SORTED_PER_DAY = 'ride_search_sorted' # see ride_offer.getRideOffers
-VAR_RIDE_SEARCH_DAY = 'ride_search_day'
+VAR_PASSAGGIO_INFO = 'passaggio_info' # see intializePassaggioInfo
 VAR_MY_RIDES = 'my_rides'
-VAR_CURSOR = 'cursor'
-VAR_STAGE = 'stage' # stage within state
-
+VAR_CURSOR = 'cursor' # [position (1-based), total]
 
 class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     chat_id = ndb.IntegerProperty()
@@ -32,7 +26,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     enabled = ndb.BooleanProperty(default=True)
     notification_mode = ndb.StringProperty()
 
-    percorsi = ndb.StructuredProperty(Route, repeated=True)
+    percorsi = ndb.StringProperty(repeated=True)
     percorsi_size = ndb.ComputedProperty(
         lambda self: len(self.percorsi) if self.percorsi else 0
     )
@@ -74,7 +68,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     def getPropertyUtfMarkdown(self, property, escapeMarkdown=True):
         if property == None:
             return None
-        result = property.encode('utf-8')
+        result = convertToUtfIfNeeded(property)
         if escapeMarkdown:
             result = utility.escapeMarkdown(result)
         return result
@@ -129,6 +123,24 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     def getLastKeyboard(self):
         return self.getTmpVariable(VAR_LAST_KEYBOARD)
 
+    def initTmpPassaggioInfo(self, passaggio_type):
+        passaggio_info = {
+            'type': passaggio_type,  # cerca, richiesta, offerta, aggiungi_preferiti
+            'path': [],  # [start_zona, start_stop, end_zona, end_stop]
+            'mode': None,  # BOTTONE_ADESSO, BOTTONE_A_BREVE, BOTTONE_PROGRAMMATO
+            'time': [],  # [hour, min]
+            'days': [],  # [1,2]
+            'stage': 0, # used for passaggi periodici
+            'aborted': False, # bool to check if procedure is complete
+            'search_chosen_day': None, # only for cerca
+            'search_results_per_day_pkl_dumps': [] # only for cerca
+        }
+        self.setTmpVariable(VAR_PASSAGGIO_INFO, passaggio_info)
+        return passaggio_info
+
+    def getTmpPassaggioInfo(self):
+        return self.getTmpVariable(VAR_PASSAGGIO_INFO)
+
     def resetTmpVariable(self):
         self.tmp_variables = {}
 
@@ -149,16 +161,13 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         if put:
             self.put()
 
-    def getPercorsiNumber(self):
-        return len(self.percorsi_start_zona)
-
     def getPercorsi(self):
-        return tuple([p.percorso_key.encode('utf-8') for p in self.percorsi])
+        return tuple([convertToUtfIfNeeded(prc) for prc in self.percorsi])
 
     def getPercorsiSize(self):
         return self.percorsi_size
 
-    def getPercorsoFromCommand(self, command, fermate):
+    def getPercorsoFromCommand(self, command):
         logging.debug("In getItineraryFromCommand")
         logging.debug("input: {}".format(command))
         index = params.getIndexFromCommand(command, params.PERCORSO_COMMAND_PREFIX)
@@ -174,22 +183,15 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     def percorsoIsPresent(self, percorso_key):
         return percorso_key in self.getPercorsi()
 
-    def appendPercorsi(self, percorso_key, percorsi_compatibili, put=False):
+    def appendPercorsi(self, percorso_key):
         if self.percorsoIsPresent(percorso_key):
             return False
-        self.percorsi.append(
-            Route(
-                percorso_key = percorso_key,
-                percorsi_compatibili = percorsi_compatibili
-            )
-        )
-        if put:
-            self.put()
+        self.percorsi.append(percorso_key)
         return True
 
     def removePercorsi(self, index):
-        removed_percorso = self.percorsi.pop(index).encode('utf-8')
-        return removed_percorso.percorso_key
+        removed_percorso_key = convertToUtfIfNeeded(self.percorsi.pop(index))
+        return removed_percorso_key
 
     def saveMyRideOffers(self):
         import ride_offer
@@ -216,39 +218,6 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         offers = pickle.loads(pkl_offers)
         return offers
 
-    def getAndSaveRideOffersStartEndPlace(self, start_zona, end_zona):
-        import ride_offer
-        import pickle
-        offers_per_day = ride_offer.getActiveRideOffersSortedPerDay(start_zona, end_zona)
-        pkl_offers = pickle.dumps(offers_per_day)
-        self.setTmpVariable(VAR_RIDE_SEARCH_SORTED_PER_DAY, pkl_offers)
-        return offers_per_day
-
-    def loadRideOffersStartEndPlace(self):
-        import pickle
-        pkl_offers = self.getTmpVariable(VAR_RIDE_SEARCH_SORTED_PER_DAY)
-        offers_per_day = pickle.loads(pkl_offers)
-        return offers_per_day
-
-    def totalRideOffersNumber(self):
-        offers_per_day = self.loadRideOffersStartEndPlace()
-        return sum([len(l) for l in offers_per_day])
-
-    def saveRideOffersStartEndPlaceChosenDay(self, dayIndex):
-        import pickle
-        offers = self.loadRideOffersStartEndPlace()
-        #logging.debug("In saveRideOffersChosenDay. dayIndex={} offers={}".format(dayIndex, offers))
-        offers_chosen_day = offers[dayIndex]
-        pkl_offers_chosen_day = pickle.dumps(offers_chosen_day)
-        self.setTmpVariable(VAR_RIDE_SEARCH_DAY, pkl_offers_chosen_day)
-        return offers_chosen_day
-
-    def loadRideOffersStartEndDayChosenDay(self):
-        import pickle
-        pkl_offers = self.getTmpVariable(VAR_RIDE_SEARCH_DAY)
-        offers = pickle.loads(pkl_offers)
-        return offers
-
     def decreaseCursor(self):
         cursor = self.getTmpVariable(VAR_CURSOR)
         cursor[0] -= 1
@@ -269,6 +238,7 @@ def addPerson(chat_id, name, last_name, username):
         last_name=last_name,
         username=username,
         notification_mode = params.DEFAULT_NOTIFICATIONS_MODE,
+        #percorsi=[] # done via resetPersi below
         tmp_variables={}
     )
     p.resetPercorsi()
@@ -287,11 +257,11 @@ def getPersonById(chat_id):
 def getPeopleCount():
     return Person.query().count()
 
-def getPeopleMatchingRideQry(percorso):
+def getPeopleMatchingRideQry(percorsi_passeggeri_compatibili):
     qry = Person.query(
         ndb.OR(
             Person.notification_mode == params.NOTIFICATION_MODE_ALL,
-            Person.percorsi.percorsi_compatibili == percorso
+            Person.percorsi.IN(percorsi_passeggeri_compatibili)
         )
     )
     return qry

@@ -1,6 +1,8 @@
+# coding=utf-8
+
 import requests
 import xml.etree.ElementTree as ET
-from route import encodeFermataKey
+
 
 map_url = 'http://www.google.com/maps/d/u/0/kml?forcekml=1&mid=1cRlA85rd4ZxRDlSk8KTt5Wop5cM'
 
@@ -32,6 +34,9 @@ def getZonaConainingPoint(point, zone):
         if point_inside_polygon(point[0], point[1], polycoordinateList):
             return n
     return None
+
+def encodeFermataKey(zona, fermata):
+    return '{} ({})'.format(zona, fermata)
 
 def parseMap():
     r = requests.get(map_url)
@@ -86,7 +91,6 @@ def parseMap():
 
 
     return zone, fermate
-
 
 def checkMap():
     zone, fermate = parseMap()

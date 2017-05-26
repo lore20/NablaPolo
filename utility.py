@@ -166,6 +166,11 @@ def emptyStringIfNone(x):
 def emptyStringIfZero(x):
     return '' if x==0 else x
 
+def convertToUtfIfNeeded(s):
+    if isinstance(s, unicode):
+        s = s.encode('utf-8')
+    return s
+
 def flatten(L):
     ret = []
     for i in L:
