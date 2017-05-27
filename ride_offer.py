@@ -163,6 +163,15 @@ def getActiveRideOffersCountInWeek():
     count = sum([len(d) for d in offers_list_per_day])
     return count
 
+def getRideOfferInsertedLastDaysQry(days):
+    import date_time_util as dtu
+    from datetime import timedelta
+    return RideOffer.query(
+        RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(days=days)
+    )
+
+
+'''
 def getActiveRideOffersProgrammatoQry():
     return RideOffer.query(
         ndb.AND(
@@ -170,14 +179,8 @@ def getActiveRideOffersProgrammatoQry():
             RideOffer.programmato == True,
         )
     )
+'''
 
-
-def getRideOfferInsertedLastDaysQry(days):
-    import date_time_util as dtu
-    from datetime import timedelta
-    return RideOffer.query(
-        RideOffer.start_datetime >= dtu.removeTimezone(dtu.nowCET()) - timedelta(days=days)
-    )
 
 def getActiveRideOffersDriver(chat_id):
     import params

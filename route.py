@@ -7,11 +7,15 @@ from key import GOOGLE_API_KEY
 
 import parseKml
 
+# ZONE: {zona: {'loc': (<lat>,<lon>), 'stops': [stop1, stop2, ...]}, 'polygon': <list polygon coords>}
+# FERMATE {zona_stop: {'zona': refZona, 'stop': <fermata_name>, 'loc': (<lat>,<lon>)}}
+
 ZONE, FERMATE = parseKml.parseMap()
-GPS_FERMATE_LOC = [v['loc'] for v in FERMATE.values()]
+STOPS = list(set(v['stop'] for v in FERMATE.values()))
+#GPS_FERMATE_LOC = [v['loc'] for v in FERMATE.values()]
 
 SORTED_ZONE = sorted(ZONE.keys())
-SORTED_FERMATE_IN_ZONA = lambda l: sorted([x for x in ZONE[l]['stops']])
+SORTED_FERMATE_IN_ZONA = lambda z: sorted([x for x in ZONE[z]['stops']])
 SORTED_ZONE_WITH_STOP_IF_SINGLE = sorted(
     [l if len(v['stops'])>1 else '{} ({})'.format(l, v['stops'][0]) for l,v in ZONE.iteritems() ]
 )
@@ -63,10 +67,12 @@ def format_distance(dst):
         return str(round(dst, 1)) + " Km"
     return str(int(dst*1000)) + " m"
 
-def getFermateNearPosition(lat, lon, radius, max_threshold_ratio):
+MAX_THRESHOLD_RATIO = 2
+
+def getFermateNearPosition(lat, lon, radius):
     import geoUtils
     import params
-    result = {}
+    nearby_fermate_dict = {}
     centralPoint = (lat, lon)
     min_distance = None
     for f,v in FERMATE.iteritems():
@@ -75,33 +81,32 @@ def getFermateNearPosition(lat, lon, radius, max_threshold_ratio):
         if d < radius:
             if min_distance is None or d < min_distance:
                 min_distance = d
-            result[f] = {
+            nearby_fermate_dict[f] = {
                 'loc': refPoint,
                 'dist': d
             }
     min_distance = max(min_distance, 1) # if it's less than 1 km use 1 km as a min distance
-    result = {k:v for k,v in result.items() if v['dist'] <= max_threshold_ratio*min_distance}
+    nearby_fermate_dict = {k:v for k,v in nearby_fermate_dict.items() if v['dist'] <= MAX_THRESHOLD_RATIO*min_distance}
     max_results = params.MAX_FERMATE_NEAR_LOCATION
-    result_sorted = sorted(result.items(), key=lambda k: k[1]['dist'])[:max_results]
-    result = dict(result_sorted)
-    return result
+    nearby_fermated_sorted_dict = sorted(nearby_fermate_dict.items(), key=lambda k: k[1]['dist'])[:max_results]
+    return nearby_fermated_sorted_dict
 
 BASE_MAP_IMG_URL = "http://maps.googleapis.com/maps/api/staticmap?" + \
                    "&size=400x400" + "&maptype=roadmap" + \
                    "&key=" + GOOGLE_API_KEY
 
-def getFermateNearPositionImgUrl(lat, lon, radius = 10, max_threshold_ratio=2):
-    fermate = getFermateNearPosition(lat, lon, radius, max_threshold_ratio)
-    if fermate:
-        fermate_name_sorted = sorted(fermate.items(), key=lambda k: k[1]['dist'])
+def getFermateNearPositionImgUrl(lat, lon, radius = 10):
+    nearby_fermated_sorted_dict = getFermateNearPosition(lat, lon, radius)
+    if nearby_fermated_sorted_dict:
+        fermate_number = len(nearby_fermated_sorted_dict)
         img_url = BASE_MAP_IMG_URL + \
                   "&markers=color:red|{},{}".format(lat, lon) + \
                   ''.join(["&markers=color:blue|label:{}|{},{}".format(num, v['loc'][0], v['loc'][1])
-                           for num, (f,v) in enumerate(fermate_name_sorted, 1)])
-        text = 'Ho trovato *1 fermata* ' if len(fermate)==1 else 'Ho trovato *{} fermate* '.format(len(fermate))
+                           for num, (f,v) in enumerate(nearby_fermated_sorted_dict, 1)])
+        text = 'Ho trovato *1 fermata* ' if fermate_number==1 else 'Ho trovato *{} fermate* '.format(fermate_number)
         text += "in prossimità dalla posizione inserita:\n"
         text += '\n'.join('{}. {}: {}'.format(num, f, format_distance(v['dist']))
-                          for num, (f,v) in enumerate(fermate_name_sorted,1))
+                          for num, (f,v) in enumerate(nearby_fermated_sorted_dict,1))
     else:
         img_url = None
         text = 'Nessuna fermata trovata nel raggio di {} km dalla posizione inserita.'.format(radius)

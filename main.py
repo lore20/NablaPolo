@@ -20,7 +20,7 @@ import date_time_util as dtu
 import ride_offer
 import params
 import webapp2
-
+import speech
 
 
 ########################
@@ -87,7 +87,7 @@ BOTTONE_ADESSO = "👇 ADESSO"
 BOTTONE_A_BREVE = "⏰ A BREVE (24H)"
 BOTTONE_PERIODICO = "📆 PERIODICO"
 BOTTONE_CONFERMA = "👌 CONFERMA"
-BOTTONE_ELIMINA_OFFERTE = "✖🚘 ELIMINA MIE OFFERTE"
+BOTTONE_ELIMINA_OFFERTE = "🗑🚘 ELIMINA MIE OFFERTE"
 BOTTONE_ATTIVA_NOTIFICHE_TUTTE = "🔔🔔🔔 ATTIVA TUTTE"
 BOTTONE_DISTATTIVA_NOTIFICHE = "🔕 DISATTIVA TUTTE"
 BOTTONE_ATTIVA_NOTIFICHE_PERCORSI = "🔔🛣 MIEI PERCORSI"
@@ -559,6 +559,7 @@ def goToState1(p, **kwargs):
                     msg += '📍 Oppure dimmi da *dove parti*.'
             kb = utility.makeListOfList(route.SORTED_ZONE_WITH_STOP_IF_SINGLE)
         elif stage == 1:
+            logging.debug('Sorting fermate in {}'.format(PASSAGGIO_PATH[0]))
             fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate) == 1:
@@ -598,7 +599,46 @@ def goToState1(p, **kwargs):
             else:
                 tellInputNonValido(p.chat_id, kb)
         else:
-            if input in utility.flatten(kb):
+            voice = kwargs['voice'] if 'voice' in kwargs.keys() else None
+            location = kwargs['location'] if 'location' in kwargs.keys() else None
+            flat_kb = utility.flatten(kb)
+            if input:
+                input, perfectMatch = utility.matchInputToChoices(input, flat_kb)
+                if not perfectMatch:
+                    msg = 'Hai inserito: {}'.format(input)
+                    tell(p.chat_id, msg)
+            elif voice:
+                file_id = voice['file_id']
+                duration = int(voice['duration'])
+                if duration > 5:
+                    msg = "❗🙉 L'audio è troppo lungo, riprova!"
+                    tell(p.chat_id, msg, kb)
+                    return
+                else:
+                    transcription = speech.getTranscription(file_id, choices = flat_kb )
+                    input, perfectMatch = utility.matchInputToChoices(transcription, flat_kb)
+                    if input is None:
+                        msg = "❗🙉 Ho capito: '{}' ma non è un posto che conosco, " \
+                              "scegline uno nella lista qua sotto.".format(transcription)
+                        tell(p.chat_id, msg, kb)
+                        return
+                    else:
+                        msg = " 🎤 Hai scelto: {}".format(input)
+                        tell(p.chat_id, msg)
+            elif location and (stage==0 or stage==2):
+                lat, lon = location['latitude'], location['longitude']
+                p.setLocation(lat, lon)
+                nearby_fermated_sorted_dict = route.getFermateNearPosition(lat, lon, radius=2)
+                if nearby_fermated_sorted_dict is None:
+                    msg = "❗📍 Non ho trovato fermate in prossimità della posizione inserita," \
+                          "prova ad usare i pulsanti qua sotto.".format(input)
+                    tell(p.chat_id, msg, kb)
+                    return
+                input = nearby_fermated_sorted_dict[0][0]
+                msg = "📍 Hai scelto: {}".format(input)
+                tell(p.chat_id, msg)
+            if input:
+                logging.debug('Received input: {}'.format(input))
                 if input == BOTTONE_ANNULLA:
                     PASSAGGIO_INFO['abort'] = True
                     if passaggio_type == 'aggiungi_preferiti':
@@ -1193,11 +1233,17 @@ def goToState8(p, **kwargs):
         msg = 'Prova a dire qualcosa...'
         tell(p.chat_id, msg, kb)
     else:
+        voice = kwargs['voice'] if 'voice' in kwargs.keys() else None
         if input == BOTTONE_INIZIO:
             restart(p)
-        voice = kwargs['voice'] if 'voice' in kwargs.keys() else None
-        if voice:
+        elif voice:
             file_id = voice['file_id']
+            duration = int(voice['duration'])
+            if duration > 5:
+                text = 'Sorry, your audio is too long.'
+            else:
+                text = speech.getTranscription(file_id, choices = ())
+            tell(p.chat_id, text)
         else:
             tellInputNonValidoUsareBottoni(p.chat_id, kb)
 
@@ -1255,9 +1301,9 @@ def goToState91(p, **kwargs):
     giveInstruction = input is None
     kb = [[BOTTONE_MAPPA], [BOTTONE_INDIETRO]] #[BOTTONE_LOCATION], # NOT WORKING FOR DESKTOP
     if giveInstruction:
-        msg = '📌 Mandami una *posizione GPS* (tramite la graffetta in basso) o ' \
-              '✏️🏷 scrivi un *indirizzo* (ad esempio "via rosmini trento"), ' \
-              'oppure clicca su {}'.format(BOTTONE_MAPPA) #📎
+        msg = '∙ 📌 Mandami una *posizione GPS* (tramite la graffetta in basso), oppure\n' \
+              '∙ ✏️🏷 scrivi un *indirizzo* (ad esempio "via rosmini trento"), oppure\n' \
+              '∙ clicca su {}'.format(BOTTONE_MAPPA) #📎
         p.setLastKeyboard(kb)
         tell(p.chat_id, msg, kb)
     else:
@@ -1278,6 +1324,7 @@ def goToState91(p, **kwargs):
                     'longitude': loc.longitude
                 }
         if location:
+            p.setLocation(location['latitude'], location['longitude'])
             img_url, text = route.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
             if img_url:
                 sendPhotoViaUrlOrId(p.chat_id, img_url, kb)
