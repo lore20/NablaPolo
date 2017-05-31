@@ -1269,8 +1269,8 @@ def goToState9(p, **kwargs):
                 '''
                 👤 Utenti: {}
                 
-                🚘 Passaggi attivi nei prossimi 7 giorni: {}
-                📆🚘 Passaggi inseriti negli ultimi 7 giorni: {}                                
+                🚘 Passaggi disponibili nei prossimi 7 giorni: {}
+                📆🚘 Offerte inserite negli ultimi 7 giorni: {}                                
                 '''
             ).format(
                 person.getPeopleCount(),
