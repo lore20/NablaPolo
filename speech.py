@@ -10,7 +10,7 @@ from route import ZONE, FERMATE, STOPS
 
 #PHRASES = ZONE.keys() + FERMATE.keys() + STOPS
 
-def getTranscription(file_id, choices):
+def getTranscriptionTelegram(file_id, choices):
     import requests
     import key
 
@@ -48,18 +48,33 @@ def getTranscription(file_id, choices):
         return r_dict['results'][0]['alternatives'][0]['transcript']
     return None
 
-
 '''
-msg = []
-results = r_dict['results']
-for result in results:
-    alternatives = result['alternatives']
-    for alternative in alternatives:
-        transcript = alternative['transcript'] if 'transcript' in alternative else None
-        confidence = alternative['confidence'] if 'confidence' in alternative else None
-        if confidence:
-            msg.append('transcript: {}, confidence: {}'.format(transcript, confidence))
-        else:
-            msg.append('transcript: {}'.format(transcript))
-return '\n'.join(msg)
+def getTranscriptionFacebook(voice_url, choices):
+    import requests
+    fileContent = requests.get(voice_url).content
+    speech_content = base64.b64encode(fileContent)
+
+    service = googleapiclient.discovery.build('speech', 'v1', credentials=credentials)
+    service_request = service.speech().recognize(
+        body={
+            "config": {
+                "encoding": 'OGG_OPUS',  # enum(AudioEncoding)
+                "sampleRateHertz": 16000,
+                "languageCode": 'it-IT',
+                "maxAlternatives": 1,
+                "speechContexts": {
+                    "phrases": choices
+                }
+            },
+            "audio": {
+                "content": speech_content
+            }
+        })
+
+    r_dict = service_request.execute()
+    logging.debug('speech api response: {}'.format(r_dict))
+
+    if 'results' in r_dict:
+        return r_dict['results'][0]['alternatives'][0]['transcript']
+    return None
 '''

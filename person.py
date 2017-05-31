@@ -17,9 +17,10 @@ VAR_MY_RIDES = 'my_rides'
 VAR_CURSOR = 'cursor' # [position (1-based), total]
 
 class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
-    chat_id = ndb.IntegerProperty()
+    chat_id = ndb.StringProperty()
     name = ndb.StringProperty()
     last_name = ndb.StringProperty()
+    application = ndb.StringProperty() # telegram, messenger
     username = ndb.StringProperty()
     last_mod = ndb.DateTimeProperty(auto_now=True)
     state = ndb.IntegerProperty()
@@ -65,6 +66,9 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         import key
         return self.chat_id in key.TESTERS
 
+    def isTelegramUser(self):
+        return self.application == 'telegram'
+
     def getPropertyUtfMarkdown(self, property, escapeMarkdown=True):
         if property == None:
             return None
@@ -92,12 +96,15 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         return self.getPropertyUtfMarkdown(self.notification_mode, escapeMarkdown=escapeMarkdown)
 
     def getFirstNameLastNameUserName(self, escapeMarkdown=True):
-        result = self.getFirstName(escapeMarkdown =escapeMarkdown)
-        if self.last_name:
-            result += ' ' + self.getLastName(escapeMarkdown = escapeMarkdown)
-        if self.username:
-            result += ' @' + self.getUsername(escapeMarkdown = escapeMarkdown)
-        return result
+        if self.isTelegramUser():
+            result = self.getFirstName(escapeMarkdown =escapeMarkdown)
+            if self.last_name:
+                result += ' ' + self.getLastName(escapeMarkdown = escapeMarkdown)
+            if self.username:
+                result += ' @' + self.getUsername(escapeMarkdown = escapeMarkdown)
+            return result
+        else:
+            return self.key.id()
 
     def setNotificationMode(self, mode, put=True):
         self.notification_mode = mode
@@ -230,13 +237,21 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         if cursor[0] == cursor[1]:
             cursor[0] = 0
 
-def addPerson(chat_id, name, last_name, username):
+def getId(chat_id, application):
+    return 'F_{}'.format(chat_id) if application=='messenger' else '{}'.format(chat_id) # T_
+
+def getPersonByIdAndApplication(chat_id, application):
+    id = getId(chat_id, application)
+    return Person.get_by_id(id)
+
+def addPerson(chat_id, name, last_name, username, application):
     p = Person(
-        id=str(chat_id),
+        id=getId(chat_id, application),
         chat_id=chat_id,
         name=name,
         last_name=last_name,
         username=username,
+        application=application,
         notification_mode = params.DEFAULT_NOTIFICATIONS_MODE,
         #percorsi=[] # done via resetPersi below
         tmp_variables={}
@@ -246,13 +261,9 @@ def addPerson(chat_id, name, last_name, username):
     return p
 
 
-def deletePerson(chat_id):
-    p = getPersonById(chat_id)
+def deletePerson(chat_id, application):
+    p = getPersonByIdAndApplication(chat_id, application)
     p.key.delete()
-
-
-def getPersonById(chat_id):
-    return Person.get_by_id(str(chat_id))
 
 def getPeopleCount():
     return Person.query().count()
@@ -274,6 +285,7 @@ def updatePeople():
     while more:
         records, cursor, more = Person.query().fetch_page(1000, start_cursor=cursor)
         for ent in records:
+            '''
             to_delete = [
                 'percorsi_start_zona', 'percorsi_end_zona',
                 'percorsi_start_fermata', 'percorsi_end_fermata'
@@ -283,6 +295,8 @@ def updatePeople():
                     del ent._properties[prop]
             ent.tmp_variables = {}
             ent.resetPercorsi()
+            '''
+            ent.application = 'telegram'
         if records:
             create_futures = ndb.put_multi_async(records)
             ndb.Future.wait_all(create_futures)
