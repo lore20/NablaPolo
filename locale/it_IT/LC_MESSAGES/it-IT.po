@@ -622,7 +622,7 @@ msgstr "Clicca su @PickMeUp_bot per aggiungerlo e premi START! "
 
 #: ../main.py:1301
 msgid "Please attach a location by 1) pressing the "
-msgstr "Inserisci un luogo: 1) premi l'icona "
+msgstr "Inserisci un zona: 1) premi l'icona "
 
 #: ../main.py:1302
 msgid " icon below and 2) chosing a position in the map."

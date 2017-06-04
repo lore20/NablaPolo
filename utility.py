@@ -166,6 +166,11 @@ def emptyStringIfNone(x):
 def emptyStringIfZero(x):
     return '' if x==0 else x
 
+def convertToUtfIfNeeded(s):
+    if isinstance(s, unicode):
+        s = s.encode('utf-8')
+    return s
+
 def flatten(L):
     ret = []
     for i in L:
@@ -174,6 +179,22 @@ def flatten(L):
         else:
             ret.append(i)
     return ret
+
+def matchInputToChoices(input, choices):
+    perfectMatch = True
+    if input in choices:
+        return input, perfectMatch
+    perfectMatch = False
+    from fuzzywuzzy import process
+    threshold = 50
+    # choices = ["Atlanta Falcons", "New York Jets", "New York Giants", "Dallas Cowboys"]
+    # process.extract("new york jets", choices, limit=2)
+    # -> [('New York Jets', 100), ('New York Giants', 78)]
+    results = process.extract(input, choices, limit=2)
+    if results and results[0][1]>threshold and (len(results)==1 or results[0][1]>results[1][1]):
+        return results[0][0], perfectMatch
+    return None, perfectMatch
+
 
 def makeListOfList(L):
     result = [[l] for l in L]
