@@ -440,7 +440,7 @@ def goToState1(p, **kwargs):
             flat_kb = utility.flatten(kb)
             if input:
                 input, perfectMatch = utility.matchInputToChoices(input, flat_kb)
-                if not perfectMatch:
+                if input and not perfectMatch:
                     msg = 'Hai inserito: {}'.format(input)
                     send_message(p, msg)
             elif voice:
@@ -484,9 +484,11 @@ def goToState1(p, **kwargs):
                     if stage <= 3:
                         if '(' in input:  # Zona (fermata) case
                             zona, fermata = route.decodeFermataKey(input)
-                            PASSAGGIO_PATH.append(zona)
-                            PASSAGGIO_PATH.append(fermata)
-                            # logging.debug('zona con fermata: {} ({})'.format(zona, fermata))
+                            if zona and fermata:
+                                PASSAGGIO_PATH.append(zona)
+                                PASSAGGIO_PATH.append(fermata)
+                            else:
+                                tellInputNonValidoUsareBottoni(p, kb)
                         else:
                             PASSAGGIO_PATH.append(input)
                     if len(PASSAGGIO_PATH)==4: # cerca, richiesta, offerta, aggiungi_preferiti

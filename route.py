@@ -25,12 +25,12 @@ PERCORSO_SEPARATOR = ' → '
 def encodeFermataKey(zona, fermata):
     return '{} ({})'.format(zona, fermata)
 
-def decodeFermataKey(fermata_key):
+def decodeFermataKey(fermata_key, do_assert=True):
     assert fermata_key.count('(')==1
     zona, fermata = fermata_key[:-1].split(' (')
-    assert zona in ZONE
-    assert fermata in SORTED_FERMATE_IN_ZONA(zona)
-    return zona, fermata
+    if zona in ZONE and fermata in SORTED_FERMATE_IN_ZONA(zona):
+        return zona, fermata
+    return None, None
 
 def encodeFermateKeysFromQuartet(start_zona, start_fermata, end_zona, end_fermata):
     start_fermata_key = encodeFermataKey(start_zona, start_fermata)
