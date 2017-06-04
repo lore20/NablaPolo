@@ -27,7 +27,7 @@ import webapp2
 
 
 ########################
-WORK_IN_PROGRESS = False
+WORK_IN_PROGRESS = True
 ########################
 
 
@@ -1555,7 +1555,7 @@ class TelegramWebhookHandler(SafeRequestHandler):
                 msg = "You are in state {}: {}".format(p.state, STATES.get(p.state, '(unknown)'))
                 reply(msg)
             elif WORK_IN_PROGRESS and p.chat_id not in key.TESTERS:
-                reply("🏗 Il sistema è in aggiornamento.")
+                reply("🏗 Il sistema è in aggiornamento, ti preghiamo di riprovare più tardi.")
             else:
                 if not dealWithUniversalCommands(p, input=text):
                     logging.debug("Sending {} to state {} with input {}".format(p.getFirstName(), p.state, text))
