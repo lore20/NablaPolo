@@ -21,7 +21,7 @@ import speech
 
 
 ########################
-WORK_IN_PROGRESS = True
+WORK_IN_PROGRESS = False
 ########################
 
 
@@ -229,8 +229,9 @@ def restartAll(qry = None, curs=None):
 
 def tellMaster(msg, markdown=False, one_time_keyboard=False):
     for id in key.ADMIN_IDS:
+        p = person.getPersonById(id)
         main_telegram.send_message(
-            id, msg, markdown=markdown,
+            p, msg, markdown=markdown,
             one_time_keyboard=one_time_keyboard,
             sleepDelay=True
         )
@@ -475,7 +476,6 @@ def goToState1(p, **kwargs):
             if input:
                 logging.debug('Received input: {}'.format(input))
                 if input == BOTTONE_ANNULLA:
-                    PASSAGGIO_INFO['abort'] = True
                     if passaggio_type == 'aggiungi_preferiti':
                         redirectToState(p, 31)
                     else:
@@ -675,7 +675,7 @@ def finalizeOffer(p, path, date_time, time_mode, programmato=False, programmato_
     percorso = route.encodePercorsoFromQuartet(*path)
     o = ride_offer.addRideOffer(p, date_time, percorso, time_mode, programmato, programmato_giorni)
     ride_description_no_driver_info = o.getDescription(driver_info=False)
-    msg = "Grazie per aver inserito l'offerta di passaggio\n{}".format(ride_description_no_driver_info)
+    msg = "Grazie per aver inserito l'offerta di passaggio\n\n{}".format(ride_description_no_driver_info)
     if p.isTester():
         msg += '\n\n👷 Sei un tester del sistema, info di debug in arrivo...'
     send_message(p, msg)

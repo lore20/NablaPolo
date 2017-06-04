@@ -63,11 +63,11 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
 
     def isAdmin(self):
         import key
-        return self.chat_id in key.ADMIN_IDS
+        return self.getId() in key.ADMIN_IDS
 
     def isTester(self):
         import key
-        return self.chat_id in key.TESTER_IDS
+        return self.getId() in key.TESTER_IDS
 
     def isTelegramUser(self):
         return self.application == 'telegram'
@@ -205,7 +205,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
     def saveMyRideOffers(self):
         import ride_offer
         import pickle
-        offers = ride_offer.getActiveRideOffersDriver(self.chat_id)
+        offers = ride_offer.getActiveRideOffersDriver(self.getId())
         pkl_offers = pickle.dumps(offers)
         self.setTmpVariable(VAR_MY_RIDES, pkl_offers)
         return offers
@@ -304,54 +304,7 @@ def deletePeople():
         create_futures = ndb.delete_multi_async(to_delete)
         ndb.Future.wait_all(create_futures)
 
-def updatePeople():
-    from route import encodePercorsoFromQuartet
-    more, cursor = True, None
-    new_records = []
-    new_persorsi_count = 0
-    while more:
-        records, cursor, more = Person.query().fetch_page(500, start_cursor=cursor)
-        for ent in records:
-            '''
-            to_delete = [
-                'percorsi_start_fermata', 'percorsi_start_fermata',
-                'percorsi_end_fermata', 'percorsi_end_place'
-            ]            
-            for prop in to_delete:
-                if prop in ent._properties:
-                    del ent._properties[prop]
-            ent.application = 'telegram'
-            '''
-            new_percorsi = []
-            if 'percorsi_start_place' in ent._properties:
-                new_persorsi_count += 1
-                new_percorsi = [encodePercorsoFromQuartet(*x) for x in zip(
-                    [utility.convertToUtfIfNeeded(z) for z in  ent.percorsi_start_place],
-                    [utility.convertToUtfIfNeeded(z) for z in ent.percorsi_start_fermata],
-                    [utility.convertToUtfIfNeeded(z) for z in ent.percorsi_end_place],
-                    [utility.convertToUtfIfNeeded(z) for z in ent.percorsi_end_fermata]
-                )]
-            new_chat_id = ent.key.id()
-            p = Person(
-                id=getId(new_chat_id, 'telegram'),
-                state=ent.state,
-                chat_id=new_chat_id,
-                name=ent.name,
-                last_name=ent.last_name,
-                username=ent.username,
-                enabled=ent.enabled,
-                application='telegram',
-                notification_mode=ent.notification_mode,
-                percorsi = new_percorsi,
-                tmp_variables=ent.tmp_variables,
-            )
-            new_records.append(p)
-    print 'New persorsi count: {}'.format(new_persorsi_count)
-    if new_records:
-        create_futures = ndb.put_multi_async(new_records)
-        ndb.Future.wait_all(create_futures)
 
-'''
 def rePopulatePeopleFromBackup():
     from person_backup import Person_Backup
     more, cursor = True, None
@@ -373,4 +326,3 @@ def rePopulatePeopleFromBackup():
         if new_utenti:
             create_futures = ndb.put_multi_async(new_utenti)
             ndb.Future.wait_all(create_futures)
-'''

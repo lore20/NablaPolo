@@ -3,7 +3,7 @@
 from google.appengine.ext import ndb
 from utility import convertToUtfIfNeeded
 
-class RideOffer(ndb.Expando): #ndb.Model
+class RideOffer(ndb.Model): #ndb.Model
     driver_id = ndb.StringProperty()
     driver_name_lastname = ndb.StringProperty()
     driver_username = ndb.StringProperty()
@@ -183,11 +183,10 @@ def getActiveRideOffersProgrammatoQry():
 '''
 
 
-def getActiveRideOffersDriver(chat_id):
+def getActiveRideOffersDriver(driver_id):
     import params
     import date_time_util as dtu
     from datetime import timedelta
-    driver_id = str(chat_id)
     now_with_tolerance = dtu.removeTimezone(dtu.nowCET()) - timedelta(minutes=params.TIME_TOLERANCE_MIN)
     qry = RideOffer.query(
         ndb.AND(
