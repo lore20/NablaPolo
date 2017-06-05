@@ -41,6 +41,7 @@ def setMenu(menu_items):
         report_exception()
 
 def sendMessage(sender_id, msg):
+    msg = msg.replace('*','')
     response_data = {
         "recipient": {
             "id": sender_id
@@ -60,6 +61,7 @@ def sendMessage(sender_id, msg):
 
 # max 11 reply_items
 def sendMessageWithQuickReplies(sender_id, msg, reply_items):
+    msg = msg.replace('*', '')
     response_data = {
         "recipient": {
             "id": sender_id
@@ -87,6 +89,7 @@ def sendMessageWithQuickReplies(sender_id, msg, reply_items):
 
 # max 3 button_items
 def sendMessageWithButtons(sender_id, msg, button_items):
+    msg = msg.replace('*', '')
     response_data = {
         "recipient": {
             "id": sender_id
@@ -172,7 +175,9 @@ def sendPhotoData(sender_id, file_data, filename):
 
 
 def getUserInfo(user_id):
-    url = 'https://graph.facebook.com/v2.6/{}?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token={}'.format(user_id, key.FACEBOOK_PAGE_ACCESS_TOKEN)
+    url = key.FACEBOOK_BASE_API + \
+          '/{}?fields=first_name,last_name,profile_pic,locale,timezone,gender' \
+          '&access_token={}'.format(user_id, key.FACEBOOK_PAGE_ACCESS_TOKEN)
     logging.debug('Sending user info request: {}'.format(url))
     r = requests.get(url)
     json = r.json()
@@ -211,7 +216,9 @@ class WebhookHandler(SafeRequestHandler):
         if text=='' and location is None:
             return
 
-        dealWithUserInteraction(chat_id, name=None, last_name=None, username=None,
+        name, last_name = getUserInfo(chat_id)
+
+        dealWithUserInteraction(chat_id, name=name, last_name=last_name, username=None,
                                 application='messenger', text=text,
                                 location=location, contact=None, photo=None, document=None, voice=None)
 

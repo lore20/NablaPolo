@@ -349,7 +349,12 @@ def goToState0(p, **kwargs):
         send_message(p, msg, kb)
     else:
         if input == BOTTENE_OFFRI_PASSAGGIO:
-            if p.username is None or p.username == '-':
+            if not p.isTelegramUser():
+                msg = '⚠️ La possibilità di offrire passaggi è consentita solo a utenti registrati su Telegram. ' \
+                      'Ti preghiamo di installare Telegram e aggiungere il bot ' \
+                      '@PickMeUpBot (http://t.me/pickmeup_bot).\n\n'
+                send_message(p, msg, kb)
+            elif p.username is None or p.username == '-':
                 msg = '⚠️ *Non hai uno username pubblico* impostato su Telegram. ' \
                       'Questo è necessario per far sì che i passeggeri ti possano contattare.\n\n' \
                       'Ti preghiamo di *scegliere uno username nelle impostazioni di Telegram* e riprovare.'
@@ -1224,12 +1229,11 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
               "a contattarci cliccando su @kercos".format(name_safe)
         send_message(p, msg)
         restart(p)
-        tellMaster("New user:{}".format(p.getFirstNameLastNameUserName()))
+        tellMaster("New user: {}".format(p.getFirstNameLastNameUserName()))
     else:
         # known user
-        if application == 'telegram':
-            p.updateUserInfo(name, last_name, username)
-        if text.startswith("/start"):
+        p.updateUserInfo(name, last_name, username)
+        if text in ['/start', 'start', 'START']:
             msg = " 😀 Ciao{}!\nBentornato/a in PickMeUp!".format(name_safe)
             send_message(p, msg)
             restart(p)

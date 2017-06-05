@@ -93,7 +93,7 @@ class RideOffer(ndb.Model): #ndb.Model
         import utility
         self.percorsi_passeggeri_compatibili, fermate_interemedie_routes = \
             route.getPercorsiPasseggeriCompatibili(self.getPercorso())
-        self.fermate_interemedie = list(set(utility.flatten(fermate_interemedie_routes)))
+        self.fermate_intermedie = list(set(utility.flatten(fermate_interemedie_routes)))
         if put:
             self.put()
         return self.percorsi_passeggeri_compatibili, fermate_interemedie_routes
@@ -108,15 +108,15 @@ def addRideOffer(driver, start_datetime, percorso,
         driver_username=driver.getUsername(),
         start_datetime=start_datetime,
         percorso=percorso,
-        #percorsi_passeggeri_compatibili via computePercorsiPasseggeriCompatibili
-        #fermate_intermedie via computePercorsiPasseggeriCompatibili
+        #percorsi_passeggeri_compatibili via setFermateIntermediePercorsiPasseggeriCompatibili
+        #fermate_intermedie via setFermateIntermediePercorsiPasseggeriCompatibili
         registration_datetime = dtu.removeTimezone(dtu.nowCET()),
         active = True,
         time_mode = time_mode,
         programmato = programmato,
         programmato_giorni = programmato_giorni
     )
-    #o.put() only after computePercorsiPasseggeriCompatibili()
+    #o.put() only after setFermateIntermediePercorsiPasseggeriCompatibili()
     return o
 
 def filterAndSortOffersPerDay(offers):
@@ -239,29 +239,12 @@ def getActiveRideOffers():
     return offers
 
 def updateRideOffers():
-    from route import encodePercorsoFromQuartet
-    from utility import convertToUtfIfNeeded
     more, cursor = True, None
     updated_records = []
     while more:
         records, cursor, more = RideOffer.query().fetch_page(1000, start_cursor=cursor)
         for ent in records:
-            ent.percorso = encodePercorsoFromQuartet(
-                convertToUtfIfNeeded(ent.start_place),
-                convertToUtfIfNeeded(ent.start_fermata),
-                convertToUtfIfNeeded(ent.end_place),
-                convertToUtfIfNeeded(ent.end_fermata)
-            )
-            ent.driver_id = 'T_{}'.format(ent.driver_id)
             ent.setFermateIntermediePercorsiPasseggeriCompatibili(put=False)
-            prop_to_delete = [
-                'start_place', 'start_fermata',
-                'end_place', 'end_fermata',
-                'intermediate_places'
-            ]
-            for prop in prop_to_delete:
-                if prop in ent._properties:
-                    del ent._properties[prop]
         updated_records.extend(records)
     if updated_records:
         print 'Updating {} records'.format(len(updated_records))
