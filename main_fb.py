@@ -93,6 +93,8 @@ def setMenu(menu_items):
         report_exception()
 
 def sendMsgRequest(p, request_data):
+    if key.APPLICATION == 'tiramisu-telegram':
+        return
     request_data_str = json.dumps(request_data)
     try:
         logging.info('responding to request with message: {}'.format(request_data))

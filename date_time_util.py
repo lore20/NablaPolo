@@ -110,7 +110,7 @@ def convertSecondsInHourMinString(seconds):
     if sec >= 30:
         mm += 1
     if hh:
-        return '{} ora {} minuti'.format(hh)
+        return '{} ora {} minuti'.format(hh, mm)
     else:
         return '{} minuti'.format(mm)
 

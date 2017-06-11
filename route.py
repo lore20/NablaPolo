@@ -162,18 +162,18 @@ def test_intermediate_stops(start=None, end=None):
 
     print('{} --> {}'.format(start, end))
     print('{} --> {}'.format(FERMATE[start]['loc'],FERMATE[end]['loc']))
-    route_info = getRoutingDetails(start, end)
+    route_info = getRoutingDetails(encodePercorso(start, end))
     # a list of route infor: for each route -> {route_intermediates_fermate, route_duration, route_distance}
 
     print('Found {} routes.'.format(len(route_info)))
 
     for i, r_info in enumerate(route_info):
-        fermate = r_info['route_intermediates_fermate']
+        fermate_str = ', '.join(r_info['route_intermediates_fermate'])
         distanza = r_info['route_distance']
         durata = r_info['route_duration']
         print 'Percorso {}\n' \
               ' - Fermate intermedie: {}\n' \
               ' - Distanza: {} m\n' \
-              ' - Durata: {} s'.format(i+1, ', '.join(fermate), distanza, durata)
+              ' - Durata: {} s'.format(i+1, fermate_str, distanza, durata)
 
 

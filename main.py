@@ -18,7 +18,7 @@ import webapp2
 
 
 ########################
-WORK_IN_PROGRESS = True
+WORK_IN_PROGRESS = False
 ########################
 
 
@@ -325,26 +325,38 @@ def repeatState(p, put=False, **kwargs):
 def dealWithUniversalCommands(p, input):
     from main_exception import deferredSafeHandleException
     if p.isAdmin():
-        if input.startswith('/broadcast ') and len(input) > 11:
-            msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + input[11:]
-            logging.debug("Starting to broadcast " + msg)
-            deferredSafeHandleException(broadcast, p, msg)
-            return True
-        elif input.startswith('/restartBroadcast ') and len(input) > 18:
-            msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + input[18:]
-            logging.debug("Starting to broadcast " + msg)
-            deferredSafeHandleException(broadcast, p, msg, restart_user=True)
-            return True
+        if input.startswith('/testText '):
+            text = input.split(' ', 1)[1]
+            if text:
+                msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
+                logging.debug("Test broadcast " + msg)
+                send_message(p, msg)
+                return True
+        if input.startswith('/broadcast '):
+            text = input.split(' ', 1)[1]
+            if text:
+                msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
+                logging.debug("Starting to broadcast " + msg)
+                deferredSafeHandleException(broadcast, p, msg)
+                return True
+        elif input.startswith('/restartBroadcast '):
+            text = input.split(' ', 1)[1]
+            if text:
+                msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
+                logging.debug("Starting to broadcast and restart" + msg)
+                deferredSafeHandleException(broadcast, p, msg, restart_user=True)
+                return True
         elif input.startswith('/textUser '):
-            p_id, msg = input.split(' ', 2)[1:]
-            p = Person.get_by_id(p_id)
-            if send_message(p, msg, kb=p.getLastKeyboard()):
-                msg_admin = 'Message sent successfully to {}'.format(p.getFirstNameLastNameUserName())
-                tell_admin(msg_admin)
-            else:
-                msg_admin = 'Problems sending message to {}'.format(p.getFirstNameLastNameUserName())
-                tell_admin(msg_admin)
-            return True
+            p_id, text = input.split(' ', 2)[1]
+            if text:
+                p = Person.get_by_id(p_id)
+                if send_message(p, text, kb=p.getLastKeyboard()):
+                    msg_admin = 'Message sent successfully to {}'.format(p.getFirstNameLastNameUserName())
+                    tell_admin(msg_admin)
+                else:
+                    msg_admin = 'Problems sending message to {}'.format(p.getFirstNameLastNameUserName())
+                    tell_admin(msg_admin)
+                return True
         elif input.startswith('/restartUser '):
             p_id = input.split(' ')[1]
             p = Person.get_by_id(p_id)
@@ -753,15 +765,15 @@ def finalizeOffer(p, path, date_time, time_mode, programmato=False, programmato_
     deferredSafeHandleException(broadCastOffer, p, o)
 
 def broadCastOffer(p, o):
-    o.populateRideWithDetails()
+    o.populateRideWithDetails() # may take few seconds
     qry = person.getPeopleMatchingRideQry(o.percorsi_passeggeri_compatibili)
     if p.isTester():
-        fermate_intermedie_str = [', '.join(x) for x in o.getFermateIntermedieRoutes()]
         debug_msg = '👷 *Info di controllo:*\n{}'.format(o.getRideInfoDetails())
         send_message(p, debug_msg)
         logging.debug(debug_msg)
     msg_broadcast = '🚘 *Nuova offerta di passaggio*:\n\n{}'.format(o.getDescription())
-    broadcast(p, msg_broadcast, qry, blackList_sender=True,
+    blackList_sender = not p.isTester()
+    broadcast(p, msg_broadcast, qry, blackList_sender,
               sendNotification=False, notificationWarning=True)
 
 

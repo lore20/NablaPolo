@@ -117,21 +117,8 @@ class RideOffer(ndb.Model): #ndb.Model
             else:
                 username = '@{}'.format(username)
             msg.append('*Autista*: {} {}'.format(self.getDriverName(), username))
-        msg.append('*Distanza*: {}'.format(self.getAverageDistance()))
-        msg.append('*Durata*: {}'.format(self.getAverageDuration()))
-        return '\n'.join(msg)
-
-    def getRideInfoDetails(self):
-        from utility import format_distance
-        msg = []
-        msg.append('{} tragitto/i trovati per viaggio\n*{}*:\n'.
-                   format(len(self.routes_info), self.getPercorso()))
-        for n, r_info in enumerate(self.routes_info, 1):
-            msg.append('*{}.*').format(n)
-            msg.append('   ∙ Fermate intermedie: {}'.format(n, r_info['route_intermediates_fermate']))
-            msg.append('   ∙ Distanza: {}'.format(format_distance(r_info['route_distance'])))
-            msg.append('   ∙ Durata: {}'.format(format_distance(r_info['route_duration'])))
-            msg.append('\n')
+            msg.append('*Distanza*: {}'.format(self.getAverageDistance()))
+            msg.append('*Durata*: {}'.format(self.getAverageDuration()))
         return '\n'.join(msg)
 
     def populateRideWithDetails(self, put=True):
@@ -154,6 +141,28 @@ class RideOffer(ndb.Model): #ndb.Model
         self.percorsi_passeggeri_compatibili = list(percorsi_compatibili_set)
         if put:
             self.put()
+
+    def getRideInfoDetails(self):
+        from utility import format_distance
+        import date_time_util as dtu
+        msg = []
+        msg.append('{} tragitto/i trovati per viaggio\n*{}*:\n'.
+                   format(len(self.routes_info), self.getPercorso()))
+        for n, r_info in enumerate(self.routes_info, 1):
+            msg.append('*{}.*'.format(n))
+            distance = format_distance(float(r_info['route_distance']) / 1000)
+            duration = dtu.convertSecondsInHourMinString(r_info['route_duration'])
+            fermate_intermedie_str = ', '.join(r_info['route_intermediates_fermate'])
+            msg.append('   ∙ Fermate intermedie: {}'.format(fermate_intermedie_str))
+            msg.append('   ∙ Distanza: {}'.format(distance))
+            msg.append('   ∙ Durata: {}'.format(duration))
+        num_percorsi_compatibili = len(self.getPercorsiPasseggeriCompatibili())
+        msg.append('\n{} percorso/i passeggeri compatibilie.'.format(num_percorsi_compatibili))
+        #percorsi_compatibili_str = ', '.join(self.getPercorsiPasseggeriCompatibili())
+        #msg.append('\n{} percorso/i passeggeri compatibilie: {}'.format(
+        #    num_percorsi_compatibili, percorsi_compatibili_str))
+        return '\n'.join(msg)
+
 
 
 def addRideOffer(driver, start_datetime, percorso,
