@@ -6,65 +6,128 @@ from main_exception import SafeRequestHandler
 import jsonUtil
 import logging
 import key
-import webapp2
 
 import requests
 import json
 
 json_headers = {'Content-type': 'application/json'}
 
+def setGetStartedButton():
+    from main import tell_admin
+    response_data = {
+        "get_started": {
+            "payload":"START"
+        }
+    }
+    response_data_str = json.dumps(response_data)
+
+    try:
+        logging.info('sending menu with json: {}'.format(response_data))
+        resp = requests.post(key.FACEBOOK_PROFILE_API_URL, data=response_data_str, headers=json_headers)
+        logging.info('responding to request: {}'.format(resp.text))
+        tell_admin('Response to GetStartedButton: {}'.format(resp.text))
+        return resp.status_code == 200
+    except:
+        report_exception()
+
 def setFB_Menu():
-    setMenu(['HELP','START'])
+    setMenu(['INIZIO','IMPOSTAZIONI','AIUTO','STOP'])
 
 def setMenu(menu_items):
+    from main import tell_admin
     response_data = {
-        #"recipient": {"id": sender_id},
-        "setting_type": "call_to_actions",
-        "thread_state": "existing_thread",
-        "call_to_actions": [
+        "persistent_menu": [
             {
-                "type": "postback",
-                "title": i,
-                "payload": i
-            }
-            for i in menu_items
+                "locale": "default",
+                "composer_input_disabled": False, #Set to true to disable user input in the menu. This means users will only be able to interact with your bot via the menu, postbacks, buttons, and webviews.
+                "call_to_actions": [
+                    {
+                        "title": "Opzioni",
+                        "type": "nested",
+                        "call_to_actions": [
+                            {
+                                "type": "postback",
+                                "title": i,
+                                "payload": i,
+                            }
+                            for i in menu_items
+                        ]
+                    },
+                    {
+                        "title": "Links",
+                        "type": "nested",
+                        "call_to_actions": [
+                            {
+                                "type": "web_url",
+                                "title": "Telegram bot",
+                                "url": "https://t.me/PickMeUp_bot",
+                                "webview_height_ratio": "tall"  # compact, tall, full
+                            },
+                            {
+                                "type": "web_url",
+                                "title": "Website",
+                                "url": "http://pickmeup.trentino.it",
+                                "webview_height_ratio": "tall"  # compact, tall, full
+                            }
+
+                        ]
+                    },
+
+                ]
+            },
+            #{
+            #    "locale": "default",
+            #    "composer_input_disabled": False #Set to true to disable user input in the menu. This means users will only be able to interact with your bot via the menu, postbacks, buttons, and webviews.
+            #}
         ]
     }
     response_data_str = json.dumps(response_data)
 
     try:
         logging.info('sending menu with json: {}'.format(response_data))
-        resp = requests.post(key.FACEBOOK_TRD_API_URL, data=response_data_str, headers=json_headers)
+        resp = requests.post(key.FACEBOOK_PROFILE_API_URL, data=response_data_str, headers=json_headers)
         logging.info('responding to request: {}'.format(resp.text))
+        tell_admin('Response to set persisten menu: {}'.format(resp.text))
         return resp.status_code == 200
     except:
         report_exception()
 
-def sendMessage(sender_id, msg):
+def sendMsgRequest(p, request_data):
+    request_data_str = json.dumps(request_data)
+    try:
+        logging.info('responding to request with message: {}'.format(request_data))
+        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=request_data_str, headers=json_headers)
+        logging.info('responding to request: {}'.format(resp.text))
+        logging.info('status code: {}'.format(resp.status_code))
+        code = resp.status_code
+        if code == 403:
+            # Disabled user
+            p.setEnabled(False, put=True)
+            # logging.info('Disabled user: ' + p.getFirstNameLastNameUserName())
+        return code == 200
+    except:
+        report_exception()
+
+
+def sendMessage(p, msg):
     msg = msg.replace('*','')
-    response_data = {
+    request_data = {
         "recipient": {
-            "id": sender_id
+            "id": p.chat_id
         },
         "message": {
             "text": msg,
         }
     }
-    response_data_str = json.dumps(response_data)
-    try:
-        logging.info('responding to request with message: {}'.format(response_data))
-        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=response_data_str, headers=json_headers)
-        logging.info('responding to request: {}'.format(resp.text))
-        return resp.status_code == 200
-    except:
-        report_exception()
+    logging.info('message request (simple): {}'.format(request_data))
+    return sendMsgRequest(p, request_data)
 
 # max 11 reply_items
-def sendMessageWithQuickReplies(sender_id, msg, reply_items):
+def sendMessageWithQuickReplies(p, msg, reply_items):
     msg = msg.replace('*', '')
-    response_data = {
+    request_data = {
         "recipient": {
-            "id": sender_id
+            "id": p.chat_id
         },
         "message": {
             "text": msg,
@@ -78,21 +141,15 @@ def sendMessageWithQuickReplies(sender_id, msg, reply_items):
             ]
         }
     }
-    response_data_str = json.dumps(response_data)
-    try:
-        logging.info('responding to request with message with quick replies: {}'.format(response_data))
-        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=response_data_str, headers=json_headers)
-        logging.info('responding to request: {}'.format(resp.text))
-        return resp.status_code == 200
-    except:
-        report_exception()
+    logging.info('message request with quick replies: {}'.format(request_data))
+    return sendMsgRequest(p, request_data)
 
 # max 3 button_items
-def sendMessageWithButtons(sender_id, msg, button_items):
+def sendMessageWithButtons(p, msg, button_items):
     msg = msg.replace('*', '')
-    response_data = {
+    request_data = {
         "recipient": {
-            "id": sender_id
+            "id": p.chat_id
         },
         "message": {
             "attachment": {
@@ -112,19 +169,58 @@ def sendMessageWithButtons(sender_id, msg, button_items):
             }
         }
     }
-    response_data_str = json.dumps(response_data)
+    logging.info('message request with buttons: {}'.format(request_data))
+    return sendMsgRequest(p, request_data)
+
+
+def sendMessageWithList(p, msg, button_items):
+    from main import tell_admin
+    msg = msg.replace('*', '')
+    request_data = {
+        "recipient": {
+            "id": p.chat_id
+        },
+        "message": {
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "list",
+                    "top_element_style": "compact", # large, compact
+                    "elements": [
+                        {
+                            "title": i,
+                            "subtitle": i,
+                            "default_action": {
+                                "type": "postback",
+                                "payload": i
+                            }
+                        }
+                        for i in button_items
+                    ]
+                }
+            }
+        }
+    }
+    logging.info('message request with list: {}'.format(request_data))
+    request_data_str = json.dumps(request_data)
     try:
-        logging.info('responding to request with message with buttons: {}'.format(response_data))
-        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=response_data_str, headers=json_headers)
-        logging.info('responding to request: {}'.format(resp.text))
-        return resp.status_code == 200
+        logging.info('responding to request with message: {}'.format(request_data))
+        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=request_data_str, headers=json_headers)
+        tell_admin('response to request with list: {}'.format(resp.text))
+        logging.info('status code: {}'.format(resp.status_code))
+        code = resp.status_code
+        if code == 403:
+            # Disabled user
+            p.setEnabled(False, put=True)
+            # logging.info('Disabled user: ' + p.getFirstNameLastNameUserName())
+        return code == 200
     except:
         report_exception()
 
-def sendPhotoUrl(sender_id, url):
-    response_data = {
+def sendPhotoUrl(p, url):
+    request_data = {
         "recipient": {
-            "id": sender_id
+            "id": p.chat_id
         },
         "message": {
             "attachment": {
@@ -135,20 +231,14 @@ def sendPhotoUrl(sender_id, url):
             }
         }
     }
-    response_data_str = json.dumps(response_data)
-    try:
-        logging.info('responding to request with image via url: {}'.format(response_data))
-        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=response_data_str, headers=json_headers)
-        logging.info('responding to request: {}'.format(resp.text))
-        return resp.status_code == 200
-    except:
-        report_exception()
+    logging.info('send photo (url) request: {}'.format(request_data))
+    return sendMsgRequest(p, request_data)
 
-def sendPhotoData(sender_id, file_data, filename):
-    response_data = {
+def sendPhotoData(p, file_data, filename):
+    request_data = {
         "recipient": json.dumps(
             {
-            "id": sender_id
+                "id": p.chat_id
             }
         ),
         "message": json.dumps(
@@ -166,8 +256,8 @@ def sendPhotoData(sender_id, file_data, filename):
     }
 
     try:
-        logging.info('sending photo data: {}'.format(response_data))
-        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=response_data, files=files)
+        logging.info('sending photo data: {}'.format(request_data))
+        resp = requests.post(key.FACEBOOK_MSG_API_URL, data=request_data, files=files)
         logging.info('responding to photo request: {}'.format(resp.text))
         return resp.status_code == 200
     except:
@@ -190,14 +280,19 @@ class WebhookHandler(SafeRequestHandler):
 
     # to confirm the webhook url
     def get(self):
-        urlfetch.set_default_fetch_deadline(60)
-        challange = self.request.get('hub.challenge')
-        self.response.write(challange)
+        #urlfetch.set_default_fetch_deadline(60)
+        logging.info('verification request: {}'.format(self.request.body))
+        verify_token = self.request.get('hub.verify_token')
+        if verify_token == key.FACEBOOK_VERIFY_TOKEN:
+            challenge = self.request.get('hub.challenge')
+            self.response.write(challenge)
+        else:
+            self.response.http_status_message(403)
 
     # to handle user interaction
     def post(self):
         from main import dealWithUserInteraction
-        urlfetch.set_default_fetch_deadline(60)
+        #urlfetch.set_default_fetch_deadline(60)
         body = jsonUtil.json_loads_byteified(self.request.body)
         logging.info('request body: {}'.format(body))
         messaging = body['entry'][0]['messaging'][0]

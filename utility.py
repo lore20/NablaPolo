@@ -186,15 +186,24 @@ def matchInputToChoices(input, choices):
         return input, perfectMatch
     perfectMatch = False
     from fuzzywuzzy import process
-    threshold = 50
+    threshold = 75
     # choices = ["Atlanta Falcons", "New York Jets", "New York Giants", "Dallas Cowboys"]
     # process.extract("new york jets", choices, limit=2)
     # -> [('New York Jets', 100), ('New York Giants', 78)]
-    results = process.extract(input, choices, limit=2)
+    try:
+        results = process.extract(input, choices, limit=2)
+    except:
+        return None, False
     if results and results[0][1]>threshold and (len(results)==1 or results[0][1]>results[1][1]):
         return results[0][0], perfectMatch
     return None, perfectMatch
 
+def format_distance(dst_km):
+    if (dst_km>=10):
+        return str(round(dst_km, 0)) + " Km"
+    if (dst_km>=1):
+        return str(round(dst_km, 1)) + " Km"
+    return str(int(dst_km * 1000)) + " m"
 
 def makeListOfList(L):
     result = [[l] for l in L]

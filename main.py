@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from google.appengine.ext.db import datastore_errors
-
 import main_fb
 import main_telegram
 
@@ -17,11 +15,10 @@ import date_time_util as dtu
 import ride_offer
 import params
 import webapp2
-import speech
 
 
 ########################
-WORK_IN_PROGRESS = False
+WORK_IN_PROGRESS = True
 ########################
 
 
@@ -29,7 +26,7 @@ WORK_IN_PROGRESS = False
 # ================================
 # ================================
 
-BASE_URL = 'https://api.telegram.org/bot' + key.TOKEN + '/'
+BASE_URL = 'https://api.telegram.org/bot' + key.TELEGRAM_TOKEN + '/'
 
 STATES = {
     0: 'Initial state',
@@ -48,9 +45,12 @@ STATES = {
     8:    'SpeechTest',
     9: 'Info',
     91:   'Info Fermate',
+    92:   'Contattaci',
 }
 
 RESTART_STATE = 0
+SETTINGS_STATE = 3
+HELP_STATE = 9
 
 # ================================
 # BUTTONS
@@ -108,19 +108,26 @@ def send_message(p, msg, kb=None, markdown=True, inline_keyboard=False, one_time
         return main_telegram.send_message(p, msg, kb, markdown, inline_keyboard, one_time_keyboard,
                            sleepDelay, hide_keyboard, force_reply, disable_web_page_preview)
     else:
+        if kb is None:
+            kb = p.getLastKeyboard()
         if kb:
-            kb_flat = utility.flatten(kb)
-            kb_flat = kb_flat[:11] # no more than 11
-            main_fb.sendMessageWithQuickReplies(p.chat_id, msg, kb_flat)
-            #main_fb.sendMessageWithButtons(p.chat_id, msg, kb_flat)
+            kb_flat = utility.flatten(kb)[:11] # no more than 11
+            return main_fb.sendMessageWithQuickReplies(p, msg, kb_flat)
         else:
-            main_fb.sendMessage(p.chat_id, msg)
+            return main_fb.sendMessage(p, msg)
+        #main_fb.sendMessageWithButtons(p, msg, kb_flat)
 
 def send_photo_png_data(p, file_data, filename):
     if p.isTelegramUser():
         main_telegram.sendPhotoFromPngImage(p.chat_id, file_data, filename)
     else:
-        main_fb.sendPhotoData(p.chat_id, file_data, filename)
+        main_fb.sendPhotoData(p, file_data, filename)
+        # send message to show kb
+        kb = p.getLastKeyboard()
+        if kb:
+            msg = 'Opzioni disponibili:'
+            kb_flat = utility.flatten(kb)[:11] # no more than 11
+            main_fb.sendMessageWithQuickReplies(p, msg, kb_flat)
 
 def send_photo_url(p, url, kb=None):
     if p.isTelegramUser():
@@ -129,7 +136,13 @@ def send_photo_url(p, url, kb=None):
         #main_fb.sendPhotoUrl(p.chat_id, url)
         import requests
         file_data = requests.get(url).content
-        main_fb.sendPhotoData(p.chat_id, file_data, 'file.png')
+        main_fb.sendPhotoData(p, file_data, 'file.png')
+        # send message to show kb
+        kb = p.getLastKeyboard()
+        if kb:
+            msg = 'Opzioni disponibili:'
+            kb_flat = utility.flatten(kb)[:11]  # no more than 11
+            main_fb.sendMessageWithQuickReplies(p, msg, kb_flat)
 
 def sendWaitingAction(p, action_type='typing', sleep_time=None):
     if p.isTelegramUser():
@@ -162,6 +175,9 @@ def broadcast(sender, msg, qry = None, restart_user=False,
               blackList_sender=False, sendNotification=True,
               notificationWarning = False):
 
+    from google.appengine.ext.db import datastore_errors
+    from google.appengine.api.urlfetch_errors import InternalTransientError
+
     if qry is None:
         qry = Person.query()
     qry = qry.order(Person._key) #_MultiQuery with cursors requires __key__ order
@@ -172,11 +188,13 @@ def broadcast(sender, msg, qry = None, restart_user=False,
 
     while more:
         users, cursor, more = qry.fetch_page(100, start_cursor=cursor)
-        try:
-            for p in users:
+        for p in users:
+            try:
                 #if p.getId() not in key.TESTERS:
                 #    continue
-                if blackList_sender and p.getId() == sender.getId():
+                if not p.enabled:
+                    continue
+                if blackList_sender and sender and p.getId() == sender.getId():
                     continue
                 total += 1
                 p_msg = msg + '\n\n' + NOTIFICATION_WARNING_MSG \
@@ -186,16 +204,21 @@ def broadcast(sender, msg, qry = None, restart_user=False,
                     enabledCount += 1
                     if restart_user:
                         restart(p)
+            except datastore_errors.Timeout:
+                msg = '❗ datastore_errors. Timeout in broadcast :('
+                tell_admin(msg)
+                #deferredSafeHandleException(broadcast, sender, msg, qry, restart_user, curs, enabledCount, total, blackList_ids, sendNotification)
+                return
+            except InternalTransientError:
+                msg = 'Internal Transient Error, waiting for 1 min.'
+                tell_admin(msg)
+                sleep(60)
+                continue
 
-        except datastore_errors.Timeout:
-            msg = '❗ datastore_errors.Timeout in broadcast :('
-            tell_admin(msg)
-            #deferredSafeHandleException(broadcast, sender, msg, qry, restart_user, curs, enabledCount, total, blackList_ids, sendNotification)
-            return
-
+    disabled = total - enabledCount
+    msg_debug = BROADCAST_COUNT_REPORT.format(total, enabledCount, disabled)
+    logging.debug(msg_debug)
     if sendNotification:
-        disabled = total - enabledCount
-        msg_debug = BROADCAST_COUNT_REPORT.format(total, enabledCount, disabled)
         send_message(sender, msg_debug)
     #return total, enabledCount, disabled
 
@@ -206,6 +229,7 @@ def broadcast(sender, msg, qry = None, restart_user=False,
 # ---------
 
 def restartAll(qry = None, curs=None):
+    from google.appengine.ext.db import datastore_errors
     from main_exception import deferredSafeHandleException
     #return
     if qry is None:
@@ -245,6 +269,7 @@ def tellInputNonValido(p, kb=None):
     send_message(p, msg, kb)
 
 def tell_admin(msg):
+    logging.debug(msg)
     for id in key.ADMIN_IDS:
         p = person.getPersonById(id)
         send_message(p, msg, markdown=False)
@@ -299,7 +324,7 @@ def repeatState(p, put=False, **kwargs):
 
 def dealWithUniversalCommands(p, input):
     from main_exception import deferredSafeHandleException
-    if p.getId() in [key.FEDE_ID, key.FEDE_FB_ID]:
+    if p.isAdmin():
         if input.startswith('/broadcast ') and len(input) > 11:
             msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + input[11:]
             logging.debug("Starting to broadcast " + msg)
@@ -310,12 +335,27 @@ def dealWithUniversalCommands(p, input):
             logging.debug("Starting to broadcast " + msg)
             deferredSafeHandleException(broadcast, p, msg, restart_user=True)
             return True
-        elif input.startswith('/sendText '):
+        elif input.startswith('/textUser '):
             p_id, msg = input.split(' ', 2)[1:]
             p = Person.get_by_id(p_id)
             if send_message(p, msg, kb=p.getLastKeyboard()):
                 msg_admin = 'Message sent successfully to {}'.format(p.getFirstNameLastNameUserName())
-                send_message(p, msg_admin)
+                tell_admin(msg_admin)
+            else:
+                msg_admin = 'Problems sending message to {}'.format(p.getFirstNameLastNameUserName())
+                tell_admin(msg_admin)
+            return True
+        elif input.startswith('/restartUser '):
+            p_id = input.split(' ')[1]
+            p = Person.get_by_id(p_id)
+            restart(p)
+            msg_admin = 'User restarted: {}'.format(p.getFirstNameLastNameUserName())
+            tell_admin(msg_admin)
+            return True
+        elif input == '/testlist':
+            p_id = key.FEDE_FB_ID
+            p = Person.get_by_id(p_id)
+            main_fb.sendMessageWithList(p, 'Prova lista template', ['one','twp','three','four'])
             return True
         elif input == '/restartAll':
             deferredSafeHandleException(restartAll)
@@ -375,6 +415,7 @@ def goToState0(p, **kwargs):
 # needs: input, firstCall, passaggio_type
 # ================================
 def goToState1(p, **kwargs):
+    import speech
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     firstCall = kwargs['firstCall'] if 'firstCall' in kwargs.keys() else False
     if firstCall:
@@ -388,20 +429,22 @@ def goToState1(p, **kwargs):
     stage = len(PASSAGGIO_PATH)
     if giveInstruction:
         if stage == 0:
-            msg = '📍 *Da dove parti?*'
+            msg = '📍 *Da dove parti?*\n' \
+                  '   ∙ 🎛 usa i pulsanti sotto, oppure\n' \
+                  '   ∙ 🗺📌 inviami una posizione GPS'
             if passaggio_type in ['offerta','cerca']:
                 percorsi = p.getPercorsi()
                 if percorsi:
-                    commands = ['🛣 {}: {}'.format(
+                    commands = ['     🛣 {}: {}'.format(
                         params.getCommand(params.PERCORSO_COMMAND_PREFIX, n), i)
                         for n, i in enumerate(percorsi, 1)]
                     percorsiCmds = '\n\n'.join(commands)
-                    msg = 'Seleziona uno dei *tuoi percorsi*:\n\n{}\n\n'.format(percorsiCmds)
-                    msg += '📍 Oppure dimmi da *dove parti*.'
+                    msg += ' oppure\n' \
+                           '   ∙ seleziona uno dei *tuoi percorsi*:\n\n{}\n\n'.format(percorsiCmds)
             kb = utility.makeListOfList(route.SORTED_ZONE_WITH_STOP_IF_SINGLE)
         elif stage == 1:
             logging.debug('Sorting fermate in {}'.format(PASSAGGIO_PATH[0]))
-            fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[0])
+            fermate = route.SORTED_STOPS_IN_ZONA(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate) == 1:
                 p.setLastKeyboard(kb)
@@ -409,19 +452,24 @@ def goToState1(p, **kwargs):
                 return
             msg = '📍🚏 *Da quale fermata parti?*'
         elif stage == 2:
-            msg = '🚩 *Dove vai?*'
-            destinazioni = [
-                l for l in route.SORTED_ZONE_WITH_STOP_IF_SINGLE \
-                if not l.startswith(PASSAGGIO_PATH[0])
-            ]
+            msg = '🚩 *Dove vai?*\n' \
+                  '   ∙ 🎛 usa i pulsanti sotto, oppure\n' \
+                  '   ∙ 🗺📌 inviami una posizione GPS'
+            destinazioni = route.SORTED_ZONE_WITH_STOP_IF_SINGLE
+            #destinazioni = [
+            #    l for l in route.SORTED_ZONE_WITH_STOP_IF_SINGLE \
+            #    if not l.startswith(PASSAGGIO_PATH[0])
+            #]
             kb = utility.makeListOfList(destinazioni)
         else: # stage == 3:
-            fermate = route.SORTED_FERMATE_IN_ZONA(PASSAGGIO_PATH[2])
+            fermate = route.SORTED_STOPS_IN_ZONA(PASSAGGIO_PATH[2])
+            if PASSAGGIO_PATH[0]==PASSAGGIO_PATH[2]: # same zona
+                fermate.remove(PASSAGGIO_PATH[1]) # remove start_stop
             kb = utility.makeListOfList(fermate)
-            if len(fermate) == 1:
-                p.setLastKeyboard(kb)
-                repeatState(p, input=fermate[0])  # simulate user input
-                return
+            #if len(fermate) == 1:
+            #    p.setLastKeyboard(kb)
+            #    repeatState(p, input=fermate[0])  # simulate user input
+            #    return
             msg = '🚩🚏 *A quale fermata arrivi?*'
         kb.insert(0, [BOTTONE_ANNULLA])
         p.setLastKeyboard(kb)
@@ -443,8 +491,12 @@ def goToState1(p, **kwargs):
             voice = kwargs['voice'] if 'voice' in kwargs.keys() else None
             location = kwargs['location'] if 'location' in kwargs.keys() else None
             flat_kb = utility.flatten(kb)
+            choices = list(flat_kb)
+            if stage == 0 or stage == 2:
+                choices.extend(route.FERMATE.keys())
+                choices = list(set(choices))
             if input:
-                input, perfectMatch = utility.matchInputToChoices(input, flat_kb)
+                input, perfectMatch = utility.matchInputToChoices(input, choices)
                 if input and not perfectMatch:
                     msg = 'Hai inserito: {}'.format(input)
                     send_message(p, msg)
@@ -456,11 +508,15 @@ def goToState1(p, **kwargs):
                     send_message(p, msg, kb)
                     return
                 else:
-                    transcription = speech.getTranscriptionTelegram(file_id, choices = flat_kb)
-                    input, perfectMatch = utility.matchInputToChoices(transcription, flat_kb)
+                    transcription = speech.getTranscriptionTelegram(file_id, choices)
+                    input, perfectMatch = utility.matchInputToChoices(transcription, choices)
                     if input is None:
-                        msg = "❗🙉 Ho capito: '{}' ma non è un posto che conosco, " \
-                              "scegline uno nella lista qua sotto.".format(transcription)
+                        if transcription:
+                            msg = "❗🙉 Non ho capito, " \
+                                  "scegli un posto dalla lista qua sotto.".format(transcription)
+                        else:
+                            msg = "❗🙉 Ho capito: '{}' ma non è un posto che conosco, " \
+                                  "scegli un posto dalla lista qua sotto.".format(transcription)
                         send_message(p, msg, kb)
                         return
                     else:
@@ -471,13 +527,14 @@ def goToState1(p, **kwargs):
                 p.setLocation(lat, lon)
                 nearby_fermated_sorted_dict = route.getFermateNearPosition(lat, lon, radius=2)
                 if nearby_fermated_sorted_dict is None:
-                    msg = "❗📍 Non ho trovato fermate in prossimità della posizione inserita," \
-                          "prova ad usare i pulsanti qua sotto.".format(input)
+                    msg = "❗ 🗺📌 Non ho trovato fermate in prossimità della posizione inserita," \
+                          "prova ad usare i pulsanti qua sotto 🎛".format(input)
                     send_message(p, msg, kb)
                     return
                 input = nearby_fermated_sorted_dict[0][0]
-                msg = "📍 Hai scelto: {}".format(input)
+                msg = "🗺📌 Hai scelto: {}".format(input)
                 send_message(p, msg)
+                sendWaitingAction(p, sleep_time=1)
             if input:
                 logging.debug('Received input: {}'.format(input))
                 if input == BOTTONE_ANNULLA:
@@ -488,10 +545,17 @@ def goToState1(p, **kwargs):
                 else:
                     if stage <= 3:
                         if '(' in input:  # Zona (fermata) case
-                            zona, fermata = route.decodeFermataKey(input)
-                            if zona and fermata:
+                            if stage == 2:
+                                fermata_key_partenza = route.encodeFermataKey(*PASSAGGIO_PATH[:2])
+                                if input == fermata_key_partenza:
+                                    msg = "❗ Hai scelto lo stesso punto di partenza!".format(input)
+                                    send_message(p, msg)
+                                    repeatState(p)
+                                    return
+                            zona, stop = route.decodeFermataKey(input)
+                            if zona and stop:
                                 PASSAGGIO_PATH.append(zona)
-                                PASSAGGIO_PATH.append(fermata)
+                                PASSAGGIO_PATH.append(stop)
                             else:
                                 tellInputNonValidoUsareBottoni(p, kb)
                         else:
@@ -684,22 +748,19 @@ def finalizeOffer(p, path, date_time, time_mode, programmato=False, programmato_
     ride_description_no_driver_info = o.getDescription(driver_info=False)
     msg = "Grazie per aver inserito l'offerta di passaggio\n\n{}".format(ride_description_no_driver_info)
     if p.isTester():
-        msg += '\n\n👷 Sei un tester del sistema, info di debug in arrivo...'
+        msg += '\n\n👷 Sei un tester del sistema, info di controllo in arrivo...'
     send_message(p, msg)
     deferredSafeHandleException(broadCastOffer, p, o)
 
 def broadCastOffer(p, o):
-    percorsi_passeggeri_compatibili, fermate_interemedie_routes = o.setFermateIntermediePercorsiPasseggeriCompatibili()
-    qry = person.getPeopleMatchingRideQry(percorsi_passeggeri_compatibili)
+    o.populateRideWithDetails()
+    qry = person.getPeopleMatchingRideQry(o.percorsi_passeggeri_compatibili)
     if p.isTester():
-        fermate_intermedie_str = [', '.join(x) for x in fermate_interemedie_routes]
-        debug_msg = '👷 *Debug info:*\n'
-        debug_msg += '{} tragitto/i trovati per viaggio\n*{}*:\n\n'.format(len(fermate_intermedie_str), o.getPercorso())
-        debug_msg += '\n\n'.join(['*{}.* {}'.format(n, flist) for n, flist in enumerate(fermate_intermedie_str, 1)])
-        debug_msg += '\n\n({} tragitti passeggeri compatibili)'.format(o.getNumberPercorsiPasseggeriCompatibili())
+        fermate_intermedie_str = [', '.join(x) for x in o.getFermateIntermedieRoutes()]
+        debug_msg = '👷 *Info di controllo:*\n{}'.format(o.getRideInfoDetails())
         send_message(p, debug_msg)
         logging.debug(debug_msg)
-    msg_broadcast = '🚘 *Nuova offerta di passagio*:\n\n{}'.format(o.getDescription())
+    msg_broadcast = '🚘 *Nuova offerta di passaggio*:\n\n{}'.format(o.getDescription())
     broadcast(p, msg_broadcast, qry, blackList_sender=True,
               sendNotification=False, notificationWarning=True)
 
@@ -973,7 +1034,6 @@ def goToState312(p, **kwargs):
             if input == BOTTONE_INDIETRO:
                 redirectToState(p, 31)
             else:
-                assert input == BOTTONE_RIMUOVI_PERCORSO
                 n = int(input)
                 percorso = p.removePercorsi(n - 1)
                 msg = '*Percorso cancellato*:\n{}'.format(percorso)
@@ -1077,6 +1137,7 @@ def goToState33(p, **kwargs):
 # ================================
 
 def goToState8(p, **kwargs):
+    import speech
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     giveInstruction = input is None
     kb = [[BOTTONE_INIZIO]]
@@ -1153,7 +1214,7 @@ def goToState91(p, **kwargs):
     giveInstruction = input is None
     kb = [[BOTTONE_MAPPA], [BOTTONE_INDIETRO]] #[BOTTONE_LOCATION], # NOT WORKING FOR DESKTOP
     if giveInstruction:
-        msg = '∙ 📌 Mandami una *posizione GPS* (tramite la graffetta in basso), oppure\n' \
+        msg = '∙ 🗺📌 Mandami una *posizione GPS* (tramite la graffetta in basso), oppure\n' \
               '∙ ✏️🏷 scrivi un *indirizzo* (ad esempio "via rosmini trento"), oppure\n' \
               '∙ clicca su {}'.format(BOTTONE_MAPPA) #📎
         p.setLastKeyboard(kb)
@@ -1229,19 +1290,28 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
               "a contattarci cliccando su @kercos".format(name_safe)
         send_message(p, msg)
         restart(p)
-        tellMaster("New user: {}".format(p.getFirstNameLastNameUserName()))
+        tellMaster("New {} user: {}".format(application, p.getFirstNameLastNameUserName()))
     else:
         # known user
-        p.updateUserInfo(name, last_name, username)
-        if text in ['/start', 'start', 'START']:
+        modified, was_disabled = p.updateUserInfo(name, last_name, username)
+        if WORK_IN_PROGRESS and p.getId() not in key.TESTER_IDS:
+            send_message(p, "🏗 Il sistema è in aggiornamento, ti preghiamo di riprovare più tardi.")
+        elif was_disabled or text in ['/start', 'start', 'START', 'INIZIO']:
             msg = " 😀 Ciao{}!\nBentornato/a in PickMeUp!".format(name_safe)
             send_message(p, msg)
             restart(p)
         elif text == '/state':
             msg = "You are in state {}: {}".format(p.state, STATES.get(p.state, '(unknown)'))
             send_message(p, msg)
-        elif WORK_IN_PROGRESS and p.getId() not in key.TESTER_IDS:
-            send_message(p, "🏗 Il sistema è in aggiornamento, ti preghiamo di riprovare più tardi.")
+        elif text in ['/settings', 'IMPOSTAZIONI']:
+            redirectToState(p, SETTINGS_STATE)
+        elif text in ['/help', 'HELP', 'AIUTO']:
+            redirectToState(p, HELP_STATE)
+        elif text in ['/stop', 'STOP']:
+            p.setEnabled(False, put=True)
+            msg = "🚫 Hai *disabilitato* PickMeUp.\n" \
+                  "In qualsiasi momento puoi riattivarmi scrivendomi qualcosa."
+            send_message(p, msg)
         else:
             if not dealWithUniversalCommands(p, input=text):
                 logging.debug("Sending {} to state {} with input {}".format(p.getFirstName(), p.state, text))

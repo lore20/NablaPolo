@@ -104,6 +104,16 @@ def getTime(time_str, format='%H:%M'):
 def formatTime(dt, format='%H:%M'):
     return dt.strftime(format)
 
+def convertSecondsInHourMinString(seconds):
+    import time
+    hh, mm, sec = [int(x) for x in time.strftime('%H:%M:%S', time.gmtime(seconds)).split(':')]
+    if sec >= 30:
+        mm += 1
+    if hh:
+        return '{} ora {} minuti'.format(hh)
+    else:
+        return '{} minuti'.format(mm)
+
 def getDatetime(date_string, format='%d%m%Y'):
     try:
         date = datetime.strptime(date_string, format)

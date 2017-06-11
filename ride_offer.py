@@ -10,8 +10,15 @@ class RideOffer(ndb.Model): #ndb.Model
 
     percorso = ndb.StringProperty()
 
-    fermate_intermedie = ndb.StringProperty(repeated=True)
-    percorsi_passeggeri_compatibili = ndb.StringProperty(repeated=True)
+    routes_info = ndb.PickleProperty()
+    # list of route info:
+    # for each route ->
+    # {route_intermediates_fermate: <list>,
+    # route_duration: <num> (seconds),
+    # route_distance: <num> (meters)}
+
+    fermate_intermedie = ndb.StringProperty(repeated=True) # set of fermate intermedie
+    percorsi_passeggeri_compatibili = ndb.StringProperty(repeated=True) # set of percorsi compatibili
 
     registration_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     active = ndb.BooleanProperty() # remains active for non-programmati
@@ -46,6 +53,34 @@ class RideOffer(ndb.Model): #ndb.Model
         #return dtu.formatTime(self.programmato_time)
         return dtu.formatTime(self.start_datetime.time())
 
+    def getTimeMode(self):
+        return convertToUtfIfNeeded(self.time_mode)
+
+    def disactivate(self,  put=True):
+        import date_time_util as dtu
+        self.active = False
+        self.disactivation_datetime = dtu.removeTimezone(dtu.nowCET())
+        if put:
+            self.put()
+
+    def getAverageDistance(self):
+        from utility import format_distance
+        assert self.routes_info
+        distances = [r_info['route_distance'] for r_info in self.routes_info]
+        avg_km = sum(distances) / float(len(distances)) / 1000
+        return format_distance(avg_km)
+
+    def getAverageDuration(self):
+        import date_time_util as dtu
+        assert self.routes_info
+        durations = [r_info['route_duration'] for r_info in self.routes_info]
+        avg = sum(durations) / float(len(durations))
+        return dtu.convertSecondsInHourMinString(avg)
+
+    def getFermateIntermedieRoutes(self):
+        assert self.routes_info
+        return [r_info['route_intermediates_fermate'] for r_info in self.routes_info]
+
     def getDescription(self, driver_info=True):
         import route
         import params
@@ -53,17 +88,20 @@ class RideOffer(ndb.Model): #ndb.Model
         import person
         msg = []
         percorso = self.getPercorso()
-        start_zona, start_stop, end_zone, end_stop = route.decodePercorsoToQuartet(percorso)
+        start_fermata, end_fermata = route.decodePercorso(percorso)
 
-        msg.append('*Partenza*: {} ({})'.format(start_zona, start_stop))
-        msg.append('*Arrivo*: {} ({})'.format(end_zone, end_stop))
+        msg.append('*Partenza*: {}'.format(start_fermata))
+        msg.append('*Arrivo*: {}'.format(end_fermata))
 
-        msg.append('*Ora partenza*: {}'.format(self.getDepartingTime()))
         if self.programmato:
             giorni = [params.GIORNI_SETTIMANA_FULL[i] for i in self.programmato_giorni]
             giorni_str = ', '.join(giorni)
+            msg.append('*Ora partenza*: {}'.format(self.getDepartingTime()))
+            msg.append('*Tipologia*: {}'.format(self.getTimeMode()))
             msg.append('*Ogni*: {}'.format(giorni_str))
         else:
+            msg.append('*Quando*: {}'.format(self.getTimeMode()))
+            msg.append('*Ora partenza*: {}'.format(self.getDepartingTime()))
             date_str = dtu.formatDate(self.start_datetime)
             if date_str == dtu.formatDate(dtu.nowCET()):
                 date_str += ' (OGGI)'
@@ -79,24 +117,43 @@ class RideOffer(ndb.Model): #ndb.Model
             else:
                 username = '@{}'.format(username)
             msg.append('*Autista*: {} {}'.format(self.getDriverName(), username))
+        msg.append('*Distanza*: {}'.format(self.getAverageDistance()))
+        msg.append('*Durata*: {}'.format(self.getAverageDuration()))
         return '\n'.join(msg)
 
-    def disactivate(self,  put=True):
-        import date_time_util as dtu
-        self.active = False
-        self.disactivation_datetime = dtu.removeTimezone(dtu.nowCET())
-        if put:
-            self.put()
+    def getRideInfoDetails(self):
+        from utility import format_distance
+        msg = []
+        msg.append('{} tragitto/i trovati per viaggio\n*{}*:\n'.
+                   format(len(self.routes_info), self.getPercorso()))
+        for n, r_info in enumerate(self.routes_info, 1):
+            msg.append('*{}.*').format(n)
+            msg.append('   ∙ Fermate intermedie: {}'.format(n, r_info['route_intermediates_fermate']))
+            msg.append('   ∙ Distanza: {}'.format(format_distance(r_info['route_distance'])))
+            msg.append('   ∙ Durata: {}'.format(format_distance(r_info['route_duration'])))
+            msg.append('\n')
+        return '\n'.join(msg)
 
-    def setFermateIntermediePercorsiPasseggeriCompatibili(self, put=True):
+    def populateRideWithDetails(self, put=True):
         import route
-        import utility
-        self.percorsi_passeggeri_compatibili, fermate_interemedie_routes = \
-            route.getPercorsiPasseggeriCompatibili(self.getPercorso())
-        self.fermate_intermedie = list(set(utility.flatten(fermate_interemedie_routes)))
+        import itertools
+        self.routes_info = route.getRoutingDetails(self.getPercorso())
+        # a list of route info: for each route -> {route_intermediates_fermate, route_duration, route_distance}
+        fermate_intermedie_set = set()
+        percorsi_compatibili_set = set()
+        if self.routes_info:
+            for r_info in self.routes_info:
+                fermate = r_info['route_intermediates_fermate']
+                fermate_intermedie_set.update(fermate)
+                fermate_pairs = tuple(itertools.combinations(fermate, 2))
+                for pair in fermate_pairs:
+                    percorso = route.encodePercorso(*pair)
+                    percorsi_compatibili_set.add(percorso)
+
+        self.fermate_intermedie = list(fermate_intermedie_set)
+        self.percorsi_passeggeri_compatibili = list(percorsi_compatibili_set)
         if put:
             self.put()
-        return self.percorsi_passeggeri_compatibili, fermate_interemedie_routes
 
 
 def addRideOffer(driver, start_datetime, percorso,
@@ -244,7 +301,13 @@ def updateRideOffers():
     while more:
         records, cursor, more = RideOffer.query().fetch_page(1000, start_cursor=cursor)
         for ent in records:
-            ent.setFermateIntermediePercorsiPasseggeriCompatibili(put=False)
+            '''
+            prop_to_delete = ['fermate_interemedie']
+            for prop in prop_to_delete:
+                if prop in ent._properties:
+                    del ent._properties[prop]
+            '''
+            ent.populateRideWithDetails(put=False)
         updated_records.extend(records)
     if updated_records:
         print 'Updating {} records'.format(len(updated_records))

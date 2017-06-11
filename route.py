@@ -15,26 +15,26 @@ STOPS = list(set(v['stop'] for v in FERMATE.values()))
 #GPS_FERMATE_LOC = [v['loc'] for v in FERMATE.values()]
 
 SORTED_ZONE = sorted(ZONE.keys())
-SORTED_FERMATE_IN_ZONA = lambda z: sorted([x for x in ZONE[z]['stops']])
+SORTED_STOPS_IN_ZONA = lambda z: sorted([x for x in ZONE[z]['stops']])
 SORTED_ZONE_WITH_STOP_IF_SINGLE = sorted(
     [l if len(v['stops'])>1 else '{} ({})'.format(l, v['stops'][0]) for l,v in ZONE.iteritems() ]
 )
 
 PERCORSO_SEPARATOR = ' → '
 
-def encodeFermataKey(zona, fermata):
-    return '{} ({})'.format(zona, fermata)
+def encodeFermataKey(zona, stop):
+    return '{} ({})'.format(zona, stop)
 
 def decodeFermataKey(fermata_key, do_assert=True):
     assert fermata_key.count('(')==1
-    zona, fermata = fermata_key[:-1].split(' (')
-    if zona in ZONE and fermata in SORTED_FERMATE_IN_ZONA(zona):
-        return zona, fermata
+    zona, stop = fermata_key[:-1].split(' (')
+    if zona in ZONE and stop in SORTED_STOPS_IN_ZONA(zona):
+        return zona, stop
     return None, None
 
-def encodeFermateKeysFromQuartet(start_zona, start_fermata, end_zona, end_fermata):
-    start_fermata_key = encodeFermataKey(start_zona, start_fermata)
-    end_fermata_key = encodeFermataKey(end_zona, end_fermata)
+def encodeFermateKeysFromQuartet(start_zona, start_stop, end_zona, end_stop):
+    start_fermata_key = encodeFermataKey(start_zona, start_stop)
+    end_fermata_key = encodeFermataKey(end_zona, end_stop)
     return start_fermata_key, end_fermata_key
 
 def encodePercorsoFromQuartet(start_zona, start_fermata, end_zona, end_fermata):
@@ -63,13 +63,6 @@ def decodePercorso(percorso_key):
 
 def getReversePath(start, start_fermata, end, end_fermata):
     return end, end_fermata, start, start_fermata
-
-def format_distance(dst):
-    if (dst>=10):
-        return str(round(dst, 0)) + " Km"
-    if (dst>=1):
-        return str(round(dst, 1)) + " Km"
-    return str(int(dst*1000)) + " m"
 
 MAX_THRESHOLD_RATIO = 2
 
@@ -100,6 +93,7 @@ BASE_MAP_IMG_URL = "http://maps.googleapis.com/maps/api/staticmap?" + \
                    "&key=" + GOOGLE_API_KEY
 
 def getFermateNearPositionImgUrl(lat, lon, radius = 10):
+    from utility import format_distance
     nearby_fermated_sorted_dict = getFermateNearPosition(lat, lon, radius)
     if nearby_fermated_sorted_dict:
         fermate_number = len(nearby_fermated_sorted_dict)
@@ -116,21 +110,6 @@ def getFermateNearPositionImgUrl(lat, lon, radius = 10):
         text = 'Nessuna fermata trovata nel raggio di {} km dalla posizione inserita.'.format(radius)
     return img_url, text
 
-def getPercorsiPasseggeriCompatibili(percorso):
-    import itertools
-    start_fermata_key, end_fermata_key = decodePercorso(percorso)
-    intermediates_fermate_routes = getIntermediateRouteFermate(start_fermata_key, end_fermata_key)
-    percorsi_compatibili = set()
-    fermate_interemedie_routes = []
-    if intermediates_fermate_routes:
-        for fermate_percorso in intermediates_fermate_routes:
-            fermate_interemedie_routes.append(fermate_percorso)
-            fermate_pairs = tuple(itertools.combinations(fermate_percorso, 2))
-            for pair in fermate_pairs:
-                percorso = encodePercorso(*pair)
-                percorsi_compatibili.add(percorso)
-    return tuple(percorsi_compatibili), tuple(fermate_interemedie_routes)
-
 def getIntermediateFermateOrderFromPath(path):
     import geoUtils
     import params
@@ -146,24 +125,32 @@ def getIntermediateFermateOrderFromPath(path):
                 break
     return intermediates
 
-def getIntermediateRouteFermate(start_fermata_key, end_fermata_key):
+def getRoutingDetails(percorso):
     from key import GOOGLE_API_KEY
     import polyline
     import requests
+    start_fermata_key, end_fermata_key = decodePercorso(percorso)
     origin_str = ','.join(str(x) for x in FERMATE[start_fermata_key]['loc'])
     destin_str = ','.join(str(x) for x in FERMATE[end_fermata_key]['loc'])
     api_url = 'https://maps.googleapis.com/maps/api/directions/json?' \
               'alternatives=true&units=metric&key={}'.format(GOOGLE_API_KEY)  # avoid=tolls,highways
     api_url += '&origin={}&destination={}'.format(origin_str, destin_str)
-    result = requests.get(api_url).json()
-    routes = result['routes']
-    intermediates_fermate_routes = []
+    response_dict = requests.get(api_url).json()
+    #print str(response_dict)
+    routes = response_dict['routes']
+    routes_info = []
     for r in routes:
         poly_str = r['overview_polyline']['points']
+        legs  = r['legs']
+        #print 'duration:{} distance:{}'.format(r_duration, r_distance)
         path = polyline.decode(poly_str)
-        fermate = getIntermediateFermateOrderFromPath(path)
-        intermediates_fermate_routes.append(fermate)
-    return intermediates_fermate_routes
+        routes_info.append({
+            'route_intermediates_fermate': getIntermediateFermateOrderFromPath(path),
+            'route_duration': sum(l['duration']['value'] for l in legs),
+            'route_distance': sum(l['distance']['value'] for l in legs)
+        })
+    return routes_info
+    # a list of route infor: for each route -> {route_intermediates_fermate, route_duration, route_distance}
 
 def test_intermediate_stops(start=None, end=None):
     import random
@@ -175,11 +162,18 @@ def test_intermediate_stops(start=None, end=None):
 
     print('{} --> {}'.format(start, end))
     print('{} --> {}'.format(FERMATE[start]['loc'],FERMATE[end]['loc']))
-    intermediates_fermate_routes = getIntermediateRouteFermate(start, end)
+    route_info = getRoutingDetails(start, end)
+    # a list of route infor: for each route -> {route_intermediates_fermate, route_duration, route_distance}
 
-    print('Found {} routes.'.format(len(intermediates_fermate_routes)))
+    print('Found {} routes.'.format(len(route_info)))
 
-    for i, fermate_percorso in enumerate(intermediates_fermate_routes):
-        print 'Percorso {} - Fermate intermedie: {}'.format(i+1, ', '.join(fermate_percorso))
+    for i, r_info in enumerate(route_info):
+        fermate = r_info['route_intermediates_fermate']
+        distanza = r_info['route_distance']
+        durata = r_info['route_duration']
+        print 'Percorso {}\n' \
+              ' - Fermate intermedie: {}\n' \
+              ' - Distanza: {} m\n' \
+              ' - Durata: {} s'.format(i+1, ', '.join(fermate), distanza, durata)
 
 

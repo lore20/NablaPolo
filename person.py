@@ -45,7 +45,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         self.percorsi = []
 
     def updateUserInfo(self, name, last_name, username):
-        modified = False
+        modified, was_disabled = False, False
         if self.getFirstName() != name:
             self.name = name
             modified = True
@@ -58,8 +58,10 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         if not self.enabled:
             self.enabled = True
             modified = True
+            was_disabled = True
         if modified:
             self.put()
+        return modified, was_disabled
 
     def isAdmin(self):
         import key
@@ -99,15 +101,12 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         return self.getPropertyUtfMarkdown(self.notification_mode, escapeMarkdown=escapeMarkdown)
 
     def getFirstNameLastNameUserName(self, escapeMarkdown=True):
-        if self.isTelegramUser():
-            result = self.getFirstName(escapeMarkdown =escapeMarkdown)
-            if self.last_name:
-                result += ' ' + self.getLastName(escapeMarkdown = escapeMarkdown)
-            if self.username:
-                result += ' @' + self.getUsername(escapeMarkdown = escapeMarkdown)
-            return result
-        else:
-            return self.key.id()
+        result = self.getFirstName(escapeMarkdown =escapeMarkdown)
+        if self.last_name:
+            result += ' ' + self.getLastName(escapeMarkdown = escapeMarkdown)
+        if self.username:
+            result += ' @' + self.getUsername(escapeMarkdown = escapeMarkdown)
+        return result
 
     def setNotificationMode(self, mode, put=True):
         self.notification_mode = mode
