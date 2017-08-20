@@ -81,8 +81,9 @@ BOTTONE_PERCORSI = "🛣 PERCORSI PREFERITI"
 BOTTONE_NOTIFICHE = "🔔 NOTIFICHE PASSAGGI"
 BOTTONE_ANNULLA = "❌ ANNULLA"
 BOTTONE_ADESSO = "👇 ADESSO"
-BOTTONE_A_BREVE = "⏰ A BREVE (24H)"
-BOTTONE_PERIODICO = "📆 PERIODICO"
+BOTTONE_OGGI = "⏰ OGGI"
+BOTTONE_PROX_GIORNI = "📆 PROX. GIORNI"
+BOTTONE_PERIODICO = "🔄📆 PERIODICO"
 BOTTONE_CONFERMA = "👌 CONFERMA"
 BOTTONE_ELIMINA_OFFERTE = "🗑🚘 ELIMINA MIE OFFERTE"
 BOTTONE_ATTIVA_NOTIFICHE_TUTTE = "🔔🔔🔔 ATTIVA TUTTE"
@@ -344,7 +345,7 @@ def dealWithUniversalCommands(p, input):
             if text:
                 msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
                 logging.debug("Starting to broadcast and restart" + msg)
-                deferredSafeHandleException(broadcast, p, msg, restart_user=True)
+                deferredSafeHandleException(broadcast, p, msg, restart_user=False)
                 return True
         elif input.startswith('/textUser '):
             p_id, text = input.split(' ', 2)[1]
@@ -468,6 +469,9 @@ def goToState1(p, **kwargs):
                   '   ∙ 🎛 usa i pulsanti sotto, oppure\n' \
                   '   ∙ 🗺📌 inviami una posizione GPS'
             destinazioni = route.SORTED_ZONE_WITH_STOP_IF_SINGLE
+            fermata_start = route.encodeFermataKey(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1])
+            if fermata_start in destinazioni:
+                destinazioni.remove(fermata_start)
             #destinazioni = [
             #    l for l in route.SORTED_ZONE_WITH_STOP_IF_SINGLE \
             #    if not l.startswith(PASSAGGIO_PATH[0])
@@ -537,8 +541,8 @@ def goToState1(p, **kwargs):
             elif location and (stage==0 or stage==2):
                 lat, lon = location['latitude'], location['longitude']
                 p.setLocation(lat, lon)
-                nearby_fermated_sorted_dict = route.getFermateNearPosition(lat, lon, radius=2)
-                if nearby_fermated_sorted_dict is None:
+                nearby_fermated_sorted_dict = route.getFermateNearPosition(lat, lon, radius=4)
+                if not nearby_fermated_sorted_dict:
                     msg = "❗ 🗺📌 Non ho trovato fermate in prossimità della posizione inserita," \
                           "prova ad usare i pulsanti qua sotto 🎛".format(input)
                     send_message(p, msg, kb)
@@ -596,35 +600,39 @@ def goToState11(p, **kwargs):
         percorso_key = route.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
         msg = "🛣 *Il tuo percorso*:\n{}\n\n".format(percorso_key)
         msg += "📆⌚ *Quando parti?*\n\n" \
-               "Premi *{}* se parti ora, *{}* se parti nelle prossime 24 ore o *{}* " \
-               "se vuoi programmare un viaggio regolare " \
-               "(ad esempio ogni lunedì alle 8:00).".format(BOTTONE_ADESSO, BOTTONE_A_BREVE,
-                                                            BOTTONE_PERIODICO)
-        kb = [[BOTTONE_ANNULLA], [BOTTONE_ADESSO], [BOTTONE_A_BREVE, BOTTONE_PERIODICO]]
+               "Premi *{}* se parti ora, " \
+               "*{}* se parti oggi, " \
+               "*{}* nei prossimi giorni o " \
+               "*{}* se vuoi programmare un viaggio regolare " \
+               "(ad esempio ogni lunedì alle 8:00).".format(BOTTONE_ADESSO, BOTTONE_OGGI,
+                                                            BOTTONE_PROX_GIORNI, BOTTONE_PERIODICO)
+        kb = [[BOTTONE_ANNULLA], [BOTTONE_ADESSO, BOTTONE_OGGI], [BOTTONE_PROX_GIORNI, BOTTONE_PERIODICO]]
         p.setLastKeyboard(kb)
         send_message(p, msg, kb)
     else:
         kb = p.getLastKeyboard()
-        PASSAGGIO_INFO['mode'] = input
         if input in utility.flatten(kb):
             if input == BOTTONE_ANNULLA:
                 restart(p)
                 return
-            elif input == BOTTONE_ADESSO:
+            PASSAGGIO_INFO['mode'] = input
+            if input == BOTTONE_ADESSO:
                 dt = dtu.nowCET()
                 sendWaitingAction(p)
                 finalizeOffer(p, PASSAGGIO_PATH, dt, time_mode=input)
                 restart(p)
-            elif input == BOTTONE_A_BREVE:
+            elif input == BOTTONE_OGGI:
                 redirectToState(p, 111)
+            elif input == BOTTONE_PROX_GIORNI:
+                redirectToState(p, 112)
             else:
                 assert input == BOTTONE_PERIODICO
-                redirectToState(p, 112)
+                redirectToState(p, 113)
         else:
             tellInputNonValidoUsareBottoni(p, kb)
 
 # ================================
-# GO TO STATE 111: Offri passaggio a breve (24 ore)
+# GO TO STATE 111: Offri passaggio OGGI
 # ================================
 
 def goToState111(p, **kwargs):
@@ -638,18 +646,21 @@ def goToState111(p, **kwargs):
         if stage == 0:
             msg = '⌚ *A che ora parti?*'
             current_min = dtu.nowCET().minute
-            if current_min > 52:
+            if current_min > params.MIN_TO_SWITCH_TO_NEXT_HOUR:
                 current_hour += 1
-            circular_range = range(current_hour, 24) + range(0, current_hour)
-            hours = [str(x).zfill(2) for x in circular_range]
+            if current_hour==24:
+                hour_range = [0] # if it's > 23.52 allow to choose tomorrow (but only 00 for hours)
+            else:
+                hour_range = range(current_hour, 24)
+            hours = [str(x).zfill(2) for x in hour_range]
             kb = utility.distributeElementMaxSize(hours, 8)
         else:
             msg = '⌚ *A che minuto parti?*'
             startNowMinutes = current_hour == PASSAGGIO_TIME[0]
             if startNowMinutes:
                 current_min_approx = utility.roundup(dtu.nowCET().minute + 2, 5)
-                circular_range = range(current_min_approx, 60, 5)
-                minutes = [str(x).zfill(2) for x in circular_range]
+                min_range = range(current_min_approx, 60, 5)
+                minutes = [str(x).zfill(2) for x in min_range]
             else:
                 minutes = [str(x).zfill(2) for x in range(0, 60, 5)]
             kb = utility.distributeElementMaxSize(minutes, 6)
@@ -679,10 +690,74 @@ def goToState111(p, **kwargs):
             tellInputNonValidoUsareBottoni(p, kb)
 
 # ================================
-# GO TO STATE 112: Offri passaggio periodico
+# GO TO STATE 112: Offri passaggio nei prossimi giorni
 # ================================
 
 def goToState112(p, **kwargs):
+    input = kwargs['input'] if 'input' in kwargs.keys() else None
+    PASSAGGIO_INFO = p.getTmpPassaggioInfo()
+    TIME_HH_MM = PASSAGGIO_INFO['time']
+    STAGE = PASSAGGIO_INFO['stage']
+    giveInstruction = input is None
+    if giveInstruction:
+        if STAGE == 0:
+            msg = '*In che giorno effettui il viaggio?*'
+            tomorrow = dtu.getWeekday()+1 % 7
+            giorni_sett_da_domani = params.GIORNI_SETTIMANA[tomorrow:] + params.GIORNI_SETTIMANA[:tomorrow]
+            giorni_sett_da_domani[:1] = ['DOMANI']
+            kb = [giorni_sett_da_domani]
+        elif STAGE == 1:
+            msg = '*A che ora parti?*'
+            circular_range = list(range(params.DAY_START_HOUR, 24)) + list(range(0, params.DAY_START_HOUR))
+            hours = [str(x).zfill(2) for x in circular_range]
+            kb = utility.distributeElementMaxSize(hours, 8)
+        else:  # STAGE == 2
+            msg = '*A che minuto parti?*'
+            minutes = [str(x).zfill(2) for x in range(0, 60, 5)]
+            kb = utility.distributeElementMaxSize(minutes, 6)
+        kb.insert(0, [BOTTONE_ANNULLA])
+        p.setLastKeyboard(kb)
+        send_message(p, msg, kb)
+    else:
+        if input == BOTTONE_ANNULLA:
+            restart(p)
+            return
+        kb = p.getLastKeyboard()
+        flat_kb = utility.flatten(kb)
+        if input in flat_kb:
+            if STAGE == 0:  # DAYS
+                PASSAGGIO_INFO['stage'] += 1
+                tomorrow = dtu.getWeekday() + 1 % 7
+                chosen_day_index = (flat_kb.index(input) - 1 + tomorrow) % 7  # -1 because of BOTTONE_ANNULLA
+                PASSAGGIO_INFO['days'] = [chosen_day_index]
+                repeatState(p)
+            elif STAGE == 1:  # hour
+                PASSAGGIO_INFO['stage'] += 1
+                TIME_HH_MM.append(int(input))
+                repeatState(p)
+            else:  # minute
+                TIME_HH_MM.append(int(input))
+                time_mode = PASSAGGIO_INFO['mode']
+                PASSAGGIO_PATH = PASSAGGIO_INFO['path']
+                dt = dtu.nowCET()
+                dt = dt.replace(hour=TIME_HH_MM[0], minute=TIME_HH_MM[1])
+                chosen_day_index = PASSAGGIO_INFO['days'][0]
+                today_index = dtu.getWeekday()
+                days_delta =  chosen_day_index - today_index if chosen_day_index>today_index else chosen_day_index + 7 - today_index
+                dt = dtu.get_datetime_add_days(days_delta, dt)
+                sendWaitingAction(p)
+                finalizeOffer(p, PASSAGGIO_PATH, dt, time_mode=time_mode,
+                              programmato=False, giorni=PASSAGGIO_INFO['days'])
+                restart(p)
+        else:
+            tellInputNonValidoUsareBottoni(p, kb)
+
+
+# ================================
+# GO TO STATE 113: Offri passaggio periodico
+# ================================
+
+def goToState113(p, **kwargs):
     input = kwargs['input'] if 'input' in kwargs.keys() else None
     PASSAGGIO_INFO = p.getTmpPassaggioInfo()
     DAYS = PASSAGGIO_INFO['days']
@@ -702,8 +777,7 @@ def goToState112(p, **kwargs):
                 kb.append([BOTTONE_CONFERMA])
         elif STAGE == 1:
             msg = '*A che ora parti?*'
-            start_hour = 6
-            circular_range = list(range(start_hour, 24)) + list(range(0, start_hour))
+            circular_range = list(range(params.DAY_START_HOUR, 24)) + list(range(0, params.DAY_START_HOUR))
             hours = [str(x).zfill(2) for x in circular_range]
             kb = utility.distributeElementMaxSize(hours, 8)
         else:  # STAGE == 2
@@ -746,17 +820,17 @@ def goToState112(p, **kwargs):
                     dt = dtu.get_date_tomorrow(dt)
                 sendWaitingAction(p)
                 finalizeOffer(p, PASSAGGIO_PATH, dt, time_mode = time_mode,
-                              programmato=True, programmato_giorni=DAYS)
+                              programmato=True, giorni=DAYS)
                 restart(p)
         else:
             tellInputNonValidoUsareBottoni(p, kb)
 
 # FOR OFFERS
-def finalizeOffer(p, path, date_time, time_mode, programmato=False, programmato_giorni=()):
+def finalizeOffer(p, path, date_time, time_mode, programmato=False, giorni=()):
     from main_exception import deferredSafeHandleException
     date_time = dtu.removeTimezone(date_time)
     percorso = route.encodePercorsoFromQuartet(*path)
-    o = ride_offer.addRideOffer(p, date_time, percorso, time_mode, programmato, programmato_giorni)
+    o = ride_offer.addRideOffer(p, date_time, percorso, time_mode, programmato, giorni)
     ride_description_no_driver_info = o.getDescription(driver_info=False)
     msg = "Grazie per aver inserito l'offerta di passaggio\n\n{}".format(ride_description_no_driver_info)
     if p.isTester():
@@ -765,7 +839,7 @@ def finalizeOffer(p, path, date_time, time_mode, programmato=False, programmato_
     deferredSafeHandleException(broadCastOffer, p, o)
 
 def broadCastOffer(p, o):
-    o.populateRideWithDetails() # may take few seconds
+    o.populateRideWithDetails() # may take few seconds (put=true)
     qry = person.getPeopleMatchingRideQry(o.percorsi_passeggeri_compatibili)
     if p.isTester():
         debug_msg = '👷 *Info di controllo:*\n{}'.format(o.getRideInfoDetails())
@@ -773,7 +847,7 @@ def broadCastOffer(p, o):
         logging.debug(debug_msg)
     msg_broadcast = '🚘 *Nuova offerta di passaggio*:\n\n{}'.format(o.getDescription())
     blackList_sender = not p.isTester()
-    broadcast(p, msg_broadcast, qry, blackList_sender,
+    broadcast(p, msg_broadcast, qry, restart_user=False, blackList_sender=blackList_sender,
               sendNotification=False, notificationWarning=True)
 
 
@@ -790,8 +864,8 @@ def showMatchedPercorsi(p, PASSAGGIO_INFO):
     msg = "🛣 *Il tuo percorso*:\n{}\n\n".format(percorso)
     if percorsi_num == 1:
         # if only one skip choosing day
-        chosen_day = [i for i,x in enumerate(offers_per_day) if len(x)==1][0]
-        PASSAGGIO_INFO['search_chosen_day'] = chosen_day
+        chosen_day_index = [i for i,x in enumerate(offers_per_day) if len(x)==1][0]
+        PASSAGGIO_INFO['search_chosen_day'] = chosen_day_index
         msg += "🚘 *{} passaggio trovato nei prossimi 7 giorni*".format(percorsi_num)
         send_message(p, msg)
         sendWaitingAction(p, sleep_time=1)
@@ -842,8 +916,8 @@ def goToState13(p, **kwargs):
                 send_message(p, msg, kb)
             else:
                 today = dtu.getWeekday()
-                chosen_day = (flat_kb.index(input) - 1 + today) % 7  # -1 because of BOTTONE_ANNULLA
-                PASSAGGIO_INFO['search_chosen_day'] = chosen_day
+                chosen_day_index = (flat_kb.index(input) - 1 + today) % 7  # -1 because of BOTTONE_ANNULLA
+                PASSAGGIO_INFO['search_chosen_day'] = chosen_day_index
                 sendWaitingAction(p, sleep_time=1)
                 redirectToState(p, 14, firstCall=True)
         else:
@@ -1113,7 +1187,8 @@ def goToState33(p, **kwargs):
                 p.setTmpVariable(person.VAR_CURSOR, cursor)
             else:
                 cursor = p.getTmpVariable(person.VAR_CURSOR)
-            offer = my_offers[cursor[0]]
+            logging.debug('State 33: attempting to access offer with cursor {}'.format(cursor))
+            offer = my_offers[cursor[0]] # IndexError: list index out of range
             msg = "Passaggio {}/{}\n\n{}".format(cursor[0] + 1, cursor[1], offer.getDescription())
             kb = [[BOTTONE_ELIMINA], [BOTTONE_INDIETRO]]
             if len(my_offers) > 1:

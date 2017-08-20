@@ -2,6 +2,15 @@
 
 from key import GOOGLE_API_KEY
 
+'''
+--------------------------------
+TERMINOLOGY
+--------------------------------
+- fermata : zona + stop encoded as 'zona (stop)'
+- percorso: start_fermata + end_fermata encoded as 'start_zona (start_stop) → end_zona (end_stop)'
+###############################
+'''
+
 # ZONE -> {zona: {'loc': (<lat>,<lon>), 'stops': [stop1, stop2, ...]}, 'polygon': <list polygon coords>}
 # FERMATE -> {zona_stop: {'zona': refZona, 'stop': <fermata_name>, 'loc': (<lat>,<lon>)}}
 

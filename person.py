@@ -230,13 +230,13 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         cursor = self.getTmpVariable(VAR_CURSOR)
         cursor[0] -= 1
         if cursor[0] == -1:
-            cursor[0] = cursor[1] - 1
+            cursor[0] = cursor[1] - 1 # restart from end
 
     def increaseCursor(self):
         cursor = self.getTmpVariable(VAR_CURSOR)
         cursor[0] += 1
         if cursor[0] == cursor[1]:
-            cursor[0] = 0
+            cursor[0] = 0 # restart from zero
 
 def getId(chat_id, application):
     return 'F_{}'.format(chat_id) if application=='messenger' else 'T_{}'.format(chat_id)
@@ -257,7 +257,7 @@ def addPerson(chat_id, name, last_name, username, application):
         username=username,
         application=application,
         notification_mode = params.DEFAULT_NOTIFICATIONS_MODE,
-        #percorsi=[] # done via resetPersi below
+        #percorsi=[] # done via resetPercorsi below
         tmp_variables={}
     )
     p.resetPercorsi()

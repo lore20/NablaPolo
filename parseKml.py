@@ -3,9 +3,6 @@
 import requests
 import xml.etree.ElementTree as ET
 
-
-map_url = 'http://www.google.com/maps/d/u/0/kml?forcekml=1&mid=1cRlA85rd4ZxRDlSk8KTt5Wop5cM'
-
 ZONE_LAYER_NAME = 'Luoghi'
 FARMATE_LAYER_NAME = 'Fermate'
 
@@ -39,7 +36,8 @@ def encodeFermataKey(zona, fermata):
     return '{} ({})'.format(zona, fermata)
 
 def parseMap():
-    r = requests.get(map_url)
+    import key
+    r = requests.get(key.map_url)
     kml_xml = r.content
     root = ET.fromstring(kml_xml)
     #root = ET.parse('data/PickMeUp.kml') #getroot()

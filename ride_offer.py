@@ -26,12 +26,14 @@ class RideOffer(ndb.Model): #ndb.Model
     start_datetime = ndb.DateTimeProperty()  # for programmati only time applies
     disactivation_datetime = ndb.DateTimeProperty()
 
-    time_mode = ndb.StringProperty()  # BOTTONE_ADESSO, BOTTONE_A_BREVE, BOTTONE_PROGRAMMATO
+    time_mode = ndb.StringProperty()  # BOTTONE_ADESSO, BOTTONE_OGGI, BOTTONE_PROX_GIORNI, BOTTONE_PROGRAMMATO
 
     # only for regular rides
     programmato = ndb.BooleanProperty(default=False)
     programmato_giorni = ndb.IntegerProperty(repeated=True) # Monday is 0 and Sunday is 6
+    # also used for prox. ggiorni mode
     # for time start_datetime is used
+
 
     def getDriverName(self):
         return convertToUtfIfNeeded(self.driver_name_lastname)
@@ -107,6 +109,9 @@ class RideOffer(ndb.Model): #ndb.Model
                 date_str += ' (OGGI)'
             elif date_str == dtu.formatDate(dtu.tomorrow()):
                 date_str += ' (DOMANI)'
+            elif self.programmato_giorni: # PROX_GIORNI
+                giorno_index = self.programmato_giorni[0]
+                date_str += ' ({})'.format(params.GIORNI_SETTIMANA[giorno_index])
             msg.append('*Giorno partenza*: {}'.format(date_str))
         if driver_info:
             username = person.getPersonById(self.driver_id).getUsername()  # self.driver_username
@@ -166,7 +171,7 @@ class RideOffer(ndb.Model): #ndb.Model
 
 
 def addRideOffer(driver, start_datetime, percorso,
-                 time_mode, programmato=False, programmato_giorni=()):
+                 time_mode, programmato=False, giorni=()):
     import date_time_util as dtu
     o = RideOffer(
         driver_id = driver.getId(),
@@ -180,7 +185,7 @@ def addRideOffer(driver, start_datetime, percorso,
         active = True,
         time_mode = time_mode,
         programmato = programmato,
-        programmato_giorni = programmato_giorni
+        programmato_giorni = giorni
     )
     #o.put() only after setFermateIntermediePercorsiPasseggeriCompatibili()
     return o
@@ -316,8 +321,9 @@ def updateRideOffers():
                 if prop in ent._properties:
                     del ent._properties[prop]
             '''
-            ent.populateRideWithDetails(put=False)
-        updated_records.extend(records)
+            if ent.key.id() == 5767281011326976:
+                ent.populateRideWithDetails(put=False)
+                updated_records.append(ent)
     if updated_records:
         print 'Updating {} records'.format(len(updated_records))
         create_futures = ndb.put_multi_async(updated_records)
