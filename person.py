@@ -218,6 +218,7 @@ class Person(geomodel.GeoModel, ndb.Model): #ndb.Expando
         o.disactivate()
         pkl_offers = pickle.dumps(offers)
         self.setTmpVariable(VAR_MY_RIDES, pkl_offers)
+        cursor[0] -= 1
         cursor[1] -= 1
 
     def loadMyRideOffers(self):

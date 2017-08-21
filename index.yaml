@@ -1,15 +1,10 @@
 indexes:
 
-#- kind: RideOffer
-#  properties:
-#  - name: percorsi_passeggeri_compatibili
-#  - name: start_datetime
-
-#- kind: RideOffer
-#  properties:
-#  - name: active
-#  - name: percorsi_passeggeri_compatibili
-#  - name: start_datetime
+- kind: RideOffer
+  properties:
+  - name: active
+  - name: driver_id
+  - name: start_datetime
 
 - kind: RideOffer
   properties:
@@ -17,10 +12,10 @@ indexes:
   - name: percorso
   - name: start_datetime
 
-#- kind: RideOffer
-#  properties:
-#  - name: active
-#  - name: start_datetime
+- kind: RideOffer
+  properties:
+  - name: active
+  - name: start_datetime
 
 - kind: RideOffer
   properties:
