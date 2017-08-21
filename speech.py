@@ -6,7 +6,7 @@ credentials = GoogleCredentials.get_application_default()
 
 import logging
 import base64
-from route import ZONE, FERMATE, STOPS
+from routing_util import ZONE, FERMATE, STOPS
 
 #PHRASES = ZONE.keys() + FERMATE.keys() + STOPS
 

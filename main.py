@@ -10,9 +10,10 @@ import geoUtils
 import key
 import person
 from person import Person
-import route
+import routing_util
 import date_time_util as dtu
 import ride_offer
+import route
 import params
 import webapp2
 
@@ -454,10 +455,10 @@ def goToState1(p, **kwargs):
                     percorsiCmds = '\n\n'.join(commands)
                     msg += ' oppure\n' \
                            '   ∙ seleziona uno dei *tuoi percorsi*:\n\n{}\n\n'.format(percorsiCmds)
-            kb = utility.makeListOfList(route.SORTED_ZONE_WITH_STOP_IF_SINGLE)
+            kb = utility.makeListOfList(routing_util.SORTED_ZONE_WITH_STOP_IF_SINGLE)
         elif stage == 1:
             logging.debug('Sorting fermate in {}'.format(PASSAGGIO_PATH[0]))
-            fermate = route.SORTED_STOPS_IN_ZONA(PASSAGGIO_PATH[0])
+            fermate = routing_util.SORTED_STOPS_IN_ZONA(PASSAGGIO_PATH[0])
             kb = utility.makeListOfList(fermate)
             if len(fermate) == 1:
                 p.setLastKeyboard(kb)
@@ -468,8 +469,8 @@ def goToState1(p, **kwargs):
             msg = '🚩 *Dove vai?*\n' \
                   '   ∙ 🎛 usa i pulsanti sotto, oppure\n' \
                   '   ∙ 🗺📌 inviami una posizione GPS'
-            destinazioni = route.SORTED_ZONE_WITH_STOP_IF_SINGLE
-            fermata_start = route.encodeFermataKey(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1])
+            destinazioni = routing_util.SORTED_ZONE_WITH_STOP_IF_SINGLE
+            fermata_start = routing_util.encodeFermataKey(PASSAGGIO_PATH[0], PASSAGGIO_PATH[1])
             if fermata_start in destinazioni:
                 destinazioni.remove(fermata_start)
             #destinazioni = [
@@ -478,7 +479,7 @@ def goToState1(p, **kwargs):
             #]
             kb = utility.makeListOfList(destinazioni)
         else: # stage == 3:
-            fermate = route.SORTED_STOPS_IN_ZONA(PASSAGGIO_PATH[2])
+            fermate = routing_util.SORTED_STOPS_IN_ZONA(PASSAGGIO_PATH[2])
             if PASSAGGIO_PATH[0]==PASSAGGIO_PATH[2]: # same zona
                 fermate.remove(PASSAGGIO_PATH[1]) # remove start_stop
             kb = utility.makeListOfList(fermate)
@@ -495,7 +496,7 @@ def goToState1(p, **kwargs):
         if stage == 0 and input.startswith(params.PERCORSO_COMMAND_PREFIX):
             chosen_percorso = p.getPercorsoFromCommand(input)
             if chosen_percorso:
-                percorsi_start_fermata_end = route.decodePercorsoToQuartet(chosen_percorso)
+                percorsi_start_fermata_end = routing_util.decodePercorsoToQuartet(chosen_percorso)
                 PASSAGGIO_PATH.extend(percorsi_start_fermata_end)
                 if passaggio_type == 'cerca':
                     showMatchedPercorsi(p, PASSAGGIO_INFO)
@@ -509,7 +510,7 @@ def goToState1(p, **kwargs):
             flat_kb = utility.flatten(kb)
             choices = list(flat_kb)
             if stage == 0 or stage == 2:
-                choices.extend(route.FERMATE.keys())
+                choices.extend(routing_util.FERMATE.keys())
                 choices = list(set(choices))
             if input:
                 input, perfectMatch = utility.matchInputToChoices(input, choices)
@@ -541,7 +542,7 @@ def goToState1(p, **kwargs):
             elif location and (stage==0 or stage==2):
                 lat, lon = location['latitude'], location['longitude']
                 p.setLocation(lat, lon)
-                nearby_fermated_sorted_dict = route.getFermateNearPosition(lat, lon, radius=4)
+                nearby_fermated_sorted_dict = routing_util.getFermateNearPosition(lat, lon, radius=4)
                 if not nearby_fermated_sorted_dict:
                     msg = "❗ 🗺📌 Non ho trovato fermate in prossimità della posizione inserita," \
                           "prova ad usare i pulsanti qua sotto 🎛".format(input)
@@ -562,13 +563,13 @@ def goToState1(p, **kwargs):
                     if stage <= 3:
                         if '(' in input:  # Zona (fermata) case
                             if stage == 2:
-                                fermata_key_partenza = route.encodeFermataKey(*PASSAGGIO_PATH[:2])
+                                fermata_key_partenza = routing_util.encodeFermataKey(*PASSAGGIO_PATH[:2])
                                 if input == fermata_key_partenza:
                                     msg = "❗ Hai scelto lo stesso punto di partenza!".format(input)
                                     send_message(p, msg)
                                     repeatState(p)
                                     return
-                            zona, stop = route.decodeFermataKey(input)
+                            zona, stop = routing_util.decodeFermataKey(input)
                             if zona and stop:
                                 PASSAGGIO_PATH.append(zona)
                                 PASSAGGIO_PATH.append(stop)
@@ -597,7 +598,7 @@ def goToState11(p, **kwargs):
     PASSAGGIO_INFO = p.getTmpPassaggioInfo()
     PASSAGGIO_PATH = PASSAGGIO_INFO['path']
     if giveInstruction:
-        percorso_key = route.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
+        percorso_key = routing_util.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
         msg = "🛣 *Il tuo percorso*:\n{}\n\n".format(percorso_key)
         msg += "📆⌚ *Quando parti?*\n\n" \
                "Premi *{}* se parti ora, " \
@@ -829,20 +830,21 @@ def goToState113(p, **kwargs):
 def finalizeOffer(p, path, date_time, time_mode, programmato=False, giorni=()):
     from main_exception import deferredSafeHandleException
     date_time = dtu.removeTimezone(date_time)
-    percorso = route.encodePercorsoFromQuartet(*path)
+    percorso = routing_util.encodePercorsoFromQuartet(*path)
     o = ride_offer.addRideOffer(p, date_time, percorso, time_mode, programmato, giorni)
+    r = route.addRoute(percorso)
     ride_description_no_driver_info = o.getDescription(driver_info=False)
     msg = "Grazie per aver inserito l'offerta di passaggio\n\n{}".format(ride_description_no_driver_info)
     if p.isTester():
         msg += '\n\n👷 Sei un tester del sistema, info di controllo in arrivo...'
     send_message(p, msg)
-    deferredSafeHandleException(broadCastOffer, p, o)
+    deferredSafeHandleException(broadCastOffer, p, o, r)
 
-def broadCastOffer(p, o):
-    o.populateRideWithDetails() # may take few seconds (put=true)
-    qry = person.getPeopleMatchingRideQry(o.percorsi_passeggeri_compatibili)
+def broadCastOffer(p, o, r):
+    r.populateWithDetails() # may take few seconds (put=true)
+    qry = person.getPeopleMatchingRideQry(r.percorsi_passeggeri_compatibili)
     if p.isTester():
-        debug_msg = '👷 *Info di controllo:*\n{}'.format(o.getRideInfoDetails())
+        debug_msg = '👷 *Info di controllo:*\n{}'.format(r.getDetails())
         send_message(p, debug_msg)
         logging.debug(debug_msg)
     msg_broadcast = '🚘 *Nuova offerta di passaggio*:\n\n{}'.format(o.getDescription())
@@ -855,7 +857,7 @@ def broadCastOffer(p, o):
 def showMatchedPercorsi(p, PASSAGGIO_INFO):
     import pickle
     PASSAGGIO_PATH = PASSAGGIO_INFO['path']
-    percorso = route.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
+    percorso = routing_util.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
     sendWaitingAction(p)
     offers_per_day = ride_offer.getActiveRideOffersSortedPerDay(percorso)
     logging.debug('Offers per day: {}'.format(offers_per_day))
@@ -946,7 +948,7 @@ def goToState14(p, **kwargs):
         logging.debug('cursor: {}'.format(cursor))
         offer = offers_chosen_day[cursor[0]]
         msg = "🚘 Passaggio {}/{}\n\n{}".format(cursor[0]+1, cursor[1], offer.getDescription())
-        single_offer = len(offers_chosen_day) == 1
+        #single_offer = len(offers_chosen_day) == 1
         kb = [[BOTTONE_INIZIO]]
         if len(offers_chosen_day)>1:
             kb.append([PREV_ICON, NEXT_ICON])
@@ -1050,13 +1052,13 @@ def goToState31(p, **kwargs):
 # ================================
 
 def aggiungiInPreferiti(p, PASSAGGIO_PATH):
-    percorso = route.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
+    percorso = routing_util.encodePercorsoFromQuartet(*PASSAGGIO_PATH)
     if p.appendPercorsi(percorso):
         msg = '🛣 *Hai aggiunto il percorso*:\n{}'.format(percorso)
         send_message(p, msg)
         sendWaitingAction(p, sleep_time=1)
-        REVERSE_PATH = route.getReversePath(*PASSAGGIO_PATH)
-        percorso = route.encodePercorsoFromQuartet(*REVERSE_PATH)
+        REVERSE_PATH = routing_util.getReversePath(*PASSAGGIO_PATH)
+        percorso = routing_util.encodePercorsoFromQuartet(*REVERSE_PATH)
         if p.getPercorsiSize() < params.MAX_PERCORSI and not p.percorsoIsPresent(percorso):
             redirectToState(p, 311, reverse_path=REVERSE_PATH)
         else:
@@ -1078,7 +1080,7 @@ def goToState311(p, **kwargs):
     PASSAGGIO_INFO = p.getTmpPassaggioInfo()
     if giveInstruction:
         REVERSE_PATH = kwargs['reverse_path']
-        percorso = route.encodePercorsoFromQuartet(*REVERSE_PATH)
+        percorso = routing_util.encodePercorsoFromQuartet(*REVERSE_PATH)
         PASSAGGIO_INFO['percorso'] = percorso
         msg = "↩️ *Vuoi anche inserire il passaggio inverso?*\n{}".format(percorso)
         kb = [[BOTTONE_SI, BOTTONE_NO]]
@@ -1326,7 +1328,7 @@ def goToState91(p, **kwargs):
                 }
         if location:
             p.setLocation(location['latitude'], location['longitude'])
-            img_url, text = route.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
+            img_url, text = routing_util.getFermateNearPositionImgUrl(location['latitude'], location['longitude'])
             #logging.debug('img_url: {}'.format(img_url))
             if img_url:
                 send_photo_url(p, img_url)
