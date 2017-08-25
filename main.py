@@ -832,7 +832,7 @@ def finalizeOffer(p, path, date_time, time_mode, programmato=False, giorni=()):
     date_time = dtu.removeTimezone(date_time)
     percorso = routing_util.encodePercorsoFromQuartet(*path)
     o = ride_offer.addRideOffer(p, date_time, percorso, time_mode, programmato, giorni)
-    r = route.addRoute(percorso)
+    r = route.getRouteAddIfNotPresent(percorso)
     ride_description_no_driver_info = o.getDescription(driver_info=False)
     msg = "Grazie per aver inserito l'offerta di passaggio\n\n{}".format(ride_description_no_driver_info)
     if p.isTester():
@@ -841,7 +841,8 @@ def finalizeOffer(p, path, date_time, time_mode, programmato=False, giorni=()):
     deferredSafeHandleException(broadCastOffer, p, o, r)
 
 def broadCastOffer(p, o, r):
-    r.populateWithDetails() # may take few seconds (put=true)
+    if not r.hasDetails():
+        r.populateWithDetails() # may take few seconds (put=true)
     qry = person.getPeopleMatchingRideQry(r.percorsi_passeggeri_compatibili)
     if p.isTester():
         debug_msg = '👷 *Info di controllo:*\n{}'.format(r.getDetails())

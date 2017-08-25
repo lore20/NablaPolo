@@ -23,6 +23,9 @@ class Route(ndb.Model):
     def getPercorso(self):
         return self.key.id()
 
+    def hasDetails(self):
+        return self.percorso_info is not None
+
     def getPercorsiPasseggeriCompatibili(self):
         return [convertToUtfIfNeeded(x) for x in self.percorsi_passeggeri_compatibili]
 
@@ -93,11 +96,20 @@ class Route(ndb.Model):
         return '\n'.join(msg)
 
 def addRoute(percorso):
-    p = Route(
+    r = Route(
         id=percorso,
     )
-    #p.put() # after populatePercorsoWithDetails
-    return p
+    #r.put() always after populatePercorsoWithDetails
+    return r
+
+def getRouteAddIfNotPresent(percorso):
+    r = Route.get_by_id(percorso)
+    if r is None:
+        r = Route(
+            id=percorso,
+        )
+        #r.put() always after populatePercorsoWithDetails
+    return r
 
 def updateRoutes():
     more, cursor = True, None
