@@ -261,34 +261,3 @@ def getActiveRideOffers():
     offers = qry.fetch()
     return offers
 
-def updateRideOffers():
-    prop_to_delete = ['routes_info', 'fermate_intermedie', 'percorsi_passeggeri_compatibili']
-    more, cursor = True, None
-    updated_records = []
-    percorsi = set()
-    while more:
-        records, cursor, more = RideOffer.query().fetch_page(100, start_cursor=cursor)
-        for ent in records:
-            changed = False
-            for prop in prop_to_delete:
-                if prop in ent._properties:
-                    del ent._properties[prop]
-                    changed = True
-            if changed:
-                updated_records.append(ent)
-            percorsi.add(ent.percorso)
-    if updated_records:
-        print 'Updating {} records'.format(len(updated_records))
-        create_futures = ndb.put_multi_async(updated_records)
-        ndb.Future.wait_all(create_futures)
-    if percorsi:
-        import route
-        print 'Updating {} percorsi'.format(len(percorsi))
-        routes = []
-        for n, percorso in enumerate(percorsi,1):
-            print '{}) {}'.format(n, percorso.encode('utf-8'))
-            r = route.addRoute(percorso)
-            r.populateWithDetails(put=False)
-            routes.append(r)
-        create_futures = ndb.put_multi_async(routes)
-        ndb.Future.wait_all(create_futures)

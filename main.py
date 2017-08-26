@@ -705,8 +705,8 @@ def goToState112(p, **kwargs):
             msg = '*In che giorno effettui il viaggio?*'
             tomorrow = dtu.getWeekday()+1 % 7
             giorni_sett_da_domani = params.GIORNI_SETTIMANA[tomorrow:] + params.GIORNI_SETTIMANA[:tomorrow]
-            giorni_sett_da_domani[:1] = ['DOMANI']
-            kb = [giorni_sett_da_domani]
+            giorni_sett_da_dopodomani = giorni_sett_da_domani[1:]
+            kb = [['DOMANI'], giorni_sett_da_dopodomani]
         elif STAGE == 1:
             msg = '*A che ora parti?*'
             circular_range = list(range(params.DAY_START_HOUR, 24)) + list(range(0, params.DAY_START_HOUR))

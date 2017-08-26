@@ -111,7 +111,7 @@ def getRouteAddIfNotPresent(percorso):
         #r.put() always after populatePercorsoWithDetails
     return r
 
-def updateRoutes():
+def populateRoutesWithDetails():
     more, cursor = True, None
     while more:
         records, cursor, more = Route.query().fetch_page(100, start_cursor=cursor)

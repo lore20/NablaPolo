@@ -32,6 +32,7 @@ def getZonaConainingPoint(point, zone):
             return n
     return None
 
+# needs to be duplicated from routing_util to prevent cycle imports from parseMap()
 def encodeFermataKey(zona, fermata):
     return '{} ({})'.format(zona, fermata)
 
