@@ -312,7 +312,7 @@ def repeatState(p, put=False, **kwargs):
     method = possibles.get(methodName)
     if not method:
         send_message(p, "Si è verificato un problema (" + methodName +
-             "). Segnalamelo mandando una messaggio a @kercos" + '\n' +
+             "). Segnalamelo mandando una messaggio a @zolfariot" + '\n' +
              "Ora verrai reindirizzato/a nella schermata iniziale.")
         restart(p)
     else:
@@ -330,21 +330,21 @@ def dealWithUniversalCommands(p, input):
         if input.startswith('/testText '):
             text = input.split(' ', 1)[1]
             if text:
-                msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
+                msg = '🔔 *Messaggio da ∇Polo* 🔔\n\n' + text
                 logging.debug("Test broadcast " + msg)
                 send_message(p, msg)
                 return True
         if input.startswith('/broadcast '):
             text = input.split(' ', 1)[1]
             if text:
-                msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
+                msg = '🔔 *Messaggio da ∇Polo* 🔔\n\n' + text
                 logging.debug("Starting to broadcast " + msg)
                 deferredSafeHandleException(broadcast, p, msg)
                 return True
         elif input.startswith('/restartBroadcast '):
             text = input.split(' ', 1)[1]
             if text:
-                msg = '🔔 *Messaggio da PickMeUp* 🔔\n\n' + text
+                msg = '🔔 *Messaggio da ∇Polo* 🔔\n\n' + text
                 logging.debug("Starting to broadcast and restart" + msg)
                 deferredSafeHandleException(broadcast, p, msg, restart_user=False)
                 return True
@@ -1261,7 +1261,7 @@ def goToState9(p, **kwargs):
     kb = [[BOTTONE_INIZIO], [BOTTONE_REGOLAMENTO_ISTRUZIONI], [BOTTONE_FERMATE], [BOTTONE_CONTATTACI, BOTTONE_STATS]]
     if giveInstruction:
         msg_lines = ['*Informazioni*']
-        msg_lines.append('*PickMeUp* è un servizio di carpooling attualmente in sperimentazione nella provincia di Trento.')
+        msg_lines.append('*∇Polo* è un servizio di carpooling attualmente in sperimentazione, sviluppato a partire da PickMeUp.')
         msg_lines.append('Clicca su {} o uno dei pulsanti qua sotto per avere maggiori informazioni.'.format(BOTTONE_REGOLAMENTO_ISTRUZIONI))
         msg = '\n\n'.join(msg_lines)
         p.setLastKeyboard(kb)
@@ -1270,7 +1270,8 @@ def goToState9(p, **kwargs):
         if input == BOTTONE_INIZIO:
             restart(p)
         elif input == BOTTONE_REGOLAMENTO_ISTRUZIONI:
-            msg = 'https://docs.google.com/document/d/1hiP_rQKOiiPZwvqtZF3k0cGdqS1SZqs3VV7TIx9_s8o'
+#            msg = 'https://docs.google.com/document/d/1hiP_rQKOiiPZwvqtZF3k0cGdqS1SZqs3VV7TIx9_s8o'
+            msg = "Work In Progress!"
             send_message(p, msg, kb, markdown=False, disable_web_page_preview=False)
         elif input == BOTTONE_FERMATE:
             redirectToState(p, 91)
@@ -1350,8 +1351,8 @@ def goToState92(p, **kwargs):
         kb = [[BOTTONE_INDIETRO]]
         msg = '📩 Non esitate a *contattarci*:\n\n' \
               '∙ 📝 Scrivi qua sotto qualsiasi feedback o consiglio\n' \
-              '∙ 🗣 Entrare in chat con noi cliccando su @kercos\n' \
-              '∙ 📬 Mandaci un email a pickmeupbot@gmail.com'
+              '∙ 🗣 Entrare in chat con noi cliccando su @zolfariot\n' \
+              '∙ 📬 Mandaci un email a collettivodiscienze@googlegroups.com'
         p.setLastKeyboard(kb)
         send_message(p, msg, kb)
     else:
@@ -1375,9 +1376,9 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
 
     if p is None:
         p = person.addPerson(chat_id, name, last_name, username, application)
-        msg = " 😀 Ciao{},\nbenvenuto/a In PickMeUp!\n" \
+        msg = " 😀 Ciao{},\nbenvenuto/a In ∇Polo!\n" \
               "Se hai qualche domanda o suggerimento non esitare " \
-              "a contattarci cliccando su @kercos".format(name_safe)
+              "a contattarci cliccando su @zolfariot".format(name_safe)
         send_message(p, msg)
         restart(p)
         tellMaster("New {} user: {}".format(application, p.getFirstNameLastNameUserName()))
@@ -1387,7 +1388,7 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
         if WORK_IN_PROGRESS and p.getId() not in key.TESTER_IDS:
             send_message(p, "🏗 Il sistema è in aggiornamento, ti preghiamo di riprovare più tardi.")
         elif was_disabled or text in ['/start', 'start', 'START', 'INIZIO']:
-            msg = " 😀 Ciao{}!\nBentornato/a in PickMeUp!".format(name_safe)
+            msg = " 😀 Ciao{}!\nBentornato/a in ∇Polo!".format(name_safe)
             send_message(p, msg)
             restart(p)
         elif text == '/state':
@@ -1399,7 +1400,7 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
             redirectToState(p, HELP_STATE)
         elif text in ['/stop', 'STOP']:
             p.setEnabled(False, put=True)
-            msg = "🚫 Hai *disabilitato* PickMeUp.\n" \
+            msg = "🚫 Hai *disabilitato* ∇Polo.\n" \
                   "In qualsiasi momento puoi riattivarmi scrivendomi qualcosa."
             send_message(p, msg)
         else:
@@ -1413,7 +1414,7 @@ app = webapp2.WSGIApplication([
     ('/telegram_set_webhook', main_telegram.SetWebhookHandler),
     ('/telegram_get_webhook_info', main_telegram.GetWebhookInfo),
     ('/telegram_delete_webhook', main_telegram.DeleteWebhook),
-    (key.FACEBOOK_WEBHOOK_PATH, main_fb.WebhookHandler),
+#    (key.FACEBOOK_WEBHOOK_PATH, main_fb.WebhookHandler),
     (key.TELEGRAM_WEBHOOK_PATH, main_telegram.WebhookHandler),
 ], debug=True)
 

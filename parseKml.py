@@ -38,10 +38,10 @@ def encodeFermataKey(zona, fermata):
 
 def parseMap():
     import key
-    r = requests.get(key.map_url)
-    kml_xml = r.content
-    root = ET.fromstring(kml_xml)
-    #root = ET.parse('data/PickMeUp.kml') #getroot()
+    #r = requests.get(key.map_url)
+    #kml_xml = r.content
+    #root = ET.fromstring(kml_xml)
+    root = ET.parse('data/PickMeUp.kml') #getroot()
     document = root.find(docTag)
     folders = document.findall(folderTag)
     nameFolders = {}
@@ -60,7 +60,7 @@ def parseMap():
         polygon = p.find(polygonTag)
         outerBoundaryIs = polygon.find(outerBoundaryIsTag)
         linearRing = outerBoundaryIs.find(linearRingTag)
-        coordinatesStringList = [x.strip() for x in linearRing.find(coordinatesTag).text.strip().split('\n')]
+        coordinatesStringList = [x.strip() for x in linearRing.find(coordinatesTag).text.strip().split(' ')]
         coordinateList = []
         for coordinatesString in coordinatesStringList:
             lon, lat = [float(x) for x in coordinatesString.split(',')[:2]]

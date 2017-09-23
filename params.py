@@ -3,7 +3,8 @@
 GIORNI_SETTIMANA = ['LU', 'MA', 'ME', 'GI', 'VE', 'SA', 'DO']
 GIORNI_SETTIMANA_FULL = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica']
 
-TIME_TOLERANCE_MIN = 5 # show also rides scheduled 5 min ago
+#TIME_TOLERANCE_MIN = 5 # show also rides scheduled 5 min ago
+TIME_TOLERANCE_MIN = 25 # show also rides scheduled 5 min ago
 MAX_FERMATE_NEAR_LOCATION = 5
 MAX_PERCORSI = 8
 PATH_FERMATA_PROXIMITY_THRESHOLD = 1.0

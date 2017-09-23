@@ -8,15 +8,15 @@ def nowUTC():
     return datetime.now()
 
 def convertUTCtoCET(dt_utc):
-    from pytz_zip.gae import pytz_zip
-    UTC_ZONE = pytz_zip.timezone('UTC')
-    CET_ZONE = pytz_zip.timezone('Europe/Amsterdam')  # pytz.timezone('CET')
+    import pytz
+    UTC_ZONE = pytz.timezone('UTC')
+    CET_ZONE = pytz.timezone('Europe/Amsterdam')  # pytz.timezone('CET')
     return dt_utc.replace(tzinfo=UTC_ZONE).astimezone(CET_ZONE)
 
 def convertCETtoUTC(dt_utc):
-    from pytz_zip.gae import pytz_zip
-    UTC_ZONE = pytz_zip.timezone('UTC')
-    CET_ZONE = pytz_zip.timezone('Europe/Amsterdam')  # pytz.timezone('CET')
+    import pytz
+    UTC_ZONE = pytz.timezone('UTC')
+    CET_ZONE = pytz.timezone('Europe/Amsterdam')  # pytz.timezone('CET')
     return dt_utc.replace(tzinfo=CET_ZONE).astimezone(UTC_ZONE)
 
 def nowCET(removeTimezone = False):

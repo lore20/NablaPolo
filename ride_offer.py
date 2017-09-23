@@ -41,8 +41,8 @@ class RideOffer(ndb.Model): #ndb.Model
         return convertToUtfIfNeeded(self.percorso)
 
     def getRouteEntry(self):
-        from route import Route
-        return Route.get_by_id(self.percorso)
+        import route
+        return route.getRouteAddIfNotPresent(self.percorso)
 
     def getDepartingTime(self):
         import date_time_util as dtu

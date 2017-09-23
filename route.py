@@ -109,6 +109,7 @@ def getRouteAddIfNotPresent(percorso):
             id=percorso,
         )
         #r.put() always after populatePercorsoWithDetails
+        r.populateWithDetails()
     return r
 
 def populateRoutesWithDetails():

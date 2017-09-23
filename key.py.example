@@ -1,0 +1,8 @@
+TELEGRAM_TOKEN = '<token>'
+TELEGRAM_API_URL = 'https://api.telegram.org/bot'+TELEGRAM_TOKEN+'/'
+TELEGRAM_WEBHOOK_PATH = '/tg_webhook/'
+TELEGRAM_WEBHOOK_URL = 'https://collettivodiscienze.org/tg_webhook/'
+ADMIN_IDS = ['T_0000000']
+#TESTER_IDS = ['T_00000', 'T_00001']
+TESTER_IDS = []
+GOOGLE_API_KEY = '<google_maps_api_key>'

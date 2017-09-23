@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from google.appengine.api import urlfetch
+#from google.appengine.api import urlfetch
 from main_exception import SafeRequestHandler
 
 import jsonUtil
