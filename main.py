@@ -394,7 +394,9 @@ def goToState0(p, **kwargs):
         [BOTTONE_INFO]
     ]
     if giveInstruction:
-        msg = '🏠 *Inizio*\n\n' \
+        msg = ' 🏗 **Work In Progress** 🏗\n ' \
+              ' *Questo è solo un servizio dimostrativo, sentiti libero di sperimentare e aggiungere tutti i passaggi fittizi che vuoi!*\n' \
+              '🏠 *Inizio*\n\n' \
               '• Premi su {} o {} per offrire/cercare passaggi\n' \
               '• Premi su {} per percorsi e notifiche\n' \
               '• Premi su {} per ottenere più info (mappa, contatti, ...)'.\
