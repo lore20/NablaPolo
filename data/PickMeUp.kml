@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Folder><name>Luoghi</name>
+    <Placemark>
+      <name>Polo Scientifico</name>
+      <Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>11.1899799547697,43.8185844595904 11.1942299290707,43.8235490758545 11.2082953202097,43.8168808196615 11.2040790758635,43.8121103692682 11.1899799547697,43.8185844595904</coordinates></LinearRing></outerBoundaryIs></Polygon>
+    </Placemark>
+    <Placemark>
+      <name>Firenze Nova</name>
+      <Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>11.2244688335218,43.8137167879773 11.2293259470087,43.8096763191922 11.2362068577817,43.799111392378 11.2386354145251,43.7960924986775 11.2364092375103,43.7945829946307 11.2321592632093,43.7986244843557 11.2302029258327,43.8021788216776 11.2227148758738,43.8086053057328 11.2204212389495,43.8104065446309 11.2244688335218,43.8137167879773</coordinates></LinearRing></outerBoundaryIs></Polygon>
+    </Placemark>
+    <Placemark>
+      <name>Novoli</name>
+      <Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>11.2360719379626,43.7943638699062 11.2341830604955,43.7937308384108 11.2338457609478,43.7915882205162 11.232361642938,43.7902246964058 11.2294608668278,43.7893481287651 11.2269648501748,43.7868157500337 11.2150244461863,43.7896890177086 11.212865729081,43.7914421301352 11.2069292570416,43.7930978002099 11.2072665565893,43.7984540656104 11.2196791799445,43.8101874779367 11.2293259470087,43.8018623481629 11.2360719379626,43.7943638699062</coordinates></LinearRing></outerBoundaryIs></Polygon>
+    </Placemark>
+    </Folder>
+    <Folder><name>Fermate</name>
+    <Placemark>
+      <name>Parcheggio Blocco Aule</name>
+      <Point><coordinates>11.1918055885717,43.8183532541651</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Parcheggio Fisica</name>
+      <Point><coordinates>11.1938546833239,43.818870422957</coordinates></Point>
+    </Placemark>
+    <Placemark>
+	<name>Parcheggio Chimica</name>
+	<Point><coordinates>11.1930620293868,43.821693477159</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>CUS Mensa</name>
+      <Point><coordinates>11.1963001050447,43.8195396935676</coordinates></Point>
+    </Placemark>
+    <Placemark>
+	<name>CNR</name>
+	<Point><coordinates>11.2001284549111,43.8177752366849</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Incubatore</name>
+      <Point><coordinates>11.2029786360892,43.8164336061257</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Nuovo Pignore</name>
+      <Point><coordinates>11.2261827368487,43.8060843928588</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Piazza Mattei</name>
+      <Point><coordinates>11.2306161177788,43.8020799238843</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Rifredi FS De Gama</name>
+    <Point><coordinates>11.2363196423181,43.7985970956614</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>Forlanini UniFi</name>
+      <Point><coordinates>11.2313149602791,43.7922730144169</coordinates></Point>
+    </Placemark>
+    <Placemark>
+	<name>Puccini</name>
+	<Point><coordinates>11.2266696709082,43.7873079895498</coordinates></Point>
+    </Placemark>
+    </Folder>
+  </Document>
+</kml>
