@@ -2,7 +2,7 @@
 
 import logging
 from google.appengine.ext import ndb
-from geo import geomodel
+import geomodel
 
 import utility
 from utility import convertToUtfIfNeeded
