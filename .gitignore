@@ -61,3 +61,9 @@ key.py
 .idea*
 
 data/*
+
+# virtualenv
+bin/
+include/
+local/
+share/
