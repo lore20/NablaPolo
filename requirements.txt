@@ -1,5 +1,6 @@
 certifi==2017.7.27.1
 chardet==3.0.4
+fuzzywuzzy==0.15.1
 geomodel==0.2.0
 geopy==1.11.0
 google-api-python-client==1.6.4
@@ -9,6 +10,7 @@ oauth2client==4.1.2
 polyline==1.3.2
 pyasn1==0.3.6
 pyasn1-modules==0.1.4
+python-Levenshtein==0.12.0
 pytz==2017.2
 requests==2.3.0
 rsa==3.4.2
