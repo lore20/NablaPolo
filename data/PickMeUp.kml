@@ -17,6 +17,11 @@
       <Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
       <Polygon><outerBoundaryIs><LinearRing><coordinates>11.2360719379626,43.7943638699062 11.2341830604955,43.7937308384108 11.2338457609478,43.7915882205162 11.232361642938,43.7902246964058 11.2294608668278,43.7893481287651 11.2269648501748,43.7868157500337 11.2150244461863,43.7896890177086 11.212865729081,43.7914421301352 11.2069292570416,43.7930978002099 11.2072665565893,43.7984540656104 11.2196791799445,43.8101874779367 11.2293259470087,43.8018623481629 11.2360719379626,43.7943638699062</coordinates></LinearRing></outerBoundaryIs></Polygon>
     </Placemark>
+    <Placemark>
+	<name>Lyon</name>
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>4.84451009049413,45.7161012785563 4.81888411762104,45.7197355574607 4.79445936222637,45.7309164715169 4.78284759326825,45.7504776863546 4.79846342048779,45.7714285258418 4.80927437779363,45.787066689286 4.83049588657916,45.7996298923717 4.88214823815149,45.7937674167025 4.90977624015529,45.7605350711289 4.90216852945859,45.7353882105463 4.89576203624032,45.7264443744351 4.88655270223905,45.7211332940997 4.8765425565855,45.7191764530145 4.84451009049413,45.7161012785563</coordinates></LinearRing></outerBoundaryIs></Polygon>
+    </Placemark>
     </Folder>
     <Folder><name>Fermate</name>
     <Placemark>
@@ -60,8 +65,16 @@
       <Point><coordinates>11.2313149602791,43.7922730144169</coordinates></Point>
     </Placemark>
     <Placemark>
-	<name>Puccini</name>
-	<Point><coordinates>11.2266696709082,43.7873079895498</coordinates></Point>
+        <name>Puccini</name>
+        <Point><coordinates>11.2266696709082,43.7873079895498</coordinates></Point>
+    </Placemark>
+    <Placemark>
+        <name>ENS - Place de L'École</name>
+        <Point><coordinates>4.82780224370862,45.7297966936248</coordinates></Point>
+    </Placemark>
+    <Placemark>
+        <name>Gare Part-Dieu</name>
+        <Point><coordinates>4.86178237603083,45.7605872461142</coordinates></Point>
     </Placemark>
     </Folder>
   </Document>
