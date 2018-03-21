@@ -313,7 +313,7 @@ def repeatState(p, put=False, **kwargs):
     if not method:
         send_message(p, "Si è verificato un problema (" + methodName +
              "). Segnalamelo mandando una messaggio a @zolfariot" + '\n' +
-             "Ora verrai reindirizzato/a nella schermata iniziale.")
+             "Ora verrai reindirizzat+ nella schermata iniziale.")
         restart(p)
     else:
         if put:
@@ -1378,7 +1378,7 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
 
     if p is None:
         p = person.addPerson(chat_id, name, last_name, username, application)
-        msg = " 😀 Ciao{},\nbenvenuto/a In ∇Polo!\n" \
+        msg = " 😀 Ciao{},\nbenvenut+ In ∇Polo!\n" \
               "Se hai qualche domanda o suggerimento non esitare " \
               "a contattarci cliccando su @zolfariot".format(name_safe)
         send_message(p, msg)
@@ -1390,7 +1390,7 @@ def dealWithUserInteraction(chat_id, name, last_name, username, application, tex
         if WORK_IN_PROGRESS and p.getId() not in key.TESTER_IDS:
             send_message(p, "🏗 Il sistema è in aggiornamento, ti preghiamo di riprovare più tardi.")
         elif was_disabled or text in ['/start', 'start', 'START', 'INIZIO']:
-            msg = " 😀 Ciao{}!\nBentornato/a in ∇Polo!".format(name_safe)
+            msg = " 😀 Ciao{}!\nBentornat+ in ∇Polo!".format(name_safe)
             send_message(p, msg)
             restart(p)
         elif text == '/state':
