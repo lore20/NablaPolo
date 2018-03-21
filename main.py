@@ -349,7 +349,7 @@ def dealWithUniversalCommands(p, input):
                 deferredSafeHandleException(broadcast, p, msg, restart_user=False)
                 return True
         elif input.startswith('/textUser '):
-            p_id, text = input.split(' ', 2)[1]
+            p_id, text = input.split(' ', 2)[1:]
             if text:
                 p = Person.get_by_id(p_id)
                 if send_message(p, text, kb=p.getLastKeyboard()):
